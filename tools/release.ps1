@@ -40,7 +40,7 @@ $shipped = @("VolumetricClouds.dll", "UnifiedUILib.dll", "CitiesHarmony.API.dll"
 # "metal" compiles every shipped Metal program with Apple's compiler (needs Apple's Metal Developer
 # Tools for Windows: see test-metal.ps1); "amd" builds every shipped shader with AMD's compiler
 # (needs Radeon GPU Analyzer: see test-amd.ps1).
-$tests = @("color", "settings", "skystate", "lightning", "placement", "localization", "reporter", "detail", "cumulus", "bluenoise", "profiles", "rainbow", "fogoptions", "fogplaces", "emptysky", "mix", "timeofday", "soft", "skylayer", "waterspouts", "fogcoverage", "metal", "amd")
+$tests = @("color", "settings", "skystate", "lightning", "placement", "localization", "reporter", "detail", "cumulus", "bluenoise", "profiles", "rainbow", "fogoptions", "fogplaces", "emptysky", "mix", "timeofday", "soft", "skylayer", "waterspouts", "fogcoverage", "curved", "metal", "amd")
 
 $problems = 0
 

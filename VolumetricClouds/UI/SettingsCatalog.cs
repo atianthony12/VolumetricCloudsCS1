@@ -2160,6 +2160,20 @@ namespace VolumetricClouds.UI
                 AfterChange = State("clouds to the horizon", OnOff(Settings.CloudsToHorizon)),
             });
 
+            // Curved clouds (trial, 2026-10-23; Sky.CurvedClouds): the layer
+            // over the curved Earth, down to the horizon. 100% = the real Earth, up to 400% (a tighter
+            // curve, the 2026-09-24 look within reach). While above 0 the far deck above is not drawn. A look:
+            // in profiles (one saved before has none, and reads it off).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.CurvedClouds,
+                DefaultFloat = Settings.Defaults.CurvedClouds,
+                Min = 0f, Max = CurvedClouds.MaxStrength * 100f, Step = 10f,
+                AfterChange = State("curved clouds", () => (Settings.CurvedClouds.value * 100f).ToString("F0") + "%"),
+            });
+
             // 1.3.0 (asked for: "edit the X and Y values" of the clouds' position, "for advanced
             // settings"): moves THIS city's clouds, all of them together (CloudWind.SetShift),
             // saved with the city (SkyState version 2) -- not a setting: every city's pattern is its

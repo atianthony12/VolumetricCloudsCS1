@@ -78,6 +78,8 @@ namespace VolumetricClouds
                         " hideSky=" + Percent(Settings.CloudDayOpacity, Settings.Defaults.DayOpacity) +
                         // 1.5.0: the far deck under a full overcast.
                         " cloudsToHorizon=" + On(Settings.CloudsToHorizon, Settings.Defaults.CloudsToHorizon) +
+                        // Curved clouds (trial, 2026-10-23): 100% = the real Earth, 0 = off.
+                        " curvedClouds=" + Percent(Settings.CurvedClouds, Settings.Defaults.CurvedClouds) +
                         // 1.5.0: Smoother clouds.
                         " smootherClouds=" + On(Settings.CloudTemporal, Settings.Defaults.Temporal) +
                         " fragments=" + Sky.CloudFragments.Describe() +

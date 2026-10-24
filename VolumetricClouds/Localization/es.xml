@@ -218,6 +218,8 @@
 
   <String key="CloudsToHorizon.Label">Nubes hasta el horizonte</String>
 
+  <String key="CurvedClouds.Label">Nubes curvas (100% = curvatura de la Tierra)</String>
+
   <String key="Group.CloudPosition">Posición de nubes (solo esta ciudad, se guarda)</String>
 
   <String key="CloudPositionX.Label">Posición X de nubes</String>

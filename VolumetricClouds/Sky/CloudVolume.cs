@@ -150,6 +150,9 @@ namespace VolumetricClouds.Sky
         private bool _split;
         private int _partsLogged = -1;
 
+        // Curved clouds (trial): the strength last logged (LogCurve); -1 before the first.
+        private float _loggedCurve = -1f;
+
         // Smoother clouds (1.5.0, Settings.CloudTemporal): the clouds marched at half size and blended
         // over the frames for the main camera, run from the box's OnWillRenderObject (CloudTemporalHook).
         private CloudTemporal _temporal;
@@ -740,7 +743,15 @@ namespace VolumetricClouds.Sky
 
                 float bottom = Settings.CloudAltitude != null ? Settings.CloudAltitude.value : Settings.Defaults.Altitude;
                 float above = _camera.transform.position.y - (bottom + CloudShaderParams.LayerHeight);
-                return Mathf.Min(MaxReach, MaxDistance + ReachPerMetreAbove * Mathf.Max(0f, above));
+                float flat = Mathf.Min(MaxReach, MaxDistance + ReachPerMetreAbove * Mathf.Max(0f, above));
+
+                // Curved clouds (trial): out to where a line of sight still touches the layer's top.
+                float curve = CloudShaderParams.CurvedStrength;
+                if (curve <= 0f)
+                    return flat;
+                Vector3 eye = _camera.transform.position;
+                return CurvedClouds.Reach(curve, eye.y + CurvedClouds.Drop(curve, eye.x, eye.z),
+                                          bottom + CloudShaderParams.LayerHeight, flat);
             }
         }
 
@@ -1006,7 +1017,9 @@ namespace VolumetricClouds.Sky
         {
             // What the shader compares the camera with: the value it was given.
             float bottom = _material.GetFloat(IdCloudBottom);
-            float height = _camera.transform.position.y;
+            Vector3 eye = _camera.transform.position;
+            // Over the curved Earth with Curved clouds (the base over the camera is that much lower).
+            float height = eye.y + CurvedClouds.Drop(CloudShaderParams.CurvedStrength, eye.x, eye.z);
             _split = height < bottom - (_split ? SplitLeave : SplitEnter);
 
             // The shader's own tests for its rain, fog and arch, a hair lower, so a rounding can never
@@ -1637,6 +1650,33 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>The sun's height over the horizon, degrees; -90 without a sun.</summary>
+        /// <summary>Curved clouds (trial): one line when the strength changes (and at the start while on).</summary>
+        private void LogCurve(float curve, bool toHorizon)
+        {
+            if (curve == _loggedCurve || (_loggedCurve < 0f && curve <= 0f))
+            {
+                _loggedCurve = curve;
+                return;
+            }
+
+            _loggedCurve = curve;
+            if (curve <= 0f)
+            {
+                Log.Msg("curved clouds: off (flat layer, reach " + (Reach / 1000f).ToString("F0") + " km)");
+                return;
+            }
+
+            float bottom = Settings.CloudAltitude != null ? Settings.CloudAltitude.value : Settings.Defaults.Altitude;
+            Log.Msg("curved clouds: " + (curve * 100f).ToString("F0") + "% (100% = the real Earth): the base (" +
+                    bottom.ToString("F0") + " m) meets the horizon " +
+                    (CurvedClouds.HorizonDistance(curve, bottom) / 1000f).ToString("F0") + " km out from the ground, " +
+                    (CurvedClouds.Drop(curve, 8640f, 0f)).ToString("F0") + " m lower at the map's edge; march to " +
+                    (Reach / 1000f).ToString("F0") + " km from here, haze " + (CurvedClouds.Haze * 100f).ToString("F0") +
+                    "% over " + (CurvedClouds.HazeLength / 1000f).ToString("F0") + " km, map warped from " +
+                    (CurvedClouds.WarpFrom / 1000f).ToString("F0") + " km" +
+                    (toHorizon ? "; Clouds to the horizon's band not drawn meanwhile" : ""));
+        }
+
         private static float SunElevation(Light sun)
         {
             return sun != null ? -Mathf.Asin(Mathf.Clamp(sun.transform.forward.y, -1f, 1f)) * Mathf.Rad2Deg : -90f;
@@ -1670,7 +1710,11 @@ namespace VolumetricClouds.Sky
             // after seeing it without Real Light: "it honestly looks good, maybe on some LUTs it looks bad
             // but that's up to each user, since this option is off by default anyway").
             bool toHorizon = Settings.CloudsToHorizon != null && Settings.CloudsToHorizon.value;
-            _farDeckShown = toHorizon ? overcast : 0f;
+            // Curved clouds (trial, 2026-10-23) take the clouds themselves down to the horizon: the band
+            // would only be drawn behind them.
+            float curve = CloudShaderParams.CurvedStrength;
+            _farDeckShown = toHorizon && curve <= 0f ? overcast : 0f;
+            LogCurve(curve, toHorizon);
 
             // How soon before that they start to thin: the last 30% at night, as always (the stars stay
             // hidden). By day (1.5.0), with the clouds hiding the sky, the last 65%: over the last 30%

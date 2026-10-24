@@ -232,6 +232,8 @@
 
   <String key="CloudsToHorizon.Label">云层延伸至地平线</String>
 
+  <String key="CurvedClouds.Label">弧形云层（100% = 地球曲率）</String>
+
   <String key="Group.CloudPosition">云层位置（仅本城市，随存档保存）</String>
 
   <String key="CloudPositionX.Label">云层位置 X</String>

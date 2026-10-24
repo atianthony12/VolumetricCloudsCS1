@@ -87,6 +87,7 @@ namespace VolumetricClouds.Sky
         private static readonly int IdAmbientColor = Shader.PropertyToID("_AmbientColor");
         private static readonly int IdSunsetEdge = Shader.PropertyToID("_SunsetEdge");
         private static readonly int IdNightGlow = Shader.PropertyToID("_NightGlow");
+        private static readonly int IdCurveFade = Shader.PropertyToID("_CurveFade");
         private static readonly int[] IdFade =
         {
             Shader.PropertyToID("_CloudBottom"), Shader.PropertyToID("_MaxDistance"), Shader.PropertyToID("_CloudExtent"),
@@ -233,6 +234,8 @@ namespace VolumetricClouds.Sky
             _material.SetVector(IdSunsetEdge, clouds.GetVector(IdSunsetEdge));
             for (int i = 0; i < IdFade.Length; i++)
                 _material.SetFloat(IdFade[i], clouds.GetFloat(IdFade[i]));
+            // Curved clouds' haze (trial), so the pictures fade exactly as the clouds do.
+            _material.SetVector(IdCurveFade, clouds.GetVector(IdCurveFade));
 
             _renderer.enabled = true;
         }

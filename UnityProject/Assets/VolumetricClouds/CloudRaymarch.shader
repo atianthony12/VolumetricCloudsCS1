@@ -472,17 +472,19 @@ Shader "VolumetricClouds/CloudRaymarch"
                 // Sunlight through the clouds (Soak), on both lights below.
                 bool soak = _LightThrough.x > 0.0;
 
-                float h = saturate((p.y - _CloudBottom) / (_CloudTop - _CloudBottom));
+                // Its height over the curved Earth with Curved clouds (p.y without).
+                float y = CurveHeight(p);
+                float h = saturate((y - _CloudBottom) / (_CloudTop - _CloudBottom));
 
                 // Undersides get less sky light than tops. (A Cumulus cloud's height is
                 // measured over the whole span its curve runs over, not over the part
                 // the march covers.)
-                float hSky = cumulus ? saturate((p.y - _CloudBottom) * _CumulusLight.w) : h;
+                float hSky = cumulus ? saturate((y - _CloudBottom) * _CumulusLight.w) : h;
                 float3 ambient = _AmbientColor * (0.45 + 0.55 * hSky);
                 float3 sunColor = _SunColor;
                 // Sunset light's Earth shadow, on every light's sun.
                 if (_SunsetEdge.w > 0.0)
-                    sunColor *= EarthShadow(p.y);
+                    sunColor *= EarthShadow(y);
                 float3 radiance;
                 if (cumulus)
                 {
@@ -545,6 +547,65 @@ Shader "VolumetricClouds/CloudRaymarch"
             #include "FunnelShape.cginc"
             #endif
 
+            // CURVED CLOUDS (trial, 2026-10-23, Sky/CurvedClouds.cs; its Slab is this one's C# twin). The roots
+            // of a t^2 + b t + c = 0, the smaller first, in the stable form (a is tiny: b +- the root of the
+            // discriminant would cancel); (1e10, 1e10) when there are none.
+            float2 CurveRoots(float a, float b, float c)
+            {
+                float disc = b * b - 4.0 * a * c;
+                if (disc < 0.0)
+                    return float2(1e10, 1e10);
+
+                float q = -0.5 * (b + (b >= 0.0 ? 1.0 : -1.0) * sqrt(disc));
+                q = b >= 0.0 ? min(q, -1e-12) : max(q, 1e-12);
+                float r1 = c / q;
+                float r2 = q / a;
+                return float2(min(r1, r2), max(r1, r2));
+            }
+
+            // Where the ray is in the layer over the curved Earth. Its height over it is a t^2 + b t + h0
+            // (centred on the map's centre, as CurveHeight), so the base, the top and the ground are three
+            // pairs of roots. It enters where it is first in the layer and leaves where it first leaves it
+            // -- out of the top, or under the base (a ray that comes back up beyond the deck's horizon is not
+            // marched again) -- and never past the ground: beyond the map there is no scene to stop it. Out to
+            // the reach (_MaxDistance: CurvedClouds.Reach). tExit <= tEnter: not at all.
+            void CurvedSlab(float3 origin, float3 dir, inout float tEnter, inout float tExit)
+            {
+                float k = _Curve.x;
+                float a = max(k * dot(dir.xz, dir.xz), 1e-14);
+                float b = dir.y + 2.0 * k * dot(origin.xz, dir.xz);
+                float h0 = CurveHeight(origin);
+                float2 top = CurveRoots(a, b, h0 - _CloudTop);
+                float2 base = CurveRoots(a, b, h0 - _CloudBottom);
+                float2 ground = CurveRoots(a, b, h0);
+
+                // Under the base: where the ray comes up through it. In the layer: here. Over it: where the
+                // ray comes down into it.
+                float from = h0 < _CloudBottom ? base.y : (h0 < _CloudTop ? 0.0 : top.x);
+                float to = top.y;
+                if (base.x > from)
+                    to = min(to, base.x);
+                if (top.y <= 0.0 || (ground.x > 0.0 && ground.x < from))
+                    to = from;
+
+                tEnter = max(from, 0.0);
+                tExit = min(to, _MaxDistance);
+            }
+
+            // How far along the ray it leaves the ring the weather map's warp begins at (CurveWarp): 0 when
+            // it starts outside it.
+            float CurveRing(float3 origin, float3 dir)
+            {
+                float a = dot(dir.xz, dir.xz);
+                float b = dot(origin.xz, dir.xz);
+                float c = dot(origin.xz, origin.xz) - _Curve.y * _Curve.y;
+                if (c >= 0.0)
+                    return 0.0;
+                if (a < 1e-8)
+                    return 1e10;
+                return (-b + sqrt(b * b - a * c)) / a;
+            }
+
             // The cloud slab between tEnter and tExit, before the distance fade (FinishClouds): light in
             // rgb, transmittance in a. `tStop`: a lightning bolt's BoltStop (1e9 without one): the march
             // ends there but keeps the steps of the whole ray, so the cloud in front of a bolt is marched
@@ -571,6 +632,10 @@ Shader "VolumetricClouds/CloudRaymarch"
                 float2 dc = dir.xz * (_EmptySky.y / _WeatherTile);
                 float askAt = -1.0;
 
+                // Curved clouds: the skip walks the map in straight lines, which the warp bends past its
+                // ring (CurveWarp): it never skips past where the ray leaves the ring (1e10: no warp).
+                float tRing = _Curve.w > 0.0 ? CurveRing(origin, dir) : 1e10;
+
                 // 192: the Quality setting's 96 at most, twice that under Cumulus (CloudStyle.StepFactor).
                 [loop]
                 for (int s = 0; s < 192; s++)
@@ -580,7 +645,7 @@ Shader "VolumetricClouds/CloudRaymarch"
 
                     float3 p = origin + dir * t;
 
-                    if (skipEmpty && t >= askAt)
+                    if (skipEmpty && t >= askAt && t < tRing)
                     {
                         float askAgain;
                         float empty = EmptyAhead(p, dc, askAgain);
@@ -589,6 +654,8 @@ Shader "VolumetricClouds/CloudRaymarch"
                             // This sample and every whole step still inside the empty cell would find
                             // nothing: go past them. The 0.999 keeps the last one off the cell's wall.
                             float n = min(floor(empty * 0.999 / stepLen), steps);
+                            if (tRing < 1e9)
+                                n = min(n, max(floor((tRing - t) / stepLen) - 1.0, 0.0));
                             s += (int)n;
                             t += (n + 1.0) * stepLen;
                             continue;
@@ -597,8 +664,10 @@ Shader "VolumetricClouds/CloudRaymarch"
                         askAt = t + askAgain;
                     }
 
-                    // The noise's mip level from this pixel's footprint here (CloudMedia).
-                    float lod = CloudLod(t);
+                    // The noise's mip level from this pixel's footprint here (CloudMedia). Curved clouds
+                    // hold it from _CurveFade.z out (CurvedClouds.LodHold): further, the far heaps and
+                    // puffs averaged away.
+                    float lod = CloudLod(_Curve.x > 0.0 ? min(t, _CurveFade.z) : t);
                     float d = SampleDensityLod(p, true, lod);
 
                     if (d > 0.001)
@@ -1264,6 +1333,10 @@ Shader "VolumetricClouds/CloudRaymarch"
                 float tB = (_CloudTop - origin.y) / dy;
                 float tEnter = max(min(tA, tB), 0.0);
                 float tExit = min(max(tA, tB), _MaxDistance);
+                // Curved clouds (trial): the layer over the curved Earth, out to the horizon.
+                [branch]
+                if (_Curve.x > 0.0)
+                    CurvedSlab(origin, dir, tEnter, tExit);
 
                 // Smoother clouds' march (mode 1): the clouds alone, before the distance fade, through
                 // the whole slab -- no scene (the camera's draw marches every pixel where the scene stands

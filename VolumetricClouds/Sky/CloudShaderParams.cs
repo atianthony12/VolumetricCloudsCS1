@@ -55,6 +55,14 @@ namespace VolumetricClouds.Sky
         private static readonly int IdDetailLodShift = Shader.PropertyToID("_DetailLodShift");
         private static readonly int IdMixMap = Shader.PropertyToID("_MixMap");
         private static readonly int IdMixThreshold = Shader.PropertyToID("_MixThreshold");
+        private static readonly int IdCurve = Shader.PropertyToID("_Curve");
+        private static readonly int IdCurveFade = Shader.PropertyToID("_CurveFade");
+
+        /// <summary>Curved clouds' strength (Sky.CurvedClouds): 1 = the real Earth, 0 = off.</summary>
+        public static float CurvedStrength
+        {
+            get { return Settings.CurvedClouds != null ? CurvedClouds.Strength(Settings.CurvedClouds.value) : 0f; }
+        }
 
         /// <summary>Metres the Cumulus slab reaches above the tallest cloud: the march must not clip its tops.</summary>
         private const float CumulusTopMargin = 25f;
@@ -172,6 +180,17 @@ namespace VolumetricClouds.Sky
             material.SetFloat(IdRainAmount, CloudRain.Amount);
             material.SetFloat(IdRainThreshold, field.GetThreshold(CloudRain.RainCoverage));
             material.SetVector(IdRainSlant, CloudRain.Slant);
+
+            // Curved clouds (trial, 2026-10-23): the layer over the curved Earth, the map's warp past the
+            // city, the haze far clouds fade into and the mip level held. All 0 off: nothing of it runs.
+            float curve = CurvedStrength;
+            material.SetVector(IdCurve, curve > 0f
+                ? new Vector4(CurvedClouds.InverseTwoRadius(curve), CurvedClouds.WarpFrom,
+                              1f / (CurvedClouds.WarpFull - CurvedClouds.WarpFrom), CurvedClouds.WarpAmplitude)
+                : Vector4.zero);
+            material.SetVector(IdCurveFade, curve > 0f
+                ? new Vector4(CurvedClouds.Haze, 1f / CurvedClouds.HazeLength, CurvedClouds.LodHold, 0f)
+                : Vector4.zero);
 
             // The layer is drawn in every style, with all of Classic's settings: its fragments and
             // its detail too. Under Cumulus the heaps come on top, under Soft and Mixed the puffs (ApplyStyle).

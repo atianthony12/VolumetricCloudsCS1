@@ -12,6 +12,7 @@
 
 float _MaxDistance;
 float3 _SunDir;        // towards the light
+float4 _CurveFade;     // Curved clouds' haze (CloudPresence); copied to the distant clouds' draw
 
 // Night. Clouds dissolve into the distance by going TRANSPARENT, which by day lets
 // sky colour through and reads as haze -- and by night lets the stars through.
@@ -298,6 +299,11 @@ float CloudPresence(float tEnter)
 {
     float fade = saturate(1.0 - tEnter / _MaxDistance);
     fade *= fade;
+    // Curved clouds (trial, Sky/CurvedClouds.Presence): the curve ends them at the horizon, so they fade
+    // only into the haze in front of them, not to nothing at the reach. x = how much at most, y = 1 /
+    // its length (m); x = 0: off.
+    if (_CurveFade.x > 0.0)
+        fade = 1.0 - _CurveFade.x * (1.0 - exp(-tEnter * _CurveFade.y));
 
     float edge = 1.0 - smoothstep(_EdgeStart, 1.0, tEnter / max(_CloudExtent, 1.0));
     return lerp(fade, max(fade, edge), _NightOpacity);

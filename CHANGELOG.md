@@ -7,6 +7,14 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.5.2 — unreleased
 
+### Added
+
+- *Curved clouds* (the panel's Weather tab, a trial; its final form is not decided yet): the cloud layer
+  follows the curve of the Earth, so the clouds carry on down to the horizon at any intensity instead
+  of ending a degree or two above it. 100% is the real Earth; higher bends them down sooner. While it
+  is on, *Clouds to the horizon*'s band is not drawn. Off by default: a `VolumetricClouds.xml` or a
+  profile without it reads it as off, and nothing changes until a player moves the slider.
+
 ### Changed
 
 - *Dynamic distant clouds* is off by default. This reaches new installs and *Reset all* only: a

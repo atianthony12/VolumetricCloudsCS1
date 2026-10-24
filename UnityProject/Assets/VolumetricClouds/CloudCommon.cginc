@@ -32,6 +32,33 @@ float2 _WeatherPhase;    // over the weather map (_WeatherTile)
 float3 _NoisePhase;      // over the 3D noise, which drifts 1.25x as fast (CloudWind.NoiseDrift)
 float3 _DetailPhase;     // the same, for the erosion lookup at _DetailScale x the frequency
 
+// CURVED CLOUDS (trial, 2026-10-23, Sky/CurvedClouds.cs): the layer follows the curved Earth, centred on
+// the map's centre, and the march carries on to the horizon. x = 1 / 2R' per metre (0: off, and nothing
+// of it runs), y = where the weather map's warp begins (m from the map's centre), z = 1 / the distance
+// it comes in over, w = how far each of its sines shifts the map (m).
+float4 _Curve;
+
+// A point's height over the curved Earth: its own y, plus how far the ground has fallen away under it.
+float CurveHeight(float3 p)
+{
+    return p.y + dot(p.xz, p.xz) * _Curve.x;
+}
+
+// How far the weather map's lookup at xz is shifted, in metres: nothing on and round the map, then a
+// smooth sum of sines (~35-45 km waves, never in step with the map's repeat), so the map's repeats out
+// to the horizon no longer line up into arcs. ALU only: the cloud pass has no sampler to spare.
+float2 CurveWarp(float2 xz)
+{
+    float ramp = saturate((length(xz) - _Curve.y) * _Curve.z);
+    if (ramp <= 0.0)
+        return float2(0.0, 0.0);
+
+    float2 w;
+    w.x = sin(dot(xz, float2(1.31e-4, 0.57e-4)) + 1.7) + sin(dot(xz, float2(-0.43e-4, 1.67e-4)) + 4.1);
+    w.y = sin(dot(xz, float2(0.71e-4, -1.19e-4)) + 0.3) + sin(dot(xz, float2(1.53e-4, 0.89e-4)) + 2.9);
+    return w * (_Curve.w * ramp);
+}
+
 float Remap(float v, float a, float b, float c, float d)
 {
     return c + (v - a) / max(b - a, 1e-4) * (d - c);
@@ -397,11 +424,18 @@ float SoftDensity(float3 p, bool detailed, float lod, float weather, float thres
 // (the raymarch works it out from the pixel's footprint, the shadow map from its texel).
 float SampleDensityLod(float3 p, bool detailed, float lod)
 {
+    // Curved clouds: everything below measures heights over the curved Earth (the noise rides the curve
+    // too). Off, this adds 0.
+    p.y = CurveHeight(p);
+
     float h = (p.y - _CloudBottom) / (_CloudTop - _CloudBottom);
     if (h <= 0.0 || h >= 1.0)
         return 0.0;
 
     float2 uvWeather = p.xz / _WeatherTile - _WeatherPhase;
+    [branch]
+    if (_Curve.w > 0.0)
+        uvWeather += CurveWarp(p.xz) / _WeatherTile;
 
     [branch]
     if (_CloudStyle > 1.5)
@@ -477,7 +511,8 @@ float3 _RainSlant;       // xz: metres a drop drifts downwind per metre it falls
 // How hard it is raining at p, 0..1. Zero above the cloud base.
 float SampleRain(float3 p)
 {
-    float below = _CloudBottom - p.y;
+    // Under the curved base with Curved clouds (it adds 0 off).
+    float below = _CloudBottom - CurveHeight(p);
     if (below < 0.0)
         return 0.0;
 
@@ -485,6 +520,9 @@ float SampleRain(float3 p)
     // lean with the wind exactly as the streaks fall.
     float2 xz = p.xz - _RainSlant.xz * below;
     float2 uv = xz / _WeatherTile - _WeatherPhase;
+    [branch]
+    if (_Curve.w > 0.0)
+        uv += CurveWarp(xz) / _WeatherTile;
     float weather = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
     return _RainAmount * saturate((weather - _RainThreshold) / _Softness);
 }

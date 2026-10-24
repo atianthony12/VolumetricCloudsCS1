@@ -444,6 +444,13 @@ namespace VolumetricClouds
         /// </summary>
         public static BoolSetting CloudsToHorizon { get; private set; }
 
+        /// <summary>
+        /// CURVED CLOUDS (trial, 2026-10-23, off): the layer follows the curved Earth and the clouds go down
+        /// to the horizon (Sky.CurvedClouds). The stored value is the strength: 1 = the real Earth (100%),
+        /// up to 4 (a tighter curve); 0 = off. Its final form waits on the author's look in-game.
+        /// </summary>
+        public static FloatSetting CurvedClouds { get; private set; }
+
         /// <summary>Clouds cast shadows on the ground.</summary>
         public static BoolSetting CloudShadows { get; private set; }
 
@@ -770,6 +777,9 @@ namespace VolumetricClouds
             /// 2026-10-12 ("We'll keep this"); never released on. Only over 90% cover.
             /// </summary>
             public const bool CloudsToHorizon = false;
+
+            /// <summary>Off (a trial, 2026-10-23): a new row's default reaches every existing file as off.</summary>
+            public const float CurvedClouds = 0f;
 
             // ---- the clouds ----
             public const bool CloudsVisible = true;
@@ -1211,6 +1221,7 @@ namespace VolumetricClouds
                 WeatherTileSize = new FloatSetting("WeatherTileSize", Defaults.WeatherTileSize);
                 LargerWeatherPattern = new BoolSetting("LargerWeatherPattern", Defaults.LargerWeatherPattern);
                 CloudsToHorizon = new BoolSetting("CloudsToHorizon", Defaults.CloudsToHorizon);
+                CurvedClouds = new FloatSetting("CurvedClouds", Defaults.CurvedClouds);
                 CloudShadows = new BoolSetting("CloudShadows", Defaults.CloudShadows);
                 // Not the old "CloudShadowStrength": that slider had almost no effect at high
                 // coverage, so saved values of it are not meaningful.
