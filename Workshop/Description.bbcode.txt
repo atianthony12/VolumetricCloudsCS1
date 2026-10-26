@@ -45,7 +45,7 @@ Works on Windows, Mac and Linux as of v1.1.1.
 [h1]Source code[/h1]
 Open source (MIT). Includes UnifiedUILib by kianzarrin and CitiesHarmony.API by boformer, thanks to both. Full license info on the repository.
 This mod was made with substantial help from AI. I set the goals, made the design decisions, and did all of the in-game testing and tuning.
-[h3][url=https://github.com/anthonytoumaibrahim/VolumetricCloudsCS1]Open on GitHub[/url][/h3]
+[h3][url=https://github.com/atianthony12/VolumetricCloudsCS1]Open on GitHub[/url][/h3]
 
 [hr][/hr]
 [h1]Reporting a bug[/h1]
@@ -58,4 +58,4 @@ On a Mac it is in [i]~/Library/Application Support/Colossal Order/Cities_Skyline
 [*][b]What happened[/b]: what you did and expected, screenshots, your graphics card and your other mods.
 [/olist]
 Both logs start fresh at every launch, so copy them before restarting, upload them (Google Drive, Pastebin...) and post the link in the comments.
-Or [url=https://github.com/anthonytoumaibrahim/VolumetricCloudsCS1/issues]open an issue on GitHub[/url] instead, where you can attach the log files directly.
+Or [url=https://github.com/atianthony12/VolumetricCloudsCS1/issues]open an issue on GitHub[/url] instead, where you can attach the log files directly.

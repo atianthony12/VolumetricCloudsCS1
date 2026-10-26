@@ -14,11 +14,11 @@
 ## Getting the source
 
 ```
-git clone --recurse-submodules https://github.com/anthonytoumaibrahim/VolumetricCloudsCS1.git
+git clone --recurse-submodules https://github.com/atianthony12/VolumetricCloudsCS1.git
 ```
 
 The in-game panel's controls, skins and sprite sheet come from
-[ModsLibCS1](https://github.com/anthonytoumaibrahim/ModsLibCS1), a git submodule at `ModsLibCS1/`
+[ModsLibCS1](https://github.com/atianthony12/ModsLibCS1), a git submodule at `ModsLibCS1/`
 that is compiled into the mod's DLL. A clone made without it stops the build with
 "ModsLibCS1 is missing": run `git submodule update --init`.
 
@@ -137,9 +137,3 @@ your own installed copy.
 | `UnityProject/` | Unity 5.6 project holding the shaders and the headless bundle builder |
 | `libs/` | Third-party DLLs referenced at build time (see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)) |
 | `tools/` | The PowerShell tools above |
-
-## Publishing
-
-[docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md) is the Workshop release checklist: what
-has to be verified in the game first, what the uploaded folder must contain, and which parts of
-the Workshop page live in the repository and which exist only inside Steam.

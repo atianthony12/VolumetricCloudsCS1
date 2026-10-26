@@ -389,10 +389,9 @@ UnityProject/Bundles/
 
 # ---------------------------------------------------------------------------
 # Plans are local working documents: they live in docs/ on the author's machine
-# and are not needed once implemented. Only the release checklist is shared.
+# and are not needed once implemented.
 # ---------------------------------------------------------------------------
 /docs/*
-!/docs/RELEASE-CHECKLIST.md
 
 # CLAUDE.md holds the author's local notes for Claude Code and is not shared.
 /CLAUDE.md
