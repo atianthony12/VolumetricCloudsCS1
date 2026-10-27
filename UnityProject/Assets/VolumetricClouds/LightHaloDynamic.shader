@@ -25,6 +25,9 @@
 // = (0, LAMP_TAG, 0). DrawLight only stores the velocity into _LightVel (checked in the IL),
 // and no vehicle falls upwards at 40 km/s. Tagged lights get the lamp controls; the rest get
 // _HaloOtherBrightness in place of _HaloBrightness.
+//
+// THE CLOSE GLARE (_HaloGlare*): as in LightHalo.shader, on tagged lamps only -- a vehicle's
+// lights keep the halo alone.
 Shader "VolumetricClouds/LightHaloDynamic"
 {
     SubShader
@@ -74,6 +77,14 @@ Shader "VolumetricClouds/LightHaloDynamic"
             float _HaloNearBrightness;
             float _HaloNearTightness;
             float _HaloNearRadius;
+            float _HaloGlare;
+            float _HaloGlareSize;
+            float _HaloGlareDistance;
+
+            // The same as LightHalo.shader's.
+            #define GLARE_CORE 0.25
+            #define GLARE_REACH 6.0
+            #define GLARE_PEAK 0.35
 
             struct v2f
             {
@@ -84,7 +95,7 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float4 axis : TEXCOORD3;
                 float4 color : COLOR0;
                 float3 velocity : TEXCOORD4;
-                float2 tuning : TEXCOORD5;      // x brightness, y tightness, for THIS light
+                float4 tuning : TEXCOORD5;      // x brightness, y tightness, z glare peak, w 1 / r0^2, for THIS light
             };
 
             // x*x*(3-2x): the polynomial half of smoothstep, for an already-saturated x.
@@ -118,11 +129,25 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float nearness = 1.0 - smoothstep(nearRange, 2.0 * nearRange, dist);
                 float radiusScale = _HaloRadius * lerp(1.0, _HaloNearRadius, nearness);
                 float brightness = lamp ? _HaloBrightness : _HaloOtherBrightness;
-                o.tuning = float2(brightness * lerp(1.0, _HaloNearBrightness, nearness),
-                                  _HaloTightness * lerp(1.0, _HaloNearTightness, nearness));
+                // The close glare, as in LightHalo.shader: lamps only.
+                float glareRange = max(_HaloGlareDistance, 1.0);
+                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05);
+                float cosCamera = dot(towards, _LightDir[index].xyz);
+                float glareFacing = lerp(Smooth01(saturate(0.5 + 0.5 * cosCamera)), 1.0, saturate(_LightColor[index].a));
+                float glarePeak = (lamp ? GLARE_PEAK * max(_HaloGlare, 0.0) : 0.0) * glareFacing
+                                * (1.0 - smoothstep(glareRange, 2.0 * glareRange, dist));
 
-                // A negative range means "no halo for this light": the quad collapses.
-                float signedRadius = 0.5 * range * radiusScale;
+                o.tuning = float4(brightness * lerp(1.0, _HaloNearBrightness, nearness),
+                                  _HaloTightness * lerp(1.0, _HaloNearTightness, nearness),
+                                  glarePeak,
+                                  1.0 / (glareCore * glareCore));
+
+                // A negative range means "no halo for this light": the quad collapses. A lamp
+                // with a glare gets a quad at least as wide as the glare's reach (o.light.w,
+                // the halo's own falloff, is not scaled).
+                float glareReach = GLARE_REACH * glareCore;
+                float glareScale = glarePeak > 0.0001 ? max(1.0, glareReach / max(0.5 * abs(range) * radiusScale, 0.001)) : 1.0;
+                float signedRadius = 0.5 * range * radiusScale * glareScale;
                 float radius = abs(signedRadius);
                 float2 cornerFlat = max(signedRadius, 0.0) * vertex.xy;
 
@@ -253,7 +278,12 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 // THE FIX, part two: never hand log() a non-positive number.
                 glow = min(pow(max(glow, 1e-12), exponent), 1.0);
 
-                return float4(glow * i.color.rgb, 0.0);
+                // The close glare, as in LightHalo.shader.
+                float glareX2 = lightDistance2 * i.tuning.w;
+                float glareWindow = saturate(1.0 - glareX2 * (1.0 / (GLARE_REACH * GLARE_REACH)));
+                float glare = i.tuning.z * glareWindow * glareWindow / (1.0 + glareX2);
+
+                return float4((glow + glare) * i.color.rgb, 0.0);
             }
             ENDCG
         }

@@ -71,6 +71,9 @@ namespace VolumetricClouds.Lighting
         private static readonly int IdHaloNearTightness = Shader.PropertyToID("_HaloNearTightness");
         private static readonly int IdHaloNearRadius = Shader.PropertyToID("_HaloNearRadius");
         private static readonly int IdHaloOtherBrightness = Shader.PropertyToID("_HaloOtherBrightness");
+        private static readonly int IdHaloGlare = Shader.PropertyToID("_HaloGlare");
+        private static readonly int IdHaloGlareSize = Shader.PropertyToID("_HaloGlareSize");
+        private static readonly int IdHaloGlareDistance = Shader.PropertyToID("_HaloGlareDistance");
 
         private class Replacement
         {
@@ -307,10 +310,17 @@ namespace VolumetricClouds.Lighting
             float nearTightness = near ? Mathf.Max(0.05f, Value(Settings.HaloNearLightTightness, 1f)) : 1f;
             float nearRadius = near ? Mathf.Clamp(Value(Settings.HaloNearLightRadius, 1f), 0.05f, 4f) : 1f;
 
+            // The close glare (1.5.2). A distance of 0 is no glare anywhere: the strength goes
+            // to 0 so the shader grows no quad for it.
+            float glareDistance = Mathf.Max(0f, Value(Settings.HaloGlareDistance, 0f));
+            float glare = glareDistance > 0f ? Mathf.Max(0f, Value(Settings.HaloGlare, 0f)) : 0f;
+            float glareSize = Mathf.Clamp(Value(Settings.HaloGlareSize, 1f), 0.05f, 4f);
+
             foreach (Replacement replacement in _byOriginal.Values)
             {
                 SetHaloControls(replacement.Material, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
+                SetGlare(replacement.Material, glare, glareSize, glareDistance);
             }
 
             // The dynamic material takes the SAME values, from the same place, so a lamp drawn
@@ -320,8 +330,16 @@ namespace VolumetricClouds.Lighting
             {
                 SetHaloControls(_dynamicReplacement, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
+                SetGlare(_dynamicReplacement, glare, glareSize, glareDistance);
                 _dynamicReplacement.SetFloat(IdHaloOtherBrightness, OtherLightsBrightness);
             }
+        }
+
+        private static void SetGlare(Material material, float glare, float size, float distance)
+        {
+            material.SetFloat(IdHaloGlare, glare);
+            material.SetFloat(IdHaloGlareSize, size);
+            material.SetFloat(IdHaloGlareDistance, distance);
         }
 
         /// <summary>
@@ -514,6 +532,10 @@ namespace VolumetricClouds.Lighting
                     " x brightness=" + Value(Settings.HaloNearLightBrightness, 1f).ToString("F2") +
                     " tightness=" + Value(Settings.HaloNearLightTightness, 1f).ToString("F2") +
                     " radius=" + Value(Settings.HaloNearLightRadius, 1f).ToString("F2") +
+                    " | glare=" + Value(Settings.HaloGlare, 0f).ToString("F2") +
+                    " size=" + Value(Settings.HaloGlareSize, 1f).ToString("F2") +
+                    " (core " + (0.25f * Value(Settings.HaloGlareSize, 1f)).ToString("F2") + " m)" +
+                    " within " + Value(Settings.HaloGlareDistance, 0f).ToString("F0") + "m" +
                     " | dynamic=" + (_dynamicReplacement != null
                         ? "PORTED otherBrightness=" + OtherLightsBrightness.ToString("F2") +
                           " (lamps tagged: see the 'dynamic lights' line)"

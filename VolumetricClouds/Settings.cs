@@ -696,6 +696,22 @@ namespace VolumetricClouds
         /// <summary>Near lamps: multiplier on top of <see cref="HaloRadius"/>.</summary>
         public static FloatSetting HaloNearLightRadius { get; private set; }
 
+        /// <summary>
+        /// The close glare round lamps near the camera (1.5.2): a soft glow that hugs the lamp,
+        /// as DLSS 5 draws it on the author's night shots. 1 = the designed strength, 0 = none.
+        /// Replacement shader only (LightHalo.shader's header has the shape).
+        /// </summary>
+        public static FloatSetting HaloGlare { get; private set; }
+
+        /// <summary>The glare's world size: 1 = a 0.25 m core, gone by 1.5 m.</summary>
+        public static FloatSetting HaloGlareSize { get; private set; }
+
+        /// <summary>
+        /// Lamps closer than this (metres) get the glare in full, fading to none at twice the
+        /// distance, so far lamps never sum into a haze. 0 = no glare anywhere.
+        /// </summary>
+        public static FloatSetting HaloGlareDistance { get; private set; }
+
         // REMOVED in 1.1.1, both on the Halos tab; their element names stay retired, never reuse
         // them:
         // - "Adjust dynamic lights (vehicles)" (HaloAdjustEnabled) with HaloRangeScale,
@@ -1080,6 +1096,12 @@ namespace VolumetricClouds
             public const float HaloNearBrightness = 0.9f;
             public const float HaloNearTightness = 1.75f;
             public const float HaloNearRadius = 0.1f;
+
+            // The close glare (1.5.2). It reaches existing players who opted into the halos:
+            // the halos are the author's night, and this is part of it.
+            public const float HaloGlare = 1f;
+            public const float HaloGlareSize = 1f;
+            public const float HaloGlareDistance = 200f;
         }
 
         private static bool _initialised;
@@ -1301,6 +1323,9 @@ namespace VolumetricClouds
                 HaloBrightness = new FloatSetting("HaloBrightness", Defaults.HaloBrightness);
                 HaloTightness = new FloatSetting("HaloTightness", Defaults.HaloTightness);
                 HaloRadius = new FloatSetting("HaloRadius", Defaults.HaloRadius);
+                HaloGlare = new FloatSetting("HaloGlare", Defaults.HaloGlare);
+                HaloGlareSize = new FloatSetting("HaloGlareSize", Defaults.HaloGlareSize);
+                HaloGlareDistance = new FloatSetting("HaloGlareDistance", Defaults.HaloGlareDistance);
 
                 HaloNearLightDistance = new FloatSetting("HaloNearLightDistance", Defaults.HaloNearDistance);
                 HaloNearLightBrightness = new FloatSetting("HaloNearLightBrightness", Defaults.HaloNearBrightness);

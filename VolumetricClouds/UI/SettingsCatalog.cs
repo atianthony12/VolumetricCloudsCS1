@@ -2677,6 +2677,39 @@ namespace VolumetricClouds.UI
                 Enabled = HalosOn,
             });
 
+            // The close glare (1.5.2): in the first group, open by default, so a player who
+            // opens the tab sees what turns it down.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloGlare,
+                DefaultFloat = Settings.Defaults.HaloGlare,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = HalosOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloGlareSize,
+                DefaultFloat = Settings.Defaults.HaloGlareSize,
+                Min = 25f, Max = 400f, Step = 5f,
+                Enabled = HalosOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloGlareDistance,
+                DefaultFloat = Settings.Defaults.HaloGlareDistance,
+                Min = 0f, Max = 1000f, Step = 10f,
+                Format = NearDistance,
+                Enabled = HalosOn,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Value,

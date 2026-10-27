@@ -302,6 +302,12 @@
 
   <String key="HaloRadius.Label">Tamaño</String>
 
+  <String key="HaloGlare.Label">Destello de luces cercanas</String>
+
+  <String key="HaloGlareSize.Label">Destello: tamaño</String>
+
+  <String key="HaloGlareDistance.Label">Destello: a menos de</String>
+
   <String key="Group.NearLights">Luces cercanas</String>
 
   <String key="HaloNearLightDistance.Label">Luces cercanas: a menos de</String>

@@ -14,6 +14,12 @@ below; the mods list shows it after the mod's name, and the first line of
   of ending a degree or two above it. 100% is the real Earth; higher bends them down sooner. While it
   is on, *Clouds to the horizon*'s band is not drawn. Off by default: a `VolumetricClouds.xml` or a
   profile without it reads it as off, and nothing changes until a player moves the slider.
+- *Glare around near lamps* (the Halos tab, with *Glare: size* and *Glare: closer than*): with the
+  replacement light halos on, street and building lamps near the camera get a soft glow that hugs
+  the lamp and is gone within a metre or two, fading out with distance (full within 200 m, none past
+  400 m) so far lamps don't blur into a haze. A lamp hidden behind a wall throws none over it. This
+  reaches players who already use the replacement halos (a `VolumetricClouds.xml` without it reads
+  100%); 0% puts the halos back exactly as before. Players without the replacement halos see no change.
 
 ### Changed
 

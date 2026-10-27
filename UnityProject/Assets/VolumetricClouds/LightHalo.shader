@@ -20,6 +20,17 @@
 //                    a lamp 100 m away a blob. Blended per light, in the vertex shader, from
 //                    full effect inside _HaloNearDistance to none at twice that, so nothing
 //                    pops as the camera moves. All 1 = no effect.
+//   _HaloGlare*      THE CLOSE GLARE (not in the original): a soft glow that hugs the lamp, the
+//                    way an eye or a lens sees a bright source -- what DLSS 5 draws round the
+//                    author's lamps (measured on their 2026-10-27 night pair: a glow about the
+//                    bulb's own radius wide, ~1/(1 + (r/r0)^2), near nothing by 4-5 r0). Sized
+//                    in WORLD metres (GLARE_CORE x _HaloGlareSize, ending at GLARE_REACH cores),
+//                    so it keeps to the lamp's size on screen; full inside _HaloGlareDistance,
+//                    none at twice that, so far lamps never sum into a haze and cost nothing.
+//                    Measured from the same scene-clamped closest approach as the halo, so a
+//                    lamp behind a wall throws none over it. Faded for a spotlight seen from
+//                    behind its cone (a street lamp from above shows its housing, not its bulb).
+//                    Independent of the fog and of the halo's own settings. _HaloGlare 0 = none.
 //
 // Batched light mesh vertex layout (written by LightEffect.PopulateGroupData):
 //   POSITION   a corner of the light's bounding quad, in group space
@@ -73,6 +84,15 @@ Shader "VolumetricClouds/LightHalo"
             float _HaloNearBrightness;
             float _HaloNearTightness;
             float _HaloNearRadius;
+            float _HaloGlare;
+            float _HaloGlareSize;
+            float _HaloGlareDistance;
+
+            // The close glare's shape at _HaloGlareSize 1: its core radius r0 in metres, where it
+            // ends (in cores), and its peak as a share of the halo's full-colour core.
+            #define GLARE_CORE 0.25
+            #define GLARE_REACH 6.0
+            #define GLARE_PEAK 0.35
 
             // { rampStart, rampEnd, fallEnd, period } per blink pattern.
             static const float4 kBlink[7] =
@@ -106,7 +126,7 @@ Shader "VolumetricClouds/LightHalo"
                 float4 axis : TEXCOORD3;
                 float4 color : COLOR0;
                 float2 colorUV : TEXCOORD4;
-                float2 tuning : TEXCOORD5;      // x brightness, y tightness, for THIS light
+                float4 tuning : TEXCOORD5;      // x brightness, y tightness, z glare peak, w 1 / r0^2, for THIS light
             };
 
             // x*x*(3-2x): the polynomial half of smoothstep, for an already-saturated x.
@@ -142,12 +162,30 @@ Shader "VolumetricClouds/LightHalo"
                 float nearRange = max(_HaloNearDistance, 1.0);
                 float nearness = 1.0 - smoothstep(nearRange, 2.0 * nearRange, dist);
                 float radiusScale = _HaloRadius * lerp(1.0, _HaloNearRadius, nearness);
-                o.tuning = float2(_HaloBrightness * lerp(1.0, _HaloNearBrightness, nearness),
-                                  _HaloTightness * lerp(1.0, _HaloNearTightness, nearness));
+
+                // Not in the original: the close glare for THIS light (see the header). Its
+                // peak fades with the camera's distance, and for a spotlight seen from behind
+                // its cone; the colour's alpha is the light's omnidirectional weight.
+                float glareRange = max(_HaloGlareDistance, 1.0);
+                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05);
+                float cosCamera = dot(toCamera * rsqrt(max(dist2, 1e-6)), v.axis.xyz);
+                float glareFacing = lerp(Smooth01(saturate(0.5 + 0.5 * cosCamera)), 1.0, saturate(v.color.a));
+                float glarePeak = GLARE_PEAK * max(_HaloGlare, 0.0) * glareFacing
+                                * (1.0 - smoothstep(glareRange, 2.0 * glareRange, dist));
+
+                o.tuning = float4(_HaloBrightness * lerp(1.0, _HaloNearBrightness, nearness),
+                                  _HaloTightness * lerp(1.0, _HaloNearTightness, nearness),
+                                  glarePeak,
+                                  1.0 / (glareCore * glareCore));
 
                 // The corner's offset from the light encodes the quad: x,y pick the corner,
-                // z is the light's range. The group matrix is a pure translation.
+                // z is the light's range. The group matrix is a pure translation. A light with
+                // a glare gets a quad at least as wide as the glare's reach (the halo's own
+                // falloff still ends at its radius: o.light.w below is not scaled).
                 float3 offset = (world - v.lightPos) * radiusScale;
+                float haloRadius = max(offset.z * 0.5, 0.001);
+                float glareReach = GLARE_REACH * glareCore;
+                offset *= glarePeak > 0.0001 ? max(1.0, glareReach / haloRadius) : 1.0;
                 float3 groupTranslation = world - local;
                 float cornerX = offset.x * 0.5;
                 float cornerY = offset.y * 0.5;
@@ -282,8 +320,14 @@ Shader "VolumetricClouds/LightHalo"
                 // THE FIX, part two: never hand log() a non-positive number.
                 glow = min(pow(max(glow, 1e-12), exponent), 1.0);
 
+                // Not in the original: the close glare, 1/(1 + (d/r0)^2) from the same closest
+                // approach, eased to nothing at GLARE_REACH cores.
+                float glareX2 = lightDistance2 * i.tuning.w;
+                float glareWindow = saturate(1.0 - glareX2 * (1.0 / (GLARE_REACH * GLARE_REACH)));
+                float glare = i.tuning.z * glareWindow * glareWindow / (1.0 + glareX2);
+
                 float buildingState = tex2D(_ObjectColorMap, i.colorUV).a;
-                return float4(glow * i.color.rgb * buildingState, 0.0);
+                return float4((glow + glare) * i.color.rgb * buildingState, 0.0);
             }
             ENDCG
         }

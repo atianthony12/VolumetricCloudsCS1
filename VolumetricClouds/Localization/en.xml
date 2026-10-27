@@ -346,6 +346,12 @@
 
   <String key="HaloRadius.Label">Size</String>
 
+  <String key="HaloGlare.Label">Glare around near lamps</String>
+
+  <String key="HaloGlareSize.Label">Glare: size</String>
+
+  <String key="HaloGlareDistance.Label">Glare: closer than</String>
+
   <String key="Group.NearLights">Near lights</String>
 
   <String key="HaloNearLightDistance.Label">Near lights: closer than</String>
