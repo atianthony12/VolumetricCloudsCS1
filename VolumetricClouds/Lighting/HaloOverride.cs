@@ -74,6 +74,7 @@ namespace VolumetricClouds.Lighting
         private static readonly int IdHaloGlare = Shader.PropertyToID("_HaloGlare");
         private static readonly int IdHaloGlareSize = Shader.PropertyToID("_HaloGlareSize");
         private static readonly int IdHaloGlareDistance = Shader.PropertyToID("_HaloGlareDistance");
+        private static readonly int IdHaloGlareDynamic = Shader.PropertyToID("_HaloGlareDynamic");
 
         private class Replacement
         {
@@ -315,12 +316,13 @@ namespace VolumetricClouds.Lighting
             float glareDistance = Mathf.Max(0f, Value(Settings.HaloGlareDistance, 0f));
             float glare = glareDistance > 0f ? Mathf.Max(0f, Value(Settings.HaloGlare, 0f)) : 0f;
             float glareSize = Mathf.Clamp(Value(Settings.HaloGlareSize, 1f), 0.05f, 4f);
+            float glareDynamic = Settings.HaloGlareDynamic == null || Settings.HaloGlareDynamic.value ? 1f : 0f;
 
             foreach (Replacement replacement in _byOriginal.Values)
             {
                 SetHaloControls(replacement.Material, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
-                SetGlare(replacement.Material, glare, glareSize, glareDistance);
+                SetGlare(replacement.Material, glare, glareSize, glareDistance, glareDynamic);
             }
 
             // The dynamic material takes the SAME values, from the same place, so a lamp drawn
@@ -330,16 +332,17 @@ namespace VolumetricClouds.Lighting
             {
                 SetHaloControls(_dynamicReplacement, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
-                SetGlare(_dynamicReplacement, glare, glareSize, glareDistance);
+                SetGlare(_dynamicReplacement, glare, glareSize, glareDistance, glareDynamic);
                 _dynamicReplacement.SetFloat(IdHaloOtherBrightness, OtherLightsBrightness);
             }
         }
 
-        private static void SetGlare(Material material, float glare, float size, float distance)
+        private static void SetGlare(Material material, float glare, float size, float distance, float dynamic)
         {
             material.SetFloat(IdHaloGlare, glare);
             material.SetFloat(IdHaloGlareSize, size);
             material.SetFloat(IdHaloGlareDistance, distance);
+            material.SetFloat(IdHaloGlareDynamic, dynamic);
         }
 
         /// <summary>
@@ -536,6 +539,7 @@ namespace VolumetricClouds.Lighting
                     " size=" + Value(Settings.HaloGlareSize, 1f).ToString("F2") +
                     " (core " + (0.25f * Value(Settings.HaloGlareSize, 1f)).ToString("F2") + " m)" +
                     " within " + Value(Settings.HaloGlareDistance, 0f).ToString("F0") + "m" +
+                    (Settings.HaloGlareDynamic == null || Settings.HaloGlareDynamic.value ? ", with the fog and rain" : ", any weather alike") +
                     " | dynamic=" + (_dynamicReplacement != null
                         ? "PORTED otherBrightness=" + OtherLightsBrightness.ToString("F2") +
                           " (lamps tagged: see the 'dynamic lights' line)"

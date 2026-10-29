@@ -352,6 +352,8 @@
 
   <String key="HaloGlareDistance.Label">Glare: closer than</String>
 
+  <String key="HaloGlareDynamic.Label">Glare: grows in fog and rain</String>
+
   <String key="Group.NearLights">Near lights</String>
 
   <String key="HaloNearLightDistance.Label">Near lights: closer than</String>

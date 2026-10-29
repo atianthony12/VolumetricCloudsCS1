@@ -712,6 +712,12 @@ namespace VolumetricClouds
         /// </summary>
         public static FloatSetting HaloGlareDistance { get; private set; }
 
+        /// <summary>
+        /// The close glare grows in fog and rain as the halo does (its amplitude and spread from the
+        /// same fog and rain streaks); off, it is the same in any weather (1.5.2's).
+        /// </summary>
+        public static BoolSetting HaloGlareDynamic { get; private set; }
+
         // REMOVED in 1.1.1, both on the Halos tab; their element names stay retired, never reuse
         // them:
         // - "Adjust dynamic lights (vehicles)" (HaloAdjustEnabled) with HaloRangeScale,
@@ -1102,6 +1108,9 @@ namespace VolumetricClouds
             public const float HaloGlare = 1f;
             public const float HaloGlareSize = 1f;
             public const float HaloGlareDistance = 200f;
+
+            /// <summary>The author, 2026-10-29: "make it by default dynamic ... affected by fog basically just as the light halo".</summary>
+            public const bool HaloGlareDynamic = true;
         }
 
         private static bool _initialised;
@@ -1326,6 +1335,7 @@ namespace VolumetricClouds
                 HaloGlare = new FloatSetting("HaloGlare", Defaults.HaloGlare);
                 HaloGlareSize = new FloatSetting("HaloGlareSize", Defaults.HaloGlareSize);
                 HaloGlareDistance = new FloatSetting("HaloGlareDistance", Defaults.HaloGlareDistance);
+                HaloGlareDynamic = new BoolSetting("HaloGlareDynamic", Defaults.HaloGlareDynamic);
 
                 HaloNearLightDistance = new FloatSetting("HaloNearLightDistance", Defaults.HaloNearDistance);
                 HaloNearLightBrightness = new FloatSetting("HaloNearLightBrightness", Defaults.HaloNearBrightness);

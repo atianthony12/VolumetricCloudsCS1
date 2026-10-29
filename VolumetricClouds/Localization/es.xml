@@ -308,6 +308,8 @@
 
   <String key="HaloGlareDistance.Label">Destello: a menos de</String>
 
+  <String key="HaloGlareDynamic.Label">Destello: crece con niebla y lluvia</String>
+
   <String key="Group.NearLights">Luces cercanas</String>
 
   <String key="HaloNearLightDistance.Label">Luces cercanas: a menos de</String>

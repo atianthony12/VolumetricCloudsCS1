@@ -308,6 +308,8 @@
 
   <String key="HaloGlareDistance.Label">Éclat : moins de</String>
 
+  <String key="HaloGlareDynamic.Label">Éclat : grandit dans le brouillard et la pluie</String>
+
   <String key="Group.NearLights">Lumières proches</String>
 
   <String key="HaloNearLightDistance.Label">Lumières proches : moins de</String>

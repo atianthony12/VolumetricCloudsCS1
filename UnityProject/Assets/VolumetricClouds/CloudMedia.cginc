@@ -49,8 +49,9 @@ float4 _SkyGlow;             // xyz = towards the game's sun (not _SunDir: the m
                              // w = the sky's _SunSize (32 / DayNightProperties.m_SunSize)
 float4 _SkyGlowMode;         // x = how much of what the clouds fade by the painted sky (SkyPaint)
                              // fills, 0..1 (1; eased out under Real Light's sky);
-                             // y = 1 while SkyGlowPass applies (0: no game sky; the clouds fade into
-                             // whatever is there); z = 1: the skybox drawn is its compressed variant
+                             // y = how much of SkyGlowPass applies, 0..1 (0: no game sky, or Real
+                             // Light's sky drawn -- eased out with x; the clouds fade into whatever
+                             // is there); z = 1: the skybox drawn is its compressed variant
 
 // The game's sky colour from its light, graded as its last lines do -- but never compressed, even
 // where its HDR_OFF variant would squeeze it under white: worked out on compressed values, the share

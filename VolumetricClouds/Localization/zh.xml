@@ -322,6 +322,8 @@
 
   <String key="HaloGlareDistance.Label">眩光：距离小于</String>
 
+  <String key="HaloGlareDynamic.Label">眩光：随雾和雨增强</String>
+
   <String key="Group.NearLights">近处灯光</String>
 
   <String key="HaloNearLightDistance.Label">近处灯光：距离小于</String>

@@ -1813,8 +1813,15 @@ namespace VolumetricClouds.Sky
             // there flipped the painting on and off every second (2026-10-18 log).
             float paintShare = 1f - Mathf.Clamp01((SceneAmbient.CloudLight - 1f) / RealLightPaintFade);
             bool paint = paintShare > 0f;
+
+            // The glow held back (SkyGlowPass) eases out with it: its share is the GAME's glow, and at
+            // a low sun that is most of the game's sky round the sun (5% let through at the sun, 42% at
+            // 10 deg, 2.1 deg up) while Real Light's sky has far less there -- a dark disc round the
+            // sun in the far clouds at sunrise and sunset (the author, 2026-10-29). Real Light draws
+            // its own sun after the clouds, through what they leave, so the sun stays behind them.
+            float glowShare = gameSky ? paintShare : 0f;
             _material.SetVector(IdSkyGlow, new Vector4(sunDir.x, sunDir.y, sunDir.z, sunSize));
-            _material.SetVector(IdSkyGlowMode, new Vector4(paintShare, gameSky ? 1f : 0f, compressed ? 1f : 0f, 0f));
+            _material.SetVector(IdSkyGlowMode, new Vector4(paintShare, glowShare, compressed ? 1f : 0f, 0f));
 
             // What the shader computes, worked out here with the same inputs: on the log when it
             // starts or the sky or its variant switch changes, every 10 s on the detailed log. (Real
@@ -1838,11 +1845,15 @@ namespace VolumetricClouds.Sky
 
             var text = new StringBuilder(paint
                 ? "sun glow: the far clouds fade into the game's sky painted without the sun's glow, " + (paintShare * 100f).ToString("F0") + "% painted (sun "
-                : "sun glow: Real Light's sky is drawn -- the far clouds let it through, not the sun's glow, nothing painted (sun ");
+                : "sun glow: Real Light's sky is drawn -- the far clouds let it all through, nothing painted (sun ");
             text.Append((Mathf.Asin(Mathf.Clamp(sunDir.y, -1f, 1f)) * Mathf.Rad2Deg).ToString("F1"))
-                .Append(" deg up) -- share of the sky that is not the glow, by degrees from the sun:");
+                .Append(" deg up) -- share of the sky let through (the glow held back x").Append(glowShare.ToString("F2"))
+                .Append("), by degrees from the sun:");
             for (int i = 0; i < SkyGlowLogAngles.Length; i++)
-                text.Append(' ').Append(SkyGlowLogAngles[i]).Append('=').Append((_skyGlow.PassAround(SkyGlowLogAngles[i]) * 100f).ToString("F0")).Append('%');
+            {
+                float pass = Mathf.Lerp(1f, _skyGlow.PassAround(SkyGlowLogAngles[i]), glowShare);
+                text.Append(' ').Append(SkyGlowLogAngles[i]).Append('=').Append((pass * 100f).ToString("F0")).Append('%');
+            }
             text.Append(" | painted ").Append(compressed ? "(compressed)" : "(HDR)").Append(", 5 deg up, by degrees from the sun:");
             for (int i = 0; i < SkyGlowLogAngles.Length; i++)
                 text.Append(' ').Append(SkyGlowLogAngles[i]).Append('=').Append(_skyGlow.PaintAround(SkyGlowLogAngles[i], 5f, compressed).ToString("F3"));

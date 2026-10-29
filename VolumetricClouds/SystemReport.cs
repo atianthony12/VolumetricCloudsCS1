@@ -101,6 +101,7 @@ namespace VolumetricClouds
                         " fogOverWater=" + (Sky.CloudFog.WaterSetting * 100f).ToString("F0") + "%" +
                         " lightHalos=" + On(Settings.HaloEnabled, false) +
                         " lampGlare=" + Percent(Settings.HaloGlare, Settings.Defaults.HaloGlare) +
+                        " glareDynamic=" + On(Settings.HaloGlareDynamic, Settings.Defaults.HaloGlareDynamic) +
                         " | overrides: weather=" + On(Settings.CoverageOverride, false) +
                         " fog=" + On(Settings.FogOverride, false) +
                         " lightning=" + On(Settings.LightningOverride, false) +

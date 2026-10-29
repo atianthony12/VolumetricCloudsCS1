@@ -30,7 +30,12 @@
 //                    Measured from the same scene-clamped closest approach as the halo, so a
 //                    lamp behind a wall throws none over it. Faded for a spotlight seen from
 //                    behind its cone (a street lamp from above shows its housing, not its bulb).
-//                    Independent of the fog and of the halo's own settings. _HaloGlare 0 = none.
+//                    Independent of the halo's own settings. _HaloGlare 0 = none.
+//                    _HaloGlareDynamic 1 (1.5.2, the default): it grows in fog and rain as the
+//                    halo does -- its peak x the halo's amplitude over clear air's (scatter x 0.001
+//                    + epsilon over epsilon: x1 clear, x3 in full fog, more in rain's streaks),
+//                    capped at the halo's full colour, and its core wider by the halo's exponent
+//                    (1 / (1 - 0.2 fog)). 0: the same in any weather.
 //
 // Batched light mesh vertex layout (written by LightEffect.PopulateGroupData):
 //   POSITION   a corner of the light's bounding quad, in group space
@@ -87,6 +92,7 @@ Shader "VolumetricClouds/LightHalo"
             float _HaloGlare;
             float _HaloGlareSize;
             float _HaloGlareDistance;
+            float _HaloGlareDynamic;
 
             // The close glare's shape at _HaloGlareSize 1: its core radius r0 in metres, where it
             // ends (in cores), and its peak as a share of the halo's full-colour core.
@@ -167,7 +173,9 @@ Shader "VolumetricClouds/LightHalo"
                 // peak fades with the camera's distance, and for a spotlight seen from behind
                 // its cone; the colour's alpha is the light's omnidirectional weight.
                 float glareRange = max(_HaloGlareDistance, 1.0);
-                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05);
+                // Dynamic: wider in fog, as the halo's falloff (its exponent 1 - 0.2 fog).
+                float glareWide = _HaloGlareDynamic > 0.5 ? 1.0 / max(1.0 - 0.2 * max(_HaloFog, 0.0), 0.5) : 1.0;
+                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05) * glareWide;
                 float cosCamera = dot(toCamera * rsqrt(max(dist2, 1e-6)), v.axis.xyz);
                 float glareFacing = lerp(Smooth01(saturate(0.5 + 0.5 * cosCamera)), 1.0, saturate(v.color.a));
                 float glarePeak = GLARE_PEAK * max(_HaloGlare, 0.0) * glareFacing
@@ -325,6 +333,11 @@ Shader "VolumetricClouds/LightHalo"
                 float glareX2 = lightDistance2 * i.tuning.w;
                 float glareWindow = saturate(1.0 - glareX2 * (1.0 / (GLARE_REACH * GLARE_REACH)));
                 float glare = i.tuning.z * glareWindow * glareWindow / (1.0 + glareX2);
+
+                // Dynamic: brighter in fog and rain by the halo's own amplitude over clear air's,
+                // never past the halo's full colour.
+                float glareGain = _HaloGlareDynamic > 0.5 ? max(scatter * 0.001 + epsilon, 0.0) / epsilon : 1.0;
+                glare = min(glare * glareGain, max(i.tuning.z, 1.0));
 
                 float buildingState = tex2D(_ObjectColorMap, i.colorUV).a;
                 return float4((glow + glare) * i.color.rgb * buildingState, 0.0);

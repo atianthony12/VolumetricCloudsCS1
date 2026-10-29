@@ -20,8 +20,17 @@ below; the mods list shows it after the mod's name, and the first line of
   400 m) so far lamps don't blur into a haze. A lamp hidden behind a wall throws none over it. This
   reaches players who already use the replacement halos (a `VolumetricClouds.xml` without it reads
   100%); 0% puts the halos back exactly as before. Players without the replacement halos see no change.
+- *Glare: grows in fog and rain* (the Halos tab, on by default): the glare round near lamps brightens
+  and spreads in fog and rain the way the halos do; off, it is the same in any weather. In clear
+  weather it looks as before either way.
 
 ### Changed
+
+- With Real Light's sky drawn, the far clouds no longer hold back the game's sun glow from the sky
+  behind them, eased out together with the painted sky. The game's glow is far larger at a low sun
+  than Real Light's, so at sunrise and sunset it left a dark disc round the sun in the far clouds.
+  Real Light draws its own sun after the clouds, so the sun is still hidden behind them. Without
+  Real Light nothing changes.
 
 - *Dynamic distant clouds* is off by default. This reaches new installs and *Reset all* only: a
   `VolumetricClouds.xml` written by 1.5.0 or 1.5.1 already holds

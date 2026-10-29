@@ -80,6 +80,7 @@ Shader "VolumetricClouds/LightHaloDynamic"
             float _HaloGlare;
             float _HaloGlareSize;
             float _HaloGlareDistance;
+            float _HaloGlareDynamic;
 
             // The same as LightHalo.shader's.
             #define GLARE_CORE 0.25
@@ -131,7 +132,8 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float brightness = lamp ? _HaloBrightness : _HaloOtherBrightness;
                 // The close glare, as in LightHalo.shader: lamps only.
                 float glareRange = max(_HaloGlareDistance, 1.0);
-                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05);
+                float glareWide = _HaloGlareDynamic > 0.5 ? 1.0 / max(1.0 - 0.2 * max(_HaloFog, 0.0), 0.5) : 1.0;
+                float glareCore = GLARE_CORE * max(_HaloGlareSize, 0.05) * glareWide;
                 float cosCamera = dot(towards, _LightDir[index].xyz);
                 float glareFacing = lerp(Smooth01(saturate(0.5 + 0.5 * cosCamera)), 1.0, saturate(_LightColor[index].a));
                 float glarePeak = (lamp ? GLARE_PEAK * max(_HaloGlare, 0.0) : 0.0) * glareFacing
@@ -282,6 +284,8 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float glareX2 = lightDistance2 * i.tuning.w;
                 float glareWindow = saturate(1.0 - glareX2 * (1.0 / (GLARE_REACH * GLARE_REACH)));
                 float glare = i.tuning.z * glareWindow * glareWindow / (1.0 + glareX2);
+                float glareGain = _HaloGlareDynamic > 0.5 ? max(scatter * 0.001 + epsilon, 0.0) / epsilon : 1.0;
+                glare = min(glare * glareGain, max(i.tuning.z, 1.0));
 
                 return float4((glow + glare) * i.color.rgb, 0.0);
             }

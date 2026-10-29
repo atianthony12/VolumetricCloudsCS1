@@ -2712,6 +2712,16 @@ namespace VolumetricClouds.UI
 
             Add(new Row
             {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.Halos,
+                Bool = Settings.HaloGlareDynamic,
+                DefaultBool = Settings.Defaults.HaloGlareDynamic,
+                Enabled = HalosOn,
+                AfterChange = State("dynamic glare", OnOff(Settings.HaloGlareDynamic)),
+            });
+
+            Add(new Row
+            {
                 Kind = RowKind.Value,
                 Options = OptionsPage.Halos,
                 Group = "NearLights",

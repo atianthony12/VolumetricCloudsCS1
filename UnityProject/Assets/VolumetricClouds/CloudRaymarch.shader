@@ -715,7 +715,7 @@ Shader "VolumetricClouds/CloudRaymarch"
                     float paint = _SkyGlowMode.x;
                     if (paint > 0.0)
                         painted = (faded * paint) * SkyPaint(dir);
-                    float glowless = (paint < 1.0 && _SkyGlowMode.y > 0.5) ? SkyGlowPass(dir) : 1.0;
+                    float glowless = (paint < 1.0 && _SkyGlowMode.y > 0.0) ? lerp(1.0, SkyGlowPass(dir), _SkyGlowMode.y) : 1.0;
                     sky = (1.0 - paint) * glowless;
                 }
 
@@ -953,7 +953,7 @@ Shader "VolumetricClouds/CloudRaymarch"
                 float3 light = radiance * alpha;
                 if (paint > 0.0)
                     light += (paint * ((1.0 - covered) * covered + (covered - alpha))) * SkyPaint(dir);
-                float sky = (paint < 1.0 && _SkyGlowMode.y > 0.5) ? SkyGlowPass(dir) : 1.0;
+                float sky = (paint < 1.0 && _SkyGlowMode.y > 0.0) ? lerp(1.0, SkyGlowPass(dir), _SkyGlowMode.y) : 1.0;
                 float through = (1.0 - covered) * lerp(1.0, sky, covered) + (covered - alpha) * sky;
                 return float4(light, lerp(through, (1.0 - covered) * (1.0 - covered), paint));
             }
