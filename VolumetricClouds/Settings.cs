@@ -1104,10 +1104,11 @@ namespace VolumetricClouds
             public const float HaloNearRadius = 0.1f;
 
             // The close glare (1.5.2). It reaches existing players who opted into the halos:
-            // the halos are the author's night, and this is part of it.
-            public const float HaloGlare = 1f;
-            public const float HaloGlareSize = 1f;
-            public const float HaloGlareDistance = 200f;
+            // the halos are the author's night, and this is part of it. Values = his own
+            // (2026-10-30): faint, wide, reaching far.
+            public const float HaloGlare = 0.1f;
+            public const float HaloGlareSize = 1.7f;
+            public const float HaloGlareDistance = 600f;
 
             /// <summary>The author, 2026-10-29: "make it by default dynamic ... affected by fog basically just as the light halo".</summary>
             public const bool HaloGlareDynamic = true;

@@ -16,10 +16,10 @@ below; the mods list shows it after the mod's name, and the first line of
   profile without it reads it as off, and nothing changes until a player moves the slider.
 - *Glare around near lamps* (the Halos tab, with *Glare: size* and *Glare: closer than*): with the
   replacement light halos on, street and building lamps near the camera get a soft glow that hugs
-  the lamp and is gone within a metre or two, fading out with distance (full within 200 m, none past
-  400 m) so far lamps don't blur into a haze. A lamp hidden behind a wall throws none over it. This
+  the lamp and is gone within a few metres, fading out with distance (full within 600 m, none past
+  1200 m) so far lamps don't blur into a haze. A lamp hidden behind a wall throws none over it. This
   reaches players who already use the replacement halos (a `VolumetricClouds.xml` without it reads
-  100%); 0% puts the halos back exactly as before. Players without the replacement halos see no change.
+  10%, size 170%); 0% puts the halos back exactly as before. Players without the replacement halos see no change.
 - *Glare: grows in fog and rain* (the Halos tab, on by default): the glare round near lamps brightens
   and spreads in fog and rain the way the halos do; off, it is the same in any weather. In clear
   weather it looks as before either way.
