@@ -57,6 +57,9 @@ namespace VolumetricClouds.Sky
         private static readonly int IdMixThreshold = Shader.PropertyToID("_MixThreshold");
         private static readonly int IdCurve = Shader.PropertyToID("_Curve");
         private static readonly int IdCurveFade = Shader.PropertyToID("_CurveFade");
+        private static readonly int IdCurvePatch = Shader.PropertyToID("_CurvePatch");
+        private static readonly int IdCurveFront = Shader.PropertyToID("_CurveFront");
+        private static readonly int IdCurveStats = Shader.PropertyToID("_CurveStats");
 
         /// <summary>Curved clouds' strength (Sky.CurvedClouds): 1 = the real Earth, 0 = off.</summary>
         public static float CurvedStrength
@@ -181,16 +184,28 @@ namespace VolumetricClouds.Sky
             material.SetFloat(IdRainThreshold, field.GetThreshold(CloudRain.RainCoverage));
             material.SetVector(IdRainSlant, CloudRain.Slant);
 
-            // Curved clouds (trial, 2026-10-23): the layer over the curved Earth, the map's warp past the
-            // city, the haze far clouds fade into and the mip level held. All 0 off: nothing of it runs.
+            // Curved clouds (trial, 2026-10-23): the layer over the curved Earth, the far sky's patches and
+            // fronts past the city (2026-10-30), the haze far clouds fade into and the mip level held. All 0
+            // off: nothing of it runs.
             float curve = CurvedStrength;
             material.SetVector(IdCurve, curve > 0f
-                ? new Vector4(CurvedClouds.InverseTwoRadius(curve), CurvedClouds.WarpFrom,
-                              1f / (CurvedClouds.WarpFull - CurvedClouds.WarpFrom), CurvedClouds.WarpAmplitude)
+                ? new Vector4(CurvedClouds.InverseTwoRadius(curve), CurvedClouds.PatchFrom, 1f / CurvedClouds.PatchBlend, 1f)
                 : Vector4.zero);
             material.SetVector(IdCurveFade, curve > 0f
                 ? new Vector4(CurvedClouds.Haze, 1f / CurvedClouds.HazeLength, CurvedClouds.LodHold, 0f)
                 : Vector4.zero);
+            if (curve > 0f)
+            {
+                // The patch lattice rides with the wind, its drift a phase like every other lookup's,
+                // over the lattice's own repeat; the spacing from the same tile as _WeatherTile.
+                float spacing = CurvedClouds.PatchSpacing * weatherTile;
+                Vector2 lattice = CloudWind.LatticePhase(spacing);
+                float mean, spread;
+                field.ReadStats(out mean, out spread);
+                material.SetVector(IdCurvePatch, new Vector4(lattice.x, lattice.y, CurvedClouds.LatticeRepeat, 1f / spacing));
+                material.SetVector(IdCurveFront, new Vector4(CurvedClouds.FrontStrength, 1f / CurvedClouds.FrontBlend, 0f, 0f));
+                material.SetVector(IdCurveStats, new Vector4(mean, spread, 0.5f, CloudDensityField.ScoreSpread));
+            }
 
             // The layer is drawn in every style, with all of Classic's settings: its fragments and
             // its detail too. Under Cumulus the heaps come on top, under Soft and Mixed the puffs (ApplyStyle).

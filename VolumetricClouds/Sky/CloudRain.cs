@@ -200,8 +200,8 @@ namespace VolumetricClouds.Sky
 
         private static float Sample(Snapshot s, Vector3 position)
         {
-            // Under the curved base with Curved clouds, as SampleRain (0 off). No warp: it begins past the
-            // map's corner (CurvedClouds.WarpFrom), and this only looks on the map.
+            // Under the curved base with Curved clouds, as SampleRain (0 off). No patches or fronts: they
+            // begin past the map's corner (CurvedClouds.PatchFrom), and this only looks on the map.
             float below = Mathf.Max(0f, s.CloudBottom - (position.y + CurvedClouds.Drop(s.Curve, position.x, position.z)));
             float x = position.x - s.SlantX * below;
             float z = position.z - s.SlantZ * below;

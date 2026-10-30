@@ -1674,13 +1674,20 @@ namespace VolumetricClouds.Sky
             }
 
             float bottom = Settings.CloudAltitude != null ? Settings.CloudAltitude.value : Settings.Defaults.Altitude;
+            float spacing = _field != null ? CurvedClouds.PatchSpacing * _field.Tile : 0f;
+            float mean = 0f, spread = 0f;
+            if (_field != null)
+                _field.ReadStats(out mean, out spread);
             Log.Msg("curved clouds: " + (curve * 100f).ToString("F0") + "% (100% = the real Earth): the base (" +
                     bottom.ToString("F0") + " m) meets the horizon " +
                     (CurvedClouds.HorizonDistance(curve, bottom) / 1000f).ToString("F0") + " km out from the ground, " +
                     (CurvedClouds.Drop(curve, 8640f, 0f)).ToString("F0") + " m lower at the map's edge; march to " +
                     (Reach / 1000f).ToString("F0") + " km from here, haze " + (CurvedClouds.Haze * 100f).ToString("F0") +
-                    "% over " + (CurvedClouds.HazeLength / 1000f).ToString("F0") + " km, map warped from " +
-                    (CurvedClouds.WarpFrom / 1000f).ToString("F0") + " km" +
+                    "% over " + (CurvedClouds.HazeLength / 1000f).ToString("F0") + " km; from " +
+                    (CurvedClouds.PatchFrom / 1000f).ToString("F0") + " km the map in patches " +
+                    (spacing / 1000f).ToString("F1") + " km apart (each its own quarter turn and place), fronts of " +
+                    CurvedClouds.FrontStrength.ToString("F1") + " x the map's spread (as read: mean " + mean.ToString("F3") +
+                    ", spread " + spread.ToString("F3") + ") eased in over " + (CurvedClouds.FrontBlend / 1000f).ToString("F0") + " km" +
                     (toHorizon ? "; Clouds to the horizon's band not drawn meanwhile" : ""));
         }
 

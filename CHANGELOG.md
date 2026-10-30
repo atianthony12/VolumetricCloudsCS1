@@ -11,8 +11,11 @@ below; the mods list shows it after the mod's name, and the first line of
 
 - *Curved clouds* (the panel's Weather tab, a trial; its final form is not decided yet): the cloud layer
   follows the curve of the Earth, so the clouds carry on down to the horizon at any intensity instead
-  of ending a degree or two above it. 100% is the real Earth; higher bends them down sooner. While it
-  is on, *Clouds to the horizon*'s band is not drawn. Off by default: a `VolumetricClouds.xml` or a
+  of ending a degree or two above it. 100% is the real Earth; higher bends them down sooner. Past
+  ~20 km from the city's centre the sky no longer repeats the same clouds: it is made of large
+  patches, each a different part of the pattern, turned its own way, and weather fronts out there
+  leave stretches of clear sky and of overcast whatever the city has. The city's own sky, its
+  shadows and its rain are unchanged. While it is on, *Clouds to the horizon*'s band is not drawn. Off by default: a `VolumetricClouds.xml` or a
   profile without it reads it as off, and nothing changes until a player moves the slider.
 - *Glare around near lamps* (the Halos tab, with *Glare: size* and *Glare: closer than*): with the
   replacement light halos on, street and building lamps near the camera get a soft glow that hugs

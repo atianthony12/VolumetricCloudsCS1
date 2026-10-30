@@ -592,7 +592,7 @@ Shader "VolumetricClouds/CloudRaymarch"
                 tExit = min(to, _MaxDistance);
             }
 
-            // How far along the ray it leaves the ring the weather map's warp begins at (CurveWarp): 0 when
+            // How far along the ray it leaves the ring the far sky's patches begin at (FarLookAt): 0 when
             // it starts outside it.
             float CurveRing(float3 origin, float3 dir)
             {
@@ -632,8 +632,8 @@ Shader "VolumetricClouds/CloudRaymarch"
                 float2 dc = dir.xz * (_EmptySky.y / _WeatherTile);
                 float askAt = -1.0;
 
-                // Curved clouds: the skip walks the map in straight lines, which the warp bends past its
-                // ring (CurveWarp): it never skips past where the ray leaves the ring (1e10: no warp).
+                // Curved clouds: the skip walks the map as it is, which the patches and fronts change past
+                // their ring (FarLookAt): it never skips past where the ray leaves the ring (1e10: none).
                 float tRing = _Curve.w > 0.0 ? CurveRing(origin, dir) : 1e10;
 
                 // 192: the Quality setting's 96 at most, twice that under Cumulus (CloudStyle.StepFactor).

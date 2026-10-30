@@ -110,6 +110,17 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>
+        /// Curved clouds' patch lattice (CloudCommon FarLookAt): the weather's drift in the lattice's
+        /// skewed cells <paramref name="spacing"/> metres apart, over its repeat (CurvedClouds.LatticePhase).
+        /// </summary>
+        public static Vector2 LatticePhase(float spacing)
+        {
+            float x, z;
+            CurvedClouds.LatticePhase(_x + _shiftX, _z + _shiftZ, spacing, out x, out z);
+            return new Vector2(x, z);
+        }
+
+        /// <summary>
         /// The same for the 3D noise, which drifts <see cref="NoiseDrift"/> times as fast.
         /// <paramref name="frequency"/> is how many times the lookup repeats per noise tile: 1
         /// for the base shape, the detail scale for the erosion. That one is not a whole number

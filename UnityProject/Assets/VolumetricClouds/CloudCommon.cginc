@@ -34,8 +34,8 @@ float3 _DetailPhase;     // the same, for the erosion lookup at _DetailScale x t
 
 // CURVED CLOUDS (trial, 2026-10-23, Sky/CurvedClouds.cs): the layer follows the curved Earth, centred on
 // the map's centre, and the march carries on to the horizon. x = 1 / 2R' per metre (0: off, and nothing
-// of it runs), y = where the weather map's warp begins (m from the map's centre), z = 1 / the distance
-// it comes in over, w = how far each of its sines shifts the map (m).
+// of it runs), y = the ring the far sky's patches begin at (m from the map's centre), z = 1 / the
+// distance they come in over, w = 1 when they are on.
 float4 _Curve;
 
 // A point's height over the curved Earth: its own y, plus how far the ground has fallen away under it.
@@ -44,19 +44,121 @@ float CurveHeight(float3 p)
     return p.y + dot(p.xz, p.xz) * _Curve.x;
 }
 
-// How far the weather map's lookup at xz is shifted, in metres: nothing on and round the map, then a
-// smooth sum of sines (~35-45 km waves, never in step with the map's repeat), so the map's repeats out
-// to the horizon no longer line up into arcs. ALU only: the cloud pass has no sampler to spare.
-float2 CurveWarp(float2 xz)
-{
-    float ramp = saturate((length(xz) - _Curve.y) * _Curve.z);
-    if (ramp <= 0.0)
-        return float2(0.0, 0.0);
+// THE FAR SKY'S PATCHES AND FRONTS (2026-10-30, CurvedClouds.Patches / Front are the C# twins: change one,
+// change the other). Marched to the horizon the map came back every repeat (54 km with Larger weather
+// pattern) as the same clouds: the warp before this moved them at most 3.6 km. Past the ring each patch
+// of a triangular lattice (hexagons, half a repeat across) reads the map turned by its own multiple of 90
+// degrees, mirrored or not, and shifted to its own place on it; patches meet in narrow blends that keep
+// the map's contrast. Whole quarter turns only: the map's drift (_WeatherPhase) wraps by whole repeats,
+// which any other turn would make a jump. The lattice rides with the wind (its own phase, a repeat of
+// _CurvePatch.z cells), so a cloud never crosses into another patch. The fronts: slow waves, 100 km and
+// more, raise or lower the map past the ring by up to ~1.5 of its standard deviations x _CurveFront.x:
+// stretches of clear sky and of overcast out there, whatever the city has.
+float4 _CurvePatch;     // xy = the lattice's drift (cells, 0..z), z = its repeat (cells), w = 1 / the patches' spacing (m)
+float4 _CurveFront;     // x = the fronts' strength (standard deviations), y = 1 / the distance they come in over (m)
+float4 _CurveStats;     // the map as read: x = its mean, y = its standard deviation; its scores: z, w the same
 
-    float2 w;
-    w.x = sin(dot(xz, float2(1.31e-4, 0.57e-4)) + 1.7) + sin(dot(xz, float2(-0.43e-4, 1.67e-4)) + 4.1);
-    w.y = sin(dot(xz, float2(0.71e-4, -1.19e-4)) + 0.3) + sin(dot(xz, float2(1.53e-4, 0.89e-4)) + 2.9);
-    return w * (_Curve.w * ramp);
+struct FarLook
+{
+    float4 w;           // x = the map's own lookup (inside the ring: 1), yzw = the three patches round p
+    float2 uv1, uv2, uv3;
+    float shift;        // the front here, in standard deviations
+};
+
+// Three numbers 0..1 for a patch, from its place in the lattice (Hoskins' hash: no sines).
+float3 PatchHash(float2 id)
+{
+    id -= _CurvePatch.z * floor(id / _CurvePatch.z);
+    float3 p3 = frac(float3(id.xyx) * float3(0.1031, 0.1030, 0.0973) + 0.37);
+    p3 += dot(p3, p3.yxz + 33.33);
+    return frac((p3.xxy + p3.yzz) * p3.zyx);
+}
+
+// The map's uv as patch `id` reads it: turned by a quarter turn h.x picks (mirrored for half of them),
+// then shifted. A whole repeat in uv is still a whole repeat after it.
+float2 PatchUV(float2 uv, float2 id)
+{
+    float3 h = PatchHash(id);
+    float2 r = h.x < 0.5 ? uv : float2(-uv.x, uv.y);
+    float q = frac(h.x * 2.0) * 4.0;
+    r = q < 1.0 ? r : (q < 2.0 ? float2(-r.y, r.x) : (q < 3.0 ? -r : float2(r.y, -r.x)));
+    return r + h.yz;
+}
+
+// The fronts at xz, about -1.5..1.5: three slow waves (90-160 km) whose crossings make the stretches.
+float FrontAt(float2 xz)
+{
+    return 0.5 * (sin(dot(xz, float2(5.3e-5, 4.1e-5)) + 0.9)
+                + sin(dot(xz, float2(-4.4e-5, 2.6e-5)) + 2.3)
+                + sin(dot(xz, float2(1.5e-5, -6.1e-5)) + 4.4));
+}
+
+// Which lookups p's weather is made of. Inside the ring (or off): the map's own, alone.
+FarLook FarLookAt(float2 xz)
+{
+    FarLook f;
+    f.w = float4(1.0, 0.0, 0.0, 0.0);
+    f.uv1 = f.uv2 = f.uv3 = float2(0.0, 0.0);
+    f.shift = 0.0;
+
+    float beyond = _Curve.w > 0.0 ? length(xz) - _Curve.y : 0.0;
+    [branch]
+    if (beyond > 0.0)
+    {
+        f.shift = _CurveFront.x * saturate(beyond * _CurveFront.y) * FrontAt(xz);
+
+        // The lattice (Mikkelsen's hex tiling): p in skewed cells, moved with the wind; the three
+        // patch centres round it and their barycentric weights, sharpened so most of a patch reads
+        // one lookup (^16: 85% of the far sky reads one), then each lessened by 0.05 so the ones too light
+        // to matter drop out without a step.
+        float2 st = xz * _CurvePatch.w;
+        float2 sk = float2(st.x - 0.57735027 * st.y, 1.15470054 * st.y) - _CurvePatch.xy;
+        float2 cell = floor(sk);
+        float3 t = float3(sk - cell, 0.0);
+        t.z = 1.0 - t.x - t.y;
+        float s = t.z < 0.0 ? 1.0 : 0.0;
+        float s2 = 2.0 * s - 1.0;
+        float3 b = max(float3(-t.z * s2, s - t.y * s2, s - t.x * s2), 0.0);
+        b *= b;
+        b *= b;
+        b *= b;
+        b *= b;
+        b /= dot(b, float3(1.0, 1.0, 1.0));
+        b = max(b - 0.05, 0.0);
+        b /= dot(b, float3(1.0, 1.0, 1.0));
+
+        float into = saturate(beyond * _Curve.z);
+        f.w = float4(1.0 - into, b * into);
+
+        float2 uv = xz / _WeatherTile - _WeatherPhase;
+        f.uv1 = PatchUV(uv, cell + float2(s, s));
+        f.uv2 = PatchUV(uv, cell + float2(s, 1.0 - s));
+        f.uv3 = PatchUV(uv, cell + float2(1.0 - s, s));
+    }
+    return f;
+}
+
+// Lookups blended so the contrast stays the map's own: mean + the weighted differences / the weights'
+// length (two equal halves of two unrelated reads spread like one). Then the front. `v` holds the mean
+// where a lookup is not read.
+float FarBlend(FarLook f, float4 v, float mean, float sd)
+{
+    return mean + dot(f.w, v - mean) / sqrt(dot(f.w, f.w)) + f.shift * sd;
+}
+
+// The map's value (as the GPU reads it, r) at p. `uv` = its own lookup there.
+float FarWeather(FarLook f, float2 uv)
+{
+    [branch]
+    if (f.w.x >= 1.0)
+        return tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+
+    float4 v = _CurveStats.xxxx;
+    [branch] if (f.w.x > 0.0) v.x = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+    [branch] if (f.w.y > 0.0) v.y = tex2Dlod(_WeatherTex, float4(f.uv1, 0, 0)).r;
+    [branch] if (f.w.z > 0.0) v.z = tex2Dlod(_WeatherTex, float4(f.uv2, 0, 0)).r;
+    [branch] if (f.w.w > 0.0) v.w = tex2Dlod(_WeatherTex, float4(f.uv3, 0, 0)).r;
+    return FarBlend(f, v, _CurveStats.x, _CurveStats.y);
 }
 
 float Remap(float v, float a, float b, float c, float d)
@@ -180,6 +282,37 @@ float4 _MixThreshold;   // the layer's threshold: x in a layer area, y between, 
 float MixType(float2 uvWeather)
 {
     return 0.5 + (VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, uvWeather).a - 0.5) * _MixThreshold.w;
+}
+
+// The map's normal score at p (Cumulus's heaps, the layer's thickness), blended as FarWeather.
+float FarScore(FarLook f, float2 uv)
+{
+    [branch]
+    if (f.w.x >= 1.0)
+        return VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+
+    float4 v = _CurveStats.zzzz;
+    [branch] if (f.w.x > 0.0) v.x = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+    [branch] if (f.w.y > 0.0) v.y = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv1).a;
+    [branch] if (f.w.z > 0.0) v.z = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv2).a;
+    [branch] if (f.w.w > 0.0) v.w = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv3).a;
+    return FarBlend(f, v, _CurveStats.z, _CurveStats.w);
+}
+
+// Mixed's type at p: a slow control, so a plain weighted mean of the lookups (no front: the fronts move
+// the cover, not the kind of cloud).
+float FarMixType(FarLook f, float2 uv)
+{
+    [branch]
+    if (f.w.x >= 1.0)
+        return MixType(uv);
+
+    float t = 0.0;
+    [branch] if (f.w.x > 0.0) t += f.w.x * MixType(uv);
+    [branch] if (f.w.y > 0.0) t += f.w.y * MixType(f.uv1);
+    [branch] if (f.w.z > 0.0) t += f.w.z * MixType(f.uv2);
+    [branch] if (f.w.w > 0.0) t += f.w.w * MixType(f.uv3);
+    return t;
 }
 
 // A threshold where the type is t: between its value in a layer area (x), between (y) and in a puff
@@ -432,10 +565,10 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     if (h <= 0.0 || h >= 1.0)
         return 0.0;
 
+    // Curved clouds' far sky: past the ring the map is read in patches, under the fronts (FarLookAt).
+    // Inside it, or off, every Far* read below is the plain lookup at uvWeather.
     float2 uvWeather = p.xz / _WeatherTile - _WeatherPhase;
-    [branch]
-    if (_Curve.w > 0.0)
-        uvWeather += CurveWarp(p.xz) / _WeatherTile;
+    FarLook look = FarLookAt(p.xz);
 
     [branch]
     if (_CloudStyle > 1.5)
@@ -443,13 +576,13 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
         // Soft and Mixed: the puffs, and the Classic layer beside them where the map passes its cut (none
         // at Soft's low intensities: the score is not even read there). Where both are, the denser wins.
         // Under Mixed the type tips both cuts.
-        float weather = tex2Dlod(_WeatherTex, float4(uvWeather, 0, 0)).r;
+        float weather = FarWeather(look, uvWeather);
         float threshold = _Threshold;
         float puffThreshold = _SoftThreshold.y;
         [branch]
         if (_CloudStyle < 2.5)
         {
-            float t = MixType(uvWeather);
+            float t = FarMixType(look, uvWeather);
             threshold = MixThresholdAt(_MixThreshold, t);
             puffThreshold = MixThresholdAt(_SoftThreshold, t);
         }
@@ -458,7 +591,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
         [branch]
         if (weather > threshold || _FragAmount > 0.0)
         {
-            float score = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uvWeather).a;
+            float score = FarScore(look, uvWeather);
             float thicknessHere = _LayerShape.x * clamp(_LayerShape.y + _LayerShape.z * score, _LayerShape.w, _LayerShapeMax);
             float hHere = (p.y - _CloudBottom) / thicknessHere;
             if (hHere < 1.0)
@@ -471,7 +604,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     if (_CloudStyle > 0.5)
     {
         // Cumulus: the heaps, and the Classic layer among and under them. Where both are, the denser wins.
-        float score = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uvWeather).a;
+        float score = FarScore(look, uvWeather);
         float clouds = CumulusDensity(p, max(lod, 0.0), score);
 
         // The layer is thick where the map is high and thin where it is low: variety over
@@ -481,11 +614,11 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
         if (hLayer >= 1.0)
             return clouds;
 
-        float weatherHere = tex2Dlod(_WeatherTex, float4(uvWeather, 0, 0)).r;
+        float weatherHere = FarWeather(look, uvWeather);
         return max(clouds, LayerDensity(p, detailed, max(lod + _DetailLodShift, 0.0), hLayer, weatherHere, _Threshold));
     }
 
-    float weather = tex2Dlod(_WeatherTex, float4(uvWeather, 0, 0)).r;
+    float weather = FarWeather(look, uvWeather);
     return LayerDensity(p, detailed, lod, h, weather, _Threshold);
 }
 
@@ -519,11 +652,10 @@ float SampleRain(float3 p)
     // A drop at this height left the cloud base upwind of where it is now, so the curtains
     // lean with the wind exactly as the streaks fall.
     float2 xz = p.xz - _RainSlant.xz * below;
+    // Past Curved clouds' ring: the same patches and fronts as the clouds above (the C# twin only looks
+    // on the map, inside it).
     float2 uv = xz / _WeatherTile - _WeatherPhase;
-    [branch]
-    if (_Curve.w > 0.0)
-        uv += CurveWarp(xz) / _WeatherTile;
-    float weather = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+    float weather = FarWeather(FarLookAt(xz), uv);
     return _RainAmount * saturate((weather - _RainThreshold) / _Softness);
 }
 

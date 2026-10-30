@@ -13,7 +13,7 @@ namespace VolumetricClouds.Sky
     /// km); what it changes is the far end: a base 850 m up meets the horizon ~104 km out. Centred on the
     /// world's origin (the map's centre), not the camera, so nothing moves as the camera does and the
     /// shadow map (the same density function) keeps matching. Pure maths, no Unity: the shader's twins
-    /// are in CloudCommon.cginc (the layer, the warp), CloudMedia.cginc (the haze) and CloudRaymarch
+    /// are in CloudCommon.cginc (the layer, the far sky's patches and fronts), CloudMedia.cginc (the haze) and CloudRaymarch
     /// (where a ray is in the layer); tools\test-curved.ps1 compiles this source.
     /// </remarks>
     public static class CurvedClouds
@@ -30,14 +30,34 @@ namespace VolumetricClouds.Sky
         public const float Haze = 0.6f, HazeLength = 30000f;
 
         /// <summary>
-        /// The weather map repeats every Weather pattern size (13.5 km): marched to the horizon it came
-        /// back ~15 times along a ray, as arcs fanning into the vanishing point (the far deck's first
-        /// trial, 2026-10-12). From WarpFrom metres from the map's centre, all of it from WarpFull, its
-        /// lookup is shifted by a smooth sum of sines (CloudCommon CurveWarp), WarpAmplitude metres each,
-        /// so neighbouring repeats land a few kilometres apart. Past the corner of the map (12.2 km) plus
-        /// the rain's slant: the C# twins, which only look on the map, never need it.
+        /// The weather map repeats every Weather pattern size (13.5 km, 54 km with Larger weather pattern):
+        /// marched to the horizon it came back along every ray, as arcs (the far deck's first trial,
+        /// 2026-10-12), then -- under a warp of sines that moved each copy at most 3.6 km -- as the same
+        /// clouds again (the author, 2026-10-30: "pattern repetition ... so obvious"). Past PatchFrom metres
+        /// from the map's centre, all of it PatchBlend further, the sky is read in PATCHES
+        /// (CloudCommon FarLookAt; <see cref="Patches"/>, <see cref="PatchUV"/> are the twins): hexagons
+        /// <see cref="PatchSpacing"/> repeats apart, each reading the map turned by its own quarter turn,
+        /// mirrored or not, shifted to its own place on it. Past the corner of the map (12.2 km) plus the
+        /// rain's slant: the C# twins of the rain, which only look on the map, never need it.
         /// </summary>
-        public const float WarpFrom = 20000f, WarpFull = 35000f, WarpAmplitude = 1800f;
+        public const float PatchFrom = 20000f, PatchBlend = 4000f, PatchSpacing = 0.5f;
+
+        /// <summary>
+        /// The patch lattice rides with the wind: its drift is sent as a phase over this many cells (a
+        /// patch's look repeats that many cells on, 64 x 27 km with Larger weather pattern).
+        /// </summary>
+        public const int LatticeRepeat = 64;
+
+        /// <summary>
+        /// THE FRONTS: past PatchFrom, eased in over FrontBlend metres, the map is raised or lowered by
+        /// <see cref="Front"/> (about -1.5..1.5, slow waves of 90-160 km) x FrontStrength of its standard
+        /// deviations: stretches of clear sky and of overcast out to the horizon, whatever the city has.
+        /// The city's own sky and its rain are inside the ring, untouched.
+        /// </summary>
+        public const float FrontStrength = 1f, FrontBlend = 40000f;
+
+        /// <summary>The lattice's skew (Mikkelsen's hex tiling): cells = (x - z / sqrt 3, 2 z / sqrt 3) / spacing.</summary>
+        public const double Skew = 0.57735027, Stretch = 1.15470054;
 
         /// <summary>
         /// Past this distance along a ray the noise's mip level stays what it is here: further out the
@@ -141,6 +161,114 @@ namespace VolumetricClouds.Sky
             enter = (float)Math.Max(from, 0.0);
             exit = (float)to;
             return true;
+        }
+
+        /// <summary>
+        /// The lattice's drift as the shader's _CurvePatch.xy: the wind's drift (doubles, metres) in skewed
+        /// cells, over <see cref="LatticeRepeat"/> of them -- whole repeats of the lattice read the same
+        /// patches (PatchHash takes the cell modulo it), so this is exact for a city's whole life.
+        /// </summary>
+        public static void LatticePhase(double driftX, double driftZ, double spacing, out float phaseX, out float phaseZ)
+        {
+            phaseX = Drift.Phase((driftX - driftZ * Skew) / spacing, LatticeRepeat) * LatticeRepeat;
+            phaseZ = Drift.Phase(driftZ * Stretch / spacing, LatticeRepeat) * LatticeRepeat;
+        }
+
+        /// <summary>
+        /// The three patches round x, z and their weights, as FarLookAt has them (before the ring): `cells`
+        /// gets their places in the lattice (x, z pairs), `weights` their sharpened weights, summing to 1.
+        /// </summary>
+        public static void Patches(float x, float z, float phaseX, float phaseZ, float inverseSpacing,
+                                   float[] cells, float[] weights)
+        {
+            float stX = x * inverseSpacing, stZ = z * inverseSpacing;
+            float skX = stX - (float)Skew * stZ - phaseX;
+            float skZ = (float)Stretch * stZ - phaseZ;
+            float cellX = (float)Math.Floor(skX), cellZ = (float)Math.Floor(skZ);
+            float tx = skX - cellX, tz = skZ - cellZ, tw = 1f - tx - tz;
+            float s = tw < 0f ? 1f : 0f;
+            float s2 = 2f * s - 1f;
+
+            weights[0] = Math.Max(-tw * s2, 0f);
+            weights[1] = Math.Max(s - tz * s2, 0f);
+            weights[2] = Math.Max(s - tx * s2, 0f);
+            cells[0] = cellX + s; cells[1] = cellZ + s;
+            cells[2] = cellX + s; cells[3] = cellZ + 1f - s;
+            cells[4] = cellX + 1f - s; cells[5] = cellZ + s;
+
+            float sum = 0f;
+            for (int i = 0; i < 3; i++)
+            {
+                float b = weights[i] * weights[i];
+                b *= b;
+                b *= b;
+                weights[i] = b * b;
+                sum += weights[i];
+            }
+
+            float kept = 0f;
+            for (int i = 0; i < 3; i++)
+            {
+                // Less a little, not cut below it: a cut would be a step (a seam) where a weight passes it.
+                weights[i] = Math.Max(weights[i] / sum - 0.05f, 0f);
+                kept += weights[i];
+            }
+
+            for (int i = 0; i < 3; i++)
+                weights[i] /= kept;
+        }
+
+        /// <summary>PatchHash: three numbers 0..1 for the patch at cell (x, z) (Hoskins' hash, no sines).</summary>
+        public static void PatchHash(float x, float z, out float h0, out float h1, out float h2)
+        {
+            x -= LatticeRepeat * (float)Math.Floor(x / LatticeRepeat);
+            z -= LatticeRepeat * (float)Math.Floor(z / LatticeRepeat);
+            float p0 = Frac(x * 0.1031f + 0.37f), p1 = Frac(z * 0.1030f + 0.37f), p2 = Frac(x * 0.0973f + 0.37f);
+            float d = p0 * (p1 + 33.33f) + p1 * (p0 + 33.33f) + p2 * (p2 + 33.33f);
+            p0 += d; p1 += d; p2 += d;
+            h0 = Frac((p0 + p1) * p2);
+            h1 = Frac((p0 + p2) * p1);
+            h2 = Frac((p1 + p2) * p0);
+        }
+
+        /// <summary>PatchUV: the map's uv (u, v) as the patch at cell (x, z) reads it: a quarter turn, maybe mirrored, then shifted.</summary>
+        public static void PatchUV(float u, float v, float cellX, float cellZ, out float ru, out float rv)
+        {
+            float h0, h1, h2;
+            PatchHash(cellX, cellZ, out h0, out h1, out h2);
+            float a = h0 < 0.5f ? u : -u, b = v;
+            float q = Frac(h0 * 2f) * 4f;
+            if (q < 1f) { ru = a; rv = b; }
+            else if (q < 2f) { ru = -b; rv = a; }
+            else if (q < 3f) { ru = -a; rv = -b; }
+            else { ru = b; rv = -a; }
+            ru += h1;
+            rv += h2;
+        }
+
+        /// <summary>FrontAt: the fronts at x, z (m), about -1.5..1.5.</summary>
+        public static float Front(float x, float z)
+        {
+            return 0.5f * (float)(Math.Sin(x * 5.3e-5 + z * 4.1e-5 + 0.9)
+                                + Math.Sin(x * -4.4e-5 + z * 2.6e-5 + 2.3)
+                                + Math.Sin(x * 1.5e-5 + z * -6.1e-5 + 4.4));
+        }
+
+        /// <summary>FarBlend without the front: lookups `values` under `weights`, the map's contrast kept.</summary>
+        public static float Blend(float[] weights, float[] values, float mean)
+        {
+            float sum = 0f, squares = 0f;
+            for (int i = 0; i < weights.Length; i++)
+            {
+                sum += weights[i] * (values[i] - mean);
+                squares += weights[i] * weights[i];
+            }
+            return mean + sum / (float)Math.Sqrt(squares);
+        }
+
+        private static float Frac(float v)
+        {
+            return v - (float)Math.Floor(v);
         }
 
         /// <summary>

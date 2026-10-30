@@ -7,10 +7,12 @@
 # What it guards: the numbers the plan rests on (the drop, where the base meets the horizon), the
 # stable roots, and the shader's way of finding a ray's stretch in the layer (CurvedClouds.Slab, the
 # C# twin of CloudRaymarch CurvedSlab) against a brute-force walk along the ray, from under the base,
-# inside the layer and over it, near the map's centre and at its corner.
+# inside the layer and over it, near the map's centre and at its corner. Then the far sky (2026-10-30):
+# the patches' weights (whole, continuous, mostly one read), the lattice riding with the drift, every
+# patch's turn keeping a whole repeat whole, the blend keeping the map's contrast, the fronts' range.
+# Drift.cs is compiled beside it (the lattice's phase).
 
-$source = Join-Path $PSScriptRoot "..\VolumetricClouds\Sky\CurvedClouds.cs"
-Add-Type -TypeDefinition (Get-Content $source -Raw)
+Add-Type -Path ("CurvedClouds.cs", "Drift.cs" | ForEach-Object { Join-Path $PSScriptRoot "..\VolumetricClouds\Sky\$_" })
 
 $C = [VolumetricClouds.Sky.CurvedClouds]
 $failed = 0
@@ -42,10 +44,128 @@ $h1 = $C::HorizonDistance(1, 850); $h4 = $C::HorizonDistance(4, 850)
 Check "850 m base meets the horizon ~104 km out" (Near $h1 104070 300) ("{0:F0} m" -f $h1)
 Check "at 400% half as far" (Near $h4 ($h1 / 2) 1) ("{0:F0} m" -f $h4)
 
-# ---- the warp never reaches the C# twins (they only look on the map: corner 12.2 km + rain slant) --
+# ---- the far sky's patches never reach the C# twins (they only look on the map: corner 12.2 km + rain slant)
 
-Check "warp begins past the map's corner" ($C::WarpFrom -ge 12220 + 3000) ("{0} m" -f $C::WarpFrom)
-Check "warp eases in" ($C::WarpFull -gt $C::WarpFrom)
+Check "patches begin past the map's corner" ($C::PatchFrom -ge 12220 + 3000) ("{0} m" -f $C::PatchFrom)
+Check "patches ease in" ($C::PatchBlend -gt 0 -and $C::FrontBlend -gt 0)
+
+# ---- the patches (twins of CloudCommon FarLookAt / PatchUV / FarBlend) ---------------------------
+
+$tile = 54000.0; $spacing = $C::PatchSpacing * $tile; $inv = [float](1.0 / $spacing)
+$cells = New-Object float[] 6; $w = New-Object float[] 3
+$r1 = New-Object System.Random 4242
+function Rand([double]$span) { return [float](($r1.NextDouble() * 2 - 1) * $span) }
+
+# Weights: never negative, summing to 1; most of the sky reads one patch alone.
+$bad = 0; $single = 0; $n = 4000
+for ($i = 0; $i -lt $n; $i++) {
+    $x = Rand 250000; $z = Rand 250000
+    $C::Patches($x, $z, 3.7, 11.2, $inv, $cells, $w)
+    $sum = $w[0] + $w[1] + $w[2]
+    if ([math]::Abs($sum - 1) -gt 1e-5 -or $w[0] -lt 0 -or $w[1] -lt 0 -or $w[2] -lt 0) { $bad++ }
+    if ((@($w | Where-Object { $_ -gt 0 })).Count -eq 1) { $single++ }
+}
+Check "weights sum to 1, never negative" ($bad -eq 0) ("{0} bad of {1}" -f $bad, $n)
+Check "most of the sky reads one patch" ($single -gt $n * 0.8) ("{0:P0} single" -f ($single / $n))
+
+# Continuity: a patch's weight changes smoothly -- the weight a given cell gets at two points 1 m apart.
+function WeightOf([float]$x, [float]$z, [float]$cx, [float]$cz) {
+    $C::Patches($x, $z, 3.7, 11.2, $inv, $cells, $w)
+    for ($k = 0; $k -lt 3; $k++) { if ($cells[2 * $k] -eq $cx -and $cells[2 * $k + 1] -eq $cz) { return $w[$k] } }
+    return 0.0
+}
+$jump = 0.0
+for ($i = 0; $i -lt 3000; $i++) {
+    $x = Rand 250000
+    $z = Rand 250000
+    $C::Patches($x, $z, 3.7, 11.2, $inv, $cells, $w)
+    for ($k = 0; $k -lt 3; $k++) {
+        $cx = $cells[2 * $k]; $cz = $cells[2 * $k + 1]
+        $a = WeightOf $x $z $cx $cz; $b = WeightOf ($x + 1) ($z + 1) $cx $cz
+        $jump = [math]::Max($jump, [math]::Abs($a - $b))
+    }
+}
+Check "patch weights continuous (1 m apart)" ($jump -lt 0.01) ("largest change {0:E1}" -f $jump)
+
+# The lattice rides with the wind: after a drift D the patches at p + D are the ones that were at p.
+$d = 1234567.89; $dz = -765432.1
+$px0 = [float]0; $pz0 = [float]0; $px1 = [float]0; $pz1 = [float]0
+$C::LatticePhase(0, 0, $spacing, [ref]$px0, [ref]$pz0)
+$C::LatticePhase($d, $dz, $spacing, [ref]$px1, [ref]$pz1)
+$moved = 0
+for ($i = 0; $i -lt 200; $i++) {
+    $x = Rand 50000; $z = Rand 50000
+    $c0 = New-Object float[] 6; $c1 = New-Object float[] 6; $w0 = New-Object float[] 3; $w1 = New-Object float[] 3
+    $C::Patches($x, $z, $px0, $pz0, $inv, $c0, $w0)
+    # The same point carried by the drift (its cells differ by whole lattice repeats: compare hashes).
+    $xr = [float]($x + $d); $zr = [float]($z + $dz)
+    $C::Patches($xr, $zr, $px1, $pz1, $inv, $c1, $w1)
+    $h0 = 0.0; $h1 = 0.0; $hh = [float]0; $hz = [float]0; $hw = [float]0
+    $C::PatchHash($c0[0], $c0[1], [ref]$hh, [ref]$hz, [ref]$hw); $h0 = $hh + $hz
+    $C::PatchHash($c1[0], $c1[1], [ref]$hh, [ref]$hz, [ref]$hw); $h1 = $hh + $hz
+    if ((Near $w0[0] $w1[0] 0.02) -and (Near $h0 $h1 1e-4)) { $moved++ }
+}
+Check "the lattice rides with the drift" ($moved -ge 196) ("{0} of 200 points" -f $moved)
+
+# Every patch's turn keeps the map's repeat whole (the drift wraps by whole repeats: no jump).
+$whole = 0
+for ($i = 0; $i -lt 500; $i++) {
+    $cx = [float][math]::Floor((Rand 200)); $cz = [float][math]::Floor((Rand 200))
+    $u = Rand 10; $v = Rand 10
+    $a1 = [float]0; $b1 = [float]0; $a2 = [float]0; $b2 = [float]0; $a3 = [float]0; $b3 = [float]0
+    $C::PatchUV($u, $v, $cx, $cz, [ref]$a1, [ref]$b1)
+    $C::PatchUV($u + 1, $v, $cx, $cz, [ref]$a2, [ref]$b2)
+    $C::PatchUV($u, $v + 1, $cx, $cz, [ref]$a3, [ref]$b3)
+    $ok = $true
+    foreach ($q in ($a2 - $a1), ($b2 - $b1), ($a3 - $a1), ($b3 - $b1)) { if (-not (Near $q ([math]::Round($q)) 1e-4)) { $ok = $false } }
+    if ($ok) { $whole++ }
+}
+Check "a whole repeat stays whole in every patch" ($whole -eq 500) ("{0} of 500" -f $whole)
+
+# The patches differ: all eight turns, offsets spread over the map.
+$turns = @{}; $offs = New-Object int[] 4
+for ($cx = 0; $cx -lt 64; $cx++) { for ($cz = 0; $cz -lt 64; $cz++) {
+    $a = [float]0; $b = [float]0
+    $C::PatchUV(0.3, 0.1, $cx, $cz, [ref]$a, [ref]$b)
+    $hh = [float]0; $h1 = [float]0; $h2 = [float]0
+    $C::PatchHash($cx, $cz, [ref]$hh, [ref]$h1, [ref]$h2)
+    $turns[[int][math]::Floor($hh * 8)] = 1
+    $offs[[int][math]::Floor($h1 * 2) + 2 * [int][math]::Floor($h2 * 2)]++
+} }
+Check "all eight turns used" ($turns.Count -eq 8)
+$minQ = ($offs | Measure-Object -Minimum).Minimum
+Check "offsets spread over the map" ($minQ -gt 4096 / 4 * 0.8) ("quadrants {0}" -f ($offs -join ' '))
+
+# The blend keeps the contrast: two halves of unrelated reads spread like one.
+$r2 = New-Object System.Random 77
+$acc = 0.0; $m = 0.5; $trials = 20000
+foreach ($pair in @(@(0.5, 0.5), @(0.8, 0.2), @(0.34, 0.33, 0.33))) {
+    $acc = 0.0
+    for ($i = 0; $i -lt $trials; $i++) {
+        $vals = New-Object float[] $pair.Count
+        for ($k = 0; $k -lt $pair.Count; $k++) {
+            $g = [math]::Sqrt(-2 * [math]::Log(1 - $r2.NextDouble())) * [math]::Cos(2 * [math]::PI * $r2.NextDouble())
+            $vals[$k] = [float]($m + 0.1 * $g)
+        }
+        $b = $C::Blend([float[]]$pair, $vals, $m) - $m
+        $acc += $b * $b
+    }
+    $sd = [math]::Sqrt($acc / $trials)
+    Check ("blend keeps the spread ({0})" -f ($pair -join '/')) (Near $sd 0.1 0.004) ("{0:F4} (0.1000)" -f $sd)
+}
+
+# ---- the fronts ----------------------------------------------------------------------------------
+
+$lo = 9.0; $hi = -9.0; $acc = 0.0; $steep = 0.0
+for ($i = 0; $i -lt 5000; $i++) {
+    $x = Rand 500000; $z = Rand 500000
+    $f = $C::Front($x, $z)
+    $lo = [math]::Min($lo, $f); $hi = [math]::Max($hi, $f); $acc += $f * $f
+    $steep = [math]::Max($steep, [math]::Abs($C::Front($x + 1000, $z) - $f))
+}
+Check "fronts within -1.5..1.5" ($lo -ge -1.5 -and $hi -le 1.5) ("{0:F2} .. {1:F2}" -f $lo, $hi)
+Check "fronts both ways" ($lo -lt -1 -and $hi -gt 1)
+Check "fronts slow (per km)" ($steep -lt 0.15) ("{0:F3} at most per km" -f $steep)
 
 # ---- the haze ------------------------------------------------------------------------------------
 

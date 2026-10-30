@@ -575,6 +575,43 @@ namespace VolumetricClouds.Sky
             return GpuReadsSrgb ? SrgbToLinear(stored) : stored;
         }
 
+        private float[] _statsFor;
+        private bool _statsSrgb;
+        private float _readMean, _readSpread;
+
+        /// <summary>
+        /// The map's mean and standard deviation AS THE SHADERS READ IT (gamma-decoded where the GPU
+        /// decodes): Curved clouds' far patches blend their lookups round the mean so the contrast stays
+        /// the map's, and the fronts move it in standard deviations. Main thread; worked out once per
+        /// pattern (and again if the decoding measurement changes it).
+        /// </summary>
+        public void ReadStats(out float mean, out float spread)
+        {
+            float[] density = _density;
+            if (!ReferenceEquals(_statsFor, density) || _statsSrgb != GpuReadsSrgb)
+            {
+                double sum = 0.0, squares = 0.0;
+                for (int i = 0; i < density.Length; i++)
+                {
+                    double v = AsTheGpuReadsIt(density[i]);
+                    sum += v;
+                    squares += v * v;
+                }
+
+                double m = sum / density.Length;
+                _readMean = (float)m;
+                _readSpread = (float)System.Math.Sqrt(System.Math.Max(squares / density.Length - m * m, 1e-8));
+                _statsFor = density;
+                _statsSrgb = GpuReadsSrgb;
+            }
+
+            mean = _readMean;
+            spread = _readSpread;
+        }
+
+        /// <summary>The normal scores' standard deviation as stored: (z + ScoreRange) / (2 ScoreRange), z ~ N(0, 1).</summary>
+        public const float ScoreSpread = 1f / (2f * ScoreRange);
+
         // One solved table per softness asked for, over one shared histogram: the fog (0.1) and
         // the cloud fragments (the clouds' softness) both ask every frame, and a single slot
         // would rebuild the whole histogram on every call.
