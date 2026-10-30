@@ -8,7 +8,8 @@
 #
 # What it does, in order:
 #   1. Checks the release is ready: the game is closed, the git tree is committed, Mod.Version
-#      is newer than the last v* tag, and CHANGELOG.md has that version dated (not "unreleased").
+#      is newer than the last v* tag, CHANGELOG.md has that version dated (not "unreleased"), and
+#      all three shader bundles were built from the current sources (build-bundle.ps1 -All).
 #   2. Builds (which deploys to Addons\Mods) and checks the deployed DLL carries Mod.Version.
 #   3. Runs every offline test, including the Metal (Apple) and AMD compile checks of the shipped
 #      shaders; one failure stops the release.
@@ -119,6 +120,21 @@ if ($changelog -notmatch $heading) {
 } elseif ($Matches[1] -match "unreleased") {
     Stop-Release "CHANGELOG.md still says '## $version -- unreleased': put the date in"
 } else { Ok "## $version, dated $($Matches[1].Trim())" }
+
+# Day to day only the Windows bundle is built (the author's call 2026-10-30): the Mac and Linux ones go
+# stale between releases, and an old Mac bundle would pass every check below (test-metal included) while
+# shipping last release's shaders. build-bundle.ps1 records what each bundle was built from.
+Step "Every platform's bundle was built from these shader sources (build-bundle.ps1 -All)"
+$sourcesHash = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "bundle-sources.ps1")
+$stampFile = Join-Path $root "VolumetricClouds\Resources\bundles-built-from.txt"
+$stamps = @{}
+if (Test-Path $stampFile) {
+    foreach ($line in Get-Content $stampFile) { if ($line -match '^(win|linux|mac)\s+(\S+)') { $stamps[$Matches[1]] = $Matches[2] } }
+}
+$stale = @("win", "linux", "mac" | Where-Object { $stamps[$_] -ne $sourcesHash })
+if ($stale.Count -gt 0) {
+    Stop-Release ("built from older sources (or never recorded): " + ($stale -join ", ") + ". Run .\build-bundle.ps1 -All, commit, run again.")
+} else { Ok ("win, linux, mac from sources " + $sourcesHash.Substring(0, 12)) }
 
 # ---- 2. Build ---------------------------------------------------------------------------------
 

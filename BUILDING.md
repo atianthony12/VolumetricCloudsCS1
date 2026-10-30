@@ -48,11 +48,15 @@ APIs of its build target (`volumetricclouds-win.bundle`: Direct3D 11 and OpenGL 
 time. After editing anything under `UnityProject\Assets`:
 
 ```
-.\build-bundle.ps1
+.\build-bundle.ps1          # the Windows bundle only (day to day)
+.\build-bundle.ps1 -All     # all three: for a release, or to test on a Mac or on Linux
 ```
 
 then rebuild the mod to embed the new bundles. The script prints each bundle's size, hash
-and whether it changed.
+and whether it changed. A bundle it does not build stays as it was;
+`VolumetricClouds\Resources\bundles-built-from.txt` records which sources each bundle was last
+built from (`tools\bundle-sources.ps1`), and `tools\release.ps1` refuses a release until all
+three were built from the current ones.
 
 Three traps, all of which have bitten this project:
 
@@ -77,7 +81,8 @@ UnityProject/Bundles/win/volumetricclouds -Name "VolumetricClouds/<shader>"` dis
 Direct3D 11 code of any of them, and `tools/bundle-apis.ps1 -Bundle <new> -Compare <old>`
 proves, shader by shader, that a change left the Direct3D 11 code untouched.
 `tools/test-metal.ps1` compiles every Metal program in the mac bundle with Apple's own compiler
-(Metal Developer Tools for Windows), the way a Mac does when the shader loads.
+(Metal Developer Tools for Windows), the way a Mac does when the shader loads. It reads the mac
+bundle as it is, so it only checks new shader code after `build-bundle.ps1 -All`.
 
 ## Hard constraints
 

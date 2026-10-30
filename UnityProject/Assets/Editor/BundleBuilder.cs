@@ -6,9 +6,11 @@ using UnityEngine.Rendering;
 /// <summary>
 /// Builds the shader bundles the mod embeds: one per platform, because a bundle only holds
 /// code for the graphics APIs of its build target (and the Mac's Metal can only come out of
-/// a Mac-target build). Run headless:
-///   Unity.exe -batchmode -nographics -quit -projectPath . -executeMethod BundleBuilder.Build
-/// Needs the Mac and Linux Build Support modules of this exact editor version installed.
+/// a Mac-target build). Run headless (build-bundle.ps1 does):
+///   Unity.exe -batchmode -nographics -quit -projectPath . -executeMethod BundleBuilder.Build -vcBundles win,linux,mac
+/// -vcBundles names the bundles to build; without it, Windows alone (day to day, the author's call
+/// 2026-10-30: Mac and Linux only for a release). Windows is always built last, so the editor is left
+/// on the Windows target. Needs the Mac and Linux Build Support modules of this exact editor version.
 /// </summary>
 public static class BundleBuilder
 {
@@ -45,7 +47,8 @@ public static class BundleBuilder
     }
 
     /// <summary>
-    /// The three bundles and the graphics APIs each carries. The names are the resource
+    /// The three bundles and the graphics APIs each carries, in the order they are built (Windows
+    /// last: each build switches the editor's target, and it should end on the one he runs). The names are the resource
     /// names ("volumetricclouds-win.bundle"...) ShaderBundle picks from by Application.platform,
     /// and build-bundle.ps1 checks each bundle against the same platform lists.
     /// - Windows: no D3D9 any more. The target-3.5 raymarch never had D3D9 code, so the mod
@@ -59,12 +62,6 @@ public static class BundleBuilder
     {
         new Target
         {
-            Name = "win",
-            BuildTarget = BuildTarget.StandaloneWindows64,
-            Apis = new[] { GraphicsDeviceType.Direct3D11, GraphicsDeviceType.OpenGLCore },
-        },
-        new Target
-        {
             Name = "linux",
             BuildTarget = BuildTarget.StandaloneLinux64,
             Apis = new[] { GraphicsDeviceType.OpenGLCore },
@@ -75,7 +72,25 @@ public static class BundleBuilder
             BuildTarget = BuildTarget.StandaloneOSXUniversal,
             Apis = new[] { GraphicsDeviceType.Metal, GraphicsDeviceType.OpenGLCore },
         },
+        new Target
+        {
+            Name = "win",
+            BuildTarget = BuildTarget.StandaloneWindows64,
+            Apis = new[] { GraphicsDeviceType.Direct3D11, GraphicsDeviceType.OpenGLCore },
+        },
     };
+
+    /// <summary>The bundles -vcBundles names (comma-separated), or "win" without it.</summary>
+    private static string[] Wanted()
+    {
+        string[] args = System.Environment.GetCommandLineArgs();
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] == "-vcBundles")
+                return args[i + 1].Split(',');
+        }
+        return new[] { "win" };
+    }
 
     /// <summary>
     /// One UNCOMPRESSED bundle per target in Bundles/[name]/volumetricclouds, and that exact
@@ -87,8 +102,25 @@ public static class BundleBuilder
     /// </summary>
     public static void Build()
     {
+        string[] wanted = Wanted();
+        foreach (string name in wanted)
+        {
+            if (System.Array.FindIndex(Targets, t => t.Name == name) < 0)
+            {
+                Debug.LogError("BUNDLE BUILD: no bundle named '" + name + "' (win, linux, mac)");
+                EditorApplication.Exit(1);
+                return;
+            }
+        }
+
         foreach (Target target in Targets)
         {
+            if (System.Array.IndexOf(wanted, target.Name) < 0)
+            {
+                Debug.Log("BUNDLE BUILD SKIPPED: " + target.Name + " (not asked for; left as it was)");
+                continue;
+            }
+
             if (!BuildOne(target))
             {
                 EditorApplication.Exit(1);
@@ -96,7 +128,7 @@ public static class BundleBuilder
             }
         }
 
-        Debug.Log("BUNDLE BUILD ALL OK");
+        Debug.Log("BUNDLE BUILD ALL OK: " + string.Join(",", wanted));
     }
 
     /// <summary>The project settings a build changes to the game's, as found, to put back.</summary>
