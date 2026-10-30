@@ -64,6 +64,7 @@ Shader "VolumetricClouds/WindDebris"
                 float4 colour : TEXCOORD1;   // premultiplied
                 float4 screen : TEXCOORD2;   // xyw = for the depth texture, z = the particle's eye depth
                 float soft : TEXCOORD3;      // dust: how deep (m) its fade at the ground is; 0 = none
+                float kind : TEXCOORD4;      // leaves: 0..1, which shape (over 0.6 a lobed edge)
             };
 
             // pcg4d (Jarzynski & Olano, "Hash Functions for GPU Rendering", JCGT 2020): four numbers 0..1.
@@ -93,6 +94,7 @@ Shader "VolumetricClouds/WindDebris"
                 v2f o;
                 o.corner = v.corner;
                 o.soft = 0.0;
+                o.kind = v.vertex.z;
 
                 float3 seed = v.vertex.xyz;
                 float3 e = v.extra;
@@ -192,6 +194,17 @@ Shader "VolumetricClouds/WindDebris"
             {
                 float2 c = i.corner;
                 float d2 = dot(c, c);
+
+                // A leaf (c.y along it, -1 the stem's end, 1 the tip): pointed at the tip, widest toward
+                // the stem, some with a lobed edge (an oak's, a maple's); one half darker, as a leaf folds
+                // along its midrib and its two halves meet the light differently. The edge a pixel
+                // soft (its derivative, taken here, outside any branch).
+                float y = c.y;
+                float width = 0.62 * pow(saturate(1.0 - y * y), 0.75) * (1.0 - 0.25 * y);
+                width *= i.kind > 0.6 ? 1.0 - 0.2 * abs(sin(y * 9.0 + 6.2831853 * i.kind)) : 1.0;
+                float edge = width - abs(c.x);
+                float leaf = saturate(edge / max(fwidth(edge), 1e-4) + 0.5) * (c.x > 0.0 ? 1.0 : 0.72);
+
                 float4 colour = i.colour;
                 if (i.soft > 0.0)
                 {
@@ -201,8 +214,7 @@ Shader "VolumetricClouds/WindDebris"
                 }
                 else
                 {
-                    // A leaf: an oval with a soft rim.
-                    colour *= saturate((1.0 - d2) * 4.0);
+                    colour *= leaf;
                 }
 
                 return colour;

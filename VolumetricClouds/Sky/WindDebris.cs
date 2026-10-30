@@ -35,9 +35,13 @@ namespace VolumetricClouds.Sky
         /// <summary>Trees in a 32 m cell that make it a wood (r = 1).</summary>
         private const float WoodTrees = 5f;
 
-        /// <summary>The wind (breezes, after the rows) where leaves begin and where they are all out; the same for dust.</summary>
-        private const float LeavesFrom = 1.1f, LeavesFull = 2.6f;
-        private const float DustFrom = 1.4f, DustFull = 3.0f;
+        /// <summary>
+        /// The wind (breezes, after the rows) where leaves begin and where they are all out; the same for
+        /// dust. Storms only (the author, 2026-10-30: "only at high winds ... It needs to be stormy at
+        /// least"): TreeWind.Describe's "stormy" starts at 2.
+        /// </summary>
+        private const float LeavesFrom = 2f, LeavesFull = 3f;
+        private const float DustFrom = 2.2f, DustFull = 3.4f;
 
         private const float MapInterval = 1f;
 
@@ -163,7 +167,9 @@ namespace VolumetricClouds.Sky
                 _leaves.SetVector(IdWind, new Vector4(dir.x, dir.z, wind.GustSpeed, Mathf.Clamp01(leaves)));
                 _leaves.SetVector(IdClock, new Vector4(clock.Phase, clock.Epoch, (float)TreeWind.ClockPeriod, LeafTile));
                 _leaves.SetVector(IdColor, new Vector4(0.20f, 0.19f, 0.07f, 0.95f * fog * Mathf.Min(1f, leaves)));
-                _leaves.SetVector(IdLook, new Vector4(0.22f, 1.3f, 0.9f, 0f));
+                // 12 cm across, a leaf's length 1.6 of that: small enough to read as leaves in the wind,
+                // not as shapes (the author: "make them smaller so the user doesn't see them directly").
+                _leaves.SetVector(IdLook, new Vector4(0.12f, 1.6f, 0.9f, 0f));
                 Graphics.DrawMesh(_leafMesh, Matrix4x4.identity, _leaves, 0, null, 0);
             }
 

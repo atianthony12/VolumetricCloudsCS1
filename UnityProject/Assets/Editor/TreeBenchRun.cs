@@ -113,7 +113,7 @@ public static class TreeBenchRun
                 mat.SetVector("_WVWind", new Vector4(1f, 0f, 15f, 1f));
                 mat.SetVector("_WVClock", new Vector4(0.37f, 3f, 64f, dust ? 400f : 300f));
                 mat.SetVector("_WVColor", dust ? new Vector4(0.42f, 0.36f, 0.27f, 0.11f) : new Vector4(0.2f, 0.19f, 0.07f, 0.95f));
-                mat.SetVector("_WVLook", dust ? new Vector4(1f, 1.8f, 0f, 0f) : new Vector4(0.22f, 1.3f, 0.9f, 0f));
+                mat.SetVector("_WVLook", dust ? new Vector4(1f, 1.8f, 0f, 0f) : new Vector4(0.12f, 1.6f, 0.9f, 0f));
                 mat.SetVector("_WVAmbient", new Vector4(0.4f, 0.4f, 0.45f, 0f));
                 mat.SetVector("_WVSun", new Vector4(1f, 0.95f, 0.9f, 0f));
                 mat.SetFloat("_PixelAngle", pixelAngle);
