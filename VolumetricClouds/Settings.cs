@@ -255,6 +255,12 @@ namespace VolumetricClouds
         /// <summary>How much rain and storms (a waterspout about) strengthen the wind (0..2).</summary>
         public static FloatSetting TreeStorms { get; private set; }
 
+        /// <summary>Leaves torn off and blown about near trees in a strong wind (Sky.WindDebris; 0 = none, 0..3).</summary>
+        public static FloatSetting TreeLeaves { get; private set; }
+
+        /// <summary>Dust (blowing snow on a winter map) lifted off dry open ground in a strong wind (Sky.WindDebris; 0..3).</summary>
+        public static FloatSetting TreeDust { get; private set; }
+
         /// <summary>
         /// Volumetric fog in the cloud pass, in place of the game's even grey-out. The game's
         /// distance haze, edge fog and pollution tint stay. OFF by default: it is the most
@@ -441,6 +447,16 @@ namespace VolumetricClouds
         /// moves along (sin a, 0, cos a), as WeatherManager.m_windDirection says.
         /// </summary>
         public static FloatSetting WindAngle { get; private set; }
+
+        /// <summary>
+        /// The Now tab's wind (2026-10-30): on, the trees' wind is <see cref="WindStrength"/> instead of
+        /// the weather's (Sky.TreeWind; the Trees rows still scale it). The weather of the moment: not in
+        /// a profile.
+        /// </summary>
+        public static BoolSetting WindOverride { get; private set; }
+
+        /// <summary>The overriding wind, in breezes (Sky.TreeWind: 1 = a breezy fair day, 3 a gale).</summary>
+        public static FloatSetting WindStrength { get; private set; }
 
         /// <summary>
         /// World-space size of one weather tile, in metres. Shared by the shadow cookie and
@@ -808,6 +824,10 @@ namespace VolumetricClouds
             public const int WindDirection = 0;
             public const float WindAngle = 0f;
 
+            /// <summary>The Now tab's wind: off (the weather's); 1 breeze when someone ticks it.</summary>
+            public const bool WindOverride = false;
+            public const float WindStrength = 1f;
+
             public const float WeatherTileSize = 13500f;
 
             /// <summary>Off: every city keeps the pattern it had (the author: "By default let's not change it").</summary>
@@ -1056,6 +1076,8 @@ namespace VolumetricClouds
             public const float TreeGusts = 1f;
             public const float TreeFlutter = 1f;
             public const float TreeStorms = 1f;
+            public const float TreeLeaves = 1f;
+            public const float TreeDust = 1f;
 
             // ---- fog ----
 
@@ -1215,6 +1237,8 @@ namespace VolumetricClouds
                 TreeGusts = new FloatSetting("TreeGusts", Defaults.TreeGusts);
                 TreeFlutter = new FloatSetting("TreeFlutter", Defaults.TreeFlutter);
                 TreeStorms = new FloatSetting("TreeStorms", Defaults.TreeStorms);
+                TreeLeaves = new FloatSetting("TreeLeaves", Defaults.TreeLeaves);
+                TreeDust = new FloatSetting("TreeDust", Defaults.TreeDust);
 
                 // "VolumetricFogEnabled" in the .cgs, not the older "FogEnabled" key: that one is
                 // saved as true on the one machine that has it, from before the switch became an
@@ -1281,6 +1305,8 @@ namespace VolumetricClouds
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);
                 WindDirection = new IntSetting("WindDirection", Defaults.WindDirection);
                 WindAngle = new FloatSetting("WindAngle", Defaults.WindAngle);
+                WindOverride = new BoolSetting("WindOverride", Defaults.WindOverride);
+                WindStrength = new FloatSetting("WindStrength", Defaults.WindStrength);
                 // Not the old "CookieTileSize": its 2000 m default was saved into existing
                 // settings files and is far too small for cloud-sized features.
                 WeatherTileSize = new FloatSetting("WeatherTileSize", Defaults.WeatherTileSize);

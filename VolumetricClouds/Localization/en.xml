@@ -113,6 +113,8 @@
   <String key="WindDirection.Slowly">Follow the game slowly</String>
   <String key="WindDirection.Fixed">Fixed</String>
   <String key="WindAngle.Label">Fixed wind direction</String>
+  <String key="WindOverride.Label">Override the wind</String>
+  <String key="WindStrength.Label">Wind strength</String>
 
   <String key="FogOverride.Label">Override fog</String>
 
@@ -311,9 +313,13 @@
 
   <String key="TreeGusts.Label">Gusts</String>
 
-  <String key="TreeFlutter.Label">Leaves flutter</String>
+  <String key="TreeFlutter.Label">Leaves and branches move</String>
 
   <String key="TreeStorms.Label">Rain and storms strengthen the wind</String>
+
+  <String key="TreeLeaves.Label">Leaves blown about in strong wind</String>
+
+  <String key="TreeDust.Label">Dust in strong wind</String>
 
   <!-- ==================== In-game panel: Light ==================== -->
 
@@ -473,6 +479,12 @@
   <String key="Readout.Warm">warm {0}%</String>
   <String key="Readout.ActivityNone">{0}% (none)</String>
   <String key="Readout.ActivityEvery">{0}% (every {1} s)</String>
+  <String key="Readout.Wind.Calm">{0} (calm)</String>
+  <String key="Readout.Wind.Light">{0} (light breeze)</String>
+  <String key="Readout.Wind.Breezy">{0} (breezy)</String>
+  <String key="Readout.Wind.Windy">{0} (windy)</String>
+  <String key="Readout.Wind.Stormy">{0} (stormy)</String>
+  <String key="Readout.Wind.Gale">{0} (gale)</String>
 
   <!-- ==================== The settings file (VolumetricClouds.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in

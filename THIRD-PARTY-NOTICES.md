@@ -96,9 +96,11 @@ and the raymarches' blue-noise jitter is made with Robert Ulichney's void-and-cl
 The trees' wind bends each tree about its base and puts every point back at its old distance from
 it, so the tree leans instead of shearing — the main bending of Tiago Sousa's *Vegetation
 Procedural Animation and Shading in Crysis* (*GPU Gems 3*, chapter 16, 2007), whose detail bending
-also suggested the leaves' flutter weighted by a per-vertex mask (here the game's own sway weight).
-The gust field's value noise hashes its cells with pcg2d from Mark Jarzynski and Marc Olano, *Hash
-Functions for GPU Rendering* (Journal of Computer Graphics Techniques, 2020). Both were written for
+also suggested the branches' own swing and the leaves' flutter, weighted by a per-vertex mask (here
+the game's own sway weight), and the sway as a sum of waves at rates that do not line up.
+The gust field's value noise hashes its cells with pcg2d, and the leaves and dust a strong wind
+carries draw each life's random numbers with pcg4d, both from Mark Jarzynski and Marc Olano, *Hash
+Functions for GPU Rendering* (Journal of Computer Graphics Techniques, 2020). All were written for
 this mod from the published descriptions.
 
 Other mods were read to understand the game's behaviour and to stay compatible with them —

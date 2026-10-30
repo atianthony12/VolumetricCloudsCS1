@@ -1054,6 +1054,12 @@ namespace VolumetricClouds.UI
             return Localization.Get("Unit.Times", value.ToString("F2"));
         }
 
+        /// <summary>The wind in breezes, and what it is: "1.6 (windy)".</summary>
+        private static string WindName(float value)
+        {
+            return Localization.Get(TreeWind.DescribeKey(value), value.ToString("F1"));
+        }
+
         private static string Steps(float value)
         {
             return value.ToString("F0");
@@ -1490,6 +1496,32 @@ namespace VolumetricClouds.UI
                 Format = Degrees,
                 Profiled = false,
                 Shown = () => CloudWeather.WindMode == CloudWeather.WindFixed,
+            });
+
+            // 2026-10-30 (the author: "add a Wind override ... where the wind direction dropdown is"):
+            // the trees' wind set by hand, calm to a gale, instead of the weather's (Sky.TreeWind; the
+            // Weather tab's Trees rows still scale it). The weather of the moment: not in a profile.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Now,
+                Bool = Settings.WindOverride,
+                DefaultBool = Settings.Defaults.WindOverride,
+                Profiled = false,
+                Enabled = TreeWindOn,
+                AfterChange = State("override the wind", OnOff(Settings.WindOverride)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Now,
+                Float = Settings.WindStrength,
+                DefaultFloat = Settings.Defaults.WindStrength,
+                Min = 0f, Max = TreeWind.OverrideMost, Step = 0.1f,
+                Format = WindName,
+                Profiled = false,
+                Enabled = () => TreeWindOn() && Settings.WindOverride != null && Settings.WindOverride.value,
             });
 
             Add(new Row
@@ -2410,6 +2442,29 @@ namespace VolumetricClouds.UI
                 Float = Settings.TreeStorms,
                 DefaultFloat = Settings.Defaults.TreeStorms,
                 Min = 0f, Max = 200f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+
+            // 2026-10-30 (the author: "I still don't see leaves flying around if wind is too strong, dust
+            // kicking a bit"): Sky.WindDebris. 100% = the design's; they start in a windy spell and grow
+            // into a storm.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeLeaves,
+                DefaultFloat = Settings.Defaults.TreeLeaves,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeDust,
+                DefaultFloat = Settings.Defaults.TreeDust,
+                Min = 0f, Max = 300f, Step = 5f,
                 Enabled = TreeWindOn,
             });
         }

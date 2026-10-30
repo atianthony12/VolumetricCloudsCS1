@@ -76,6 +76,8 @@
   <String key="WindDirection.Slowly">Seguir el juego despacio</String>
   <String key="WindDirection.Fixed">Fija</String>
   <String key="WindAngle.Label">Dirección fija del viento</String>
+  <String key="WindOverride.Label">Forzar el viento</String>
+  <String key="WindStrength.Label">Fuerza del viento</String>
 
   <String key="FogOverride.Label">Forzar niebla</String>
 
@@ -268,9 +270,13 @@
 
   <String key="TreeGusts.Label">Ráfagas</String>
 
-  <String key="TreeFlutter.Label">Las hojas se agitan</String>
+  <String key="TreeFlutter.Label">Hojas y ramas se mueven</String>
 
   <String key="TreeStorms.Label">La lluvia y las tormentas refuerzan el viento</String>
+
+  <String key="TreeLeaves.Label">Hojas arrastradas por el viento fuerte</String>
+
+  <String key="TreeDust.Label">Polvo con viento fuerte</String>
 
   <!-- ==================== In-game panel: Light ==================== -->
 
@@ -416,6 +422,12 @@
   <String key="Readout.Warm">cálido {0}%</String>
   <String key="Readout.ActivityNone">{0}% (ninguno)</String>
   <String key="Readout.ActivityEvery">{0}% (cada {1} s)</String>
+  <String key="Readout.Wind.Calm">{0} (calma)</String>
+  <String key="Readout.Wind.Light">{0} (brisa ligera)</String>
+  <String key="Readout.Wind.Breezy">{0} (brisa)</String>
+  <String key="Readout.Wind.Windy">{0} (ventoso)</String>
+  <String key="Readout.Wind.Stormy">{0} (tormenta)</String>
+  <String key="Readout.Wind.Gale">{0} (temporal)</String>
 
   <!-- ==================== The settings file (VolumetricClouds.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in

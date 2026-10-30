@@ -17,10 +17,16 @@
 //   GPU Gems 3 ch. 16, 2007: the main bending);
 // - the gusts: a value-noise field (two octaves) drifting downwind across the map, the lean x
 //   1 +- the gust strength where it passes;
-// - each tree's own sway round its lean, at a frequency from its size (smaller trees faster), with a
-//   little across the wind; whole cycles in the clock's period, so the wrapped clock never jumps;
-// - the flutter: the leaves' and twigs' own quick motion along their normals and the wind, weighted
-//   by the game's own sway weight (the vertex colour's alpha); near trees only.
+// - each tree's own sway round its lean: three rates round its natural one (from its size: smaller
+//   trees faster) that never line up, so it is not a metronome, and some across the wind; stronger
+//   where a gust passes, quieter in a lull;
+// - the branches: each part of the crown swinging on its own (a phase that changes every couple of
+//   metres) along the wind, up and down and across, more the higher and farther out it is (Sousa's
+//   detail bending);
+// - the leaves: a quicker, finer motion every way (their normal, across, up), growing with the
+//   square of the wind, so a storm throws the foliage about;
+// - branches and leaves weighted by the game's own sway weight (the vertex colour's alpha); near
+//   trees only. Every rate is a whole number of cycles in the clock's period, so its wrap never jumps.
 // Every per-tree number comes from the tree's x, z and size only, so a near tree and its billboard
 // move alike at the handover. All times and drifts are wrapped in C# (no shader sees a drift).
 #ifndef VW_TREES_INCLUDED
@@ -32,7 +38,7 @@ float4 _WindDirection;
 float4 _VWTreeWind;    // x 1 = VW's wind, y the lean (radians, before the tree's own wind and the gusts), z the gust strength, w the flutter (m)
 float4 _VWTreeWindDir; // xyz the way the wind blows (world, level, unit), w the clock: 0..1 over _VWTreeClock.x seconds
 float4 _VWTreeGust;    // xy the gust field's drift (m, wrapped to its tile), z 1 / its cell (m), w the sway's share of the lean
-float4 _VWTreeClock;   // x the clock's period (s), y the share across the wind, z, w unused
+float4 _VWTreeClock;   // x the clock's period (s), y the share across the wind, z the branches' swing (share of the tree's size), w unused
 
 // The gust field's tile, in cells of its first octave (the second is 2.5 x finer, 320 cells): the
 // drift is wrapped to it in C# (TreeWind.GustTileCells).
@@ -115,6 +121,13 @@ float2 VWPlacePhase(float2 xz)
 		frac(0.173 * xz.x - 0.119 * xz.y + 1.3 * s.y));
 }
 
+// The sine of an angle in turns, reduced first: a GPU's sin of hundreds of radians is off by a tenth
+// of a radian (the bench's C# twin found it).
+float VWSinTurns(float turns)
+{
+	return sin(6.2831853 * frac(turns));
+}
+
 // VW's wind on point p of a tree whose base is b (p, b, n in a frame whose y is up and level as the
 // world's; place = the tree's world x, z). height: the tree's size (m); speed: its own wind (the
 // game's, 1 on open ground; Tree Control's factor in it); flutter: the point's sway weight (0 on
@@ -122,32 +135,54 @@ float2 VWPlacePhase(float2 xz)
 float3 VWWindPoint(float3 p, float3 b, float2 place, float height, float speed, float flutter, float3 n)
 {
 	float H = max(height, 1.0);
-	float k = clamp(speed, 0.0, 2.0);
+	// Small trees and bushes are stiffer and sheltered: everything x (H / 12 m)^0.75, 0.3 to 1
+	// (a 3 m bush 35%, a 6 m tree 59%, 12 m and up 100%).
+	float k = clamp(speed, 0.0, 2.0) * pow(clamp(H * (1.0 / 12.0), 0.3, 1.0), 0.75);
 	float gust = VWGust(place);
-	float mean = _VWTreeWind.y * k * max(0.0, 1.0 + _VWTreeWind.z * (2.0 * gust - 1.0));
+	float lean = _VWTreeWind.y * k;
+	float mean = lean * max(0.0, 1.0 + _VWTreeWind.z * (2.0 * gust - 1.0));
+	// How hard the air churns here: half in a lull, one and a half in a gust.
+	float stir = 0.5 + gust;
 
-	// Every sine's argument kept within a turn (cycles, frac, then 2 pi): a GPU's sin of hundreds of
-	// radians is off by a tenth of a radian (the bench's C# twin found it), and a wrap of the clock in
-	// cycles is seamless where whole cycles fit its period.
+	// Every rate a whole number of cycles in the clock's period, all from the trunk's own (c, from the
+	// tree's size: about 1.2 / sqrt(H) Hz, 0.38 Hz for a 10 m tree); each sine's argument kept in turns
+	// (VWSinTurns).
 	float2 phase = VWPlacePhase(place);
 	float clock = _VWTreeWindDir.w;
-	float cycles = max(1.0, round(clamp(2.5 * rsqrt(H), 0.25, 1.4) * _VWTreeClock.x));
-	float a = 6.2831853 * frac(cycles * clock + phase.x);
-	float sway = sin(a) + 0.25 * sin(2.0 * a + 1.3);
-	float across = sin(6.2831853 * frac(max(1.0, round(cycles * 0.73)) * clock + phase.y));
+	float f0 = clamp(1.2 * rsqrt(H), 0.2, 0.9);
+	float c = max(1.0, round(f0 * _VWTreeClock.x));
+	float sway = 0.6 * VWSinTurns(c * clock + phase.x)
+	           + 0.3 * VWSinTurns(round(c * 1.618) * clock + phase.y)
+	           + 0.35 * VWSinTurns(max(1.0, round(c * 0.41)) * clock + phase.x + phase.y);
+	float across = 0.7 * VWSinTurns(max(1.0, round(c * 0.87)) * clock + phase.y)
+	             + 0.3 * VWSinTurns(round(c * 2.13) * clock + phase.x);
 
+	// The trunk: the lean and its sway, bent about the base and kept at its length.
 	float3 dir = _VWTreeWindDir.xyz;
 	float3 side = float3(-dir.z, 0.0, dir.x);
 	float3 r = p - b;
 	float h = max(r.y, 0.0);
-	float3 bent = r + (dir * (mean * (1.0 + _VWTreeGust.w * sway)) + side * (mean * _VWTreeClock.y * across)) * (h * h / H);
+	float along = mean + lean * _VWTreeGust.w * stir * sway;
+	float aside = lean * _VWTreeClock.y * stir * across;
+	float3 bent = r + (dir * along + side * aside) * (h * h / H);
 	bent *= sqrt(dot(r, r) / max(dot(bent, bent), 1e-8));
 
-	float quick = cycles * 3.0;
-	float spot = dot(r, float3(1.7, 2.3, 1.1)) * 0.15915494;
-	float f1 = sin(6.2831853 * frac(quick * clock + spot + phase.x));
-	float f2 = sin(6.2831853 * frac(round(quick * 1.37) * clock + spot * 0.7 + phase.y));
-	bent += (n * f1 + dir * (0.5 * f2)) * (_VWTreeWind.w * flutter * k * (0.6 + 0.8 * gust));
+	// The branches: each part of the crown on its own phase (about every 2 m), the outer and upper
+	// parts most.
+	float limb = flutter * saturate(h / (0.3 * H)) * (0.4 + 0.6 * saturate(length(r.xz) / (0.3 * H)));
+	float spot = dot(r, float3(0.23, 0.17, 0.29));
+	float b1 = VWSinTurns(round(c * 2.6) * clock + spot + phase.x);
+	float b2 = VWSinTurns(round(c * 3.7) * clock + spot * 1.3 + phase.y);
+	float b3 = VWSinTurns(round(c * 3.1) * clock - spot * 0.8 + phase.x + phase.y);
+	bent += (dir * (0.3 + 0.5 * b1) + float3(0.0, 0.45 * b2, 0.0) + side * (0.35 * b3)) * (_VWTreeClock.z * H * k * stir * limb);
+
+	// The leaves: quicker (1.8 to 3.6 Hz), finer (a phase about every 0.9 m), every way.
+	float cl = max(1.0, round(clamp(f0 * 6.0, 1.8, 3.6) * _VWTreeClock.x));
+	float leaf = dot(r, float3(0.61, 0.83, 0.47));
+	float l1 = VWSinTurns(cl * clock + leaf + phase.x);
+	float l2 = VWSinTurns(round(cl * 1.43) * clock + leaf * 0.7 + phase.y);
+	float l3 = VWSinTurns(round(cl * 1.19) * clock - leaf * 1.3 + phase.x);
+	bent += (n * l1 + side * (0.7 * l2) + float3(0.0, 0.5 * l3, 0.0) + dir * (0.25 + 0.35 * l2)) * (_VWTreeWind.w * flutter * k * (0.4 + 0.8 * gust));
 	return b + bent;
 }
 

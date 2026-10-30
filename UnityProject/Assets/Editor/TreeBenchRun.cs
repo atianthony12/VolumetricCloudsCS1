@@ -36,6 +36,7 @@ public static class TreeBenchRun
             SameAsTheGame();
             WindTwin();
             MotionVectors();
+            Debris();
         }
         catch (System.Exception e)
         {
@@ -56,6 +57,133 @@ public static class TreeBenchRun
         Line((ok ? "PASS " : "FAIL ") + what);
         if (!ok)
             _fails++;
+    }
+
+    // ---------------------------------------------------------------- the wind's leaves and dust
+
+    /// <summary>
+    /// WindDebris.shader as Sky/WindDebris.cs draws it: leaves show where the map has a wood, dust where
+    /// it has open dry ground, nothing on an empty map or on water.
+    /// </summary>
+    private static void Debris()
+    {
+        Shader shader = Load("WindDebris.shader");
+        GameObject camGo = new GameObject("debris camera");
+        Camera cam = camGo.AddComponent<Camera>();
+        cam.renderingPath = RenderingPath.Forward;
+        cam.depthTextureMode = DepthTextureMode.Depth;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = Color.clear;
+        cam.fieldOfView = 30f;
+        cam.farClipPlane = 5000f;
+        cam.transform.position = new Vector3(-30f, 25f, -60f);
+        cam.transform.LookAt(new Vector3(0f, 4f, 0f));
+        RenderTexture rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+        cam.targetTexture = rt;
+        Mesh seeds = Seeds(3000);
+        Material mat = new Material(shader);
+        try
+        {
+            float pixelAngle = 2f * Mathf.Tan(15f * Mathf.Deg2Rad) / Height;
+            // The map: 32 x 32 cells of 32 m, its corner 512 m west and south of the focus at (0, 0, 0).
+            System.Func<System.Func<int, int, Color>, Texture2D> map = f =>
+            {
+                Texture2D t = new Texture2D(32, 32, TextureFormat.RGBAFloat, false, true) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+                for (int z = 0; z < 32; z++)
+                    for (int x = 0; x < 32; x++)
+                        t.SetPixel(x, z, f(x, z));
+                t.Apply(false);
+                return t;
+            };
+            Texture2D wood = map((x, z) => x >= 12 && x < 18 && z >= 12 && z < 20 ? new Color(1f, 12f, 0f, 0f) : new Color(0f, 0f, 0f, 0f));
+            Texture2D open = map((x, z) => new Color(0f, 0f, 0f, 1f));
+            Texture2D empty = map((x, z) => new Color(0f, 0f, 0f, 0f));
+
+            string[] names = { "leaves over a wood", "leaves with no trees", "dust over open ground", "dust over water" };
+            float[] parts = { 0f, 0f, 1f, 1f };
+            Texture2D[] maps = { wood, empty, open, empty };
+            int[] drawn = new int[4];
+            for (int c = 0; c < 4; c++)
+            {
+                bool dust = parts[c] > 0.5f;
+                mat.SetFloat("_Part", parts[c]);
+                mat.SetVector("_WVFocus", Vector4.zero);
+                mat.SetVector("_WVMapPlace", new Vector4(-512f, -512f, 1f / 1024f, 0f));
+                mat.SetTexture("_WVMap", maps[c]);
+                mat.SetVector("_WVWind", new Vector4(1f, 0f, 15f, 1f));
+                mat.SetVector("_WVClock", new Vector4(0.37f, 3f, 64f, dust ? 400f : 300f));
+                mat.SetVector("_WVColor", dust ? new Vector4(0.42f, 0.36f, 0.27f, 0.11f) : new Vector4(0.2f, 0.19f, 0.07f, 0.95f));
+                mat.SetVector("_WVLook", dust ? new Vector4(1f, 1.8f, 0f, 0f) : new Vector4(0.22f, 1.3f, 0.9f, 0f));
+                mat.SetVector("_WVAmbient", new Vector4(0.4f, 0.4f, 0.45f, 0f));
+                mat.SetVector("_WVSun", new Vector4(1f, 0.95f, 0.9f, 0f));
+                mat.SetFloat("_PixelAngle", pixelAngle);
+                Graphics.DrawMesh(seeds, Matrix4x4.identity, mat, 0, cam, 0);
+                cam.Render();
+                RenderTexture.active = rt;
+                Texture2D read = new Texture2D(Width, Height, TextureFormat.RGBAFloat, false, true);
+                read.ReadPixels(new Rect(0, 0, Width, Height), 0, 0, false);
+                RenderTexture.active = null;
+                float sum = 0f, most = 0f;
+                foreach (Color p in read.GetPixels())
+                {
+                    if (p.r + p.g + p.b > 1e-4f)
+                        drawn[c]++;
+                    sum += p.a;
+                    most = Mathf.Max(most, p.a);
+                }
+
+                Line(string.Format(Inv, "{0}: {1} pixels touched, mean cover {2:F3} of the frame, at most {3:F2}", names[c], drawn[c], sum / (Width * Height), most));
+                Object.DestroyImmediate(read);
+            }
+
+            Check(drawn[0] > 100 && drawn[1] == 0, string.Format(Inv, "leaves fly only where the map has trees: {0} pixels over a wood, {1} with none", drawn[0], drawn[1]));
+            Check(drawn[2] > 100 && drawn[3] == 0, string.Format(Inv, "dust only over open dry ground: {0} pixels over it, {1} over water", drawn[2], drawn[3]));
+            Object.DestroyImmediate(wood);
+            Object.DestroyImmediate(open);
+            Object.DestroyImmediate(empty);
+        }
+        finally
+        {
+            Object.DestroyImmediate(mat);
+            Object.DestroyImmediate(seeds);
+            cam.targetTexture = null;
+            rt.Release();
+            Object.DestroyImmediate(camGo);
+        }
+    }
+
+    /// <summary>Sky/WindDebris.BuildSeeds's mesh.</summary>
+    private static Mesh Seeds(int count)
+    {
+        System.Random random = new System.Random(20261030);
+        Vector3[] vertices = new Vector3[count * 4];
+        Vector2[] corners = new Vector2[count * 4];
+        List<Vector3> more = new List<Vector3>(count * 4);
+        int[] triangles = new int[count * 6];
+        Vector2[] c4 = { new Vector2(-1f, -1f), new Vector2(1f, -1f), new Vector2(1f, 1f), new Vector2(-1f, 1f) };
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 s = new Vector3((float)random.NextDouble(), (float)random.NextDouble(), (float)random.NextDouble());
+            Vector3 extra = new Vector3((float)random.NextDouble(), (float)random.NextDouble(), (float)random.NextDouble());
+            for (int c = 0; c < 4; c++)
+            {
+                vertices[i * 4 + c] = s;
+                corners[i * 4 + c] = c4[c];
+                more.Add(extra);
+            }
+
+            int[] t = { 0, 1, 2, 0, 2, 3 };
+            for (int k = 0; k < 6; k++)
+                triangles[i * 6 + k] = i * 4 + t[k];
+        }
+
+        Mesh mesh = new Mesh();
+        mesh.vertices = vertices;
+        mesh.uv = corners;
+        mesh.SetUVs(1, more);
+        mesh.triangles = triangles;
+        mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
+        return mesh;
     }
 
     // ---------------------------------------------------------------- the scene
@@ -369,8 +497,8 @@ public static class TreeBenchRun
     {
         Shader.SetGlobalVector("_VWTreeWind", new Vector4(on ? 1f : 0f, lean, 0.5f, 0.06f));
         Shader.SetGlobalVector("_VWTreeWindDir", new Vector4(0.6f, 0f, 0.8f, 0.33f));
-        Shader.SetGlobalVector("_VWTreeGust", new Vector4(310f, -120f, 1f / 160f, 0.35f));
-        Shader.SetGlobalVector("_VWTreeClock", new Vector4(64f, 0.25f, 0f, 0f));
+        Shader.SetGlobalVector("_VWTreeGust", new Vector4(310f, -120f, 1f / 160f, 0.5f));
+        Shader.SetGlobalVector("_VWTreeClock", new Vector4(64f, 0.3f, 0.03f, 0f));
     }
 
     private static void SameAsTheGame()
@@ -466,10 +594,10 @@ public static class TreeBenchRun
         List<Vector3> pos = new List<Vector3>();
         List<Vector4> t0 = new List<Vector4>(), t1 = new List<Vector4>(), t2 = new List<Vector4>(), t3 = new List<Vector4>();
         StringBuilder tsv = new StringBuilder();
-        float lean = 0.09f, flutter = 0.12f, clock = 0.6875f, gx = 7310.5f, gz = 15200.25f;
+        float lean = 0.09f, flutter = 0.3f, branch = 0.05f, clock = 0.6875f, gx = 7310.5f, gz = 15200.25f;
         Vector2 dir = new Vector2(0.28f, -0.96f);
-        tsv.AppendLine(string.Format(Inv, "# globals\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}",
-            lean, gusts, flutter, dir.x, dir.y, clock, gx, gz, 1f / 160f, 0.35f, 64f, 0.25f));
+        tsv.AppendLine(string.Format(Inv, "# globals\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}",
+            lean, gusts, flutter, dir.x, dir.y, clock, gx, gz, 1f / 160f, 0.5f, 64f, 0.3f, branch));
         tsv.AppendLine("# px\tpy\tpz\tbx\tby\tbz\tplaceX\tplaceZ\theight\tspeed\tflutter\tnx\tny\tnz\tgpuX\tgpuY\tgpuZ");
         for (int i = 0; i < count; i++)
         {
@@ -499,8 +627,8 @@ public static class TreeBenchRun
 
         Shader.SetGlobalVector("_VWTreeWind", new Vector4(1f, lean, gusts, flutter));
         Shader.SetGlobalVector("_VWTreeWindDir", new Vector4(dir.x, 0f, dir.y, clock));
-        Shader.SetGlobalVector("_VWTreeGust", new Vector4(gx, gz, 1f / 160f, 0.35f));
-        Shader.SetGlobalVector("_VWTreeClock", new Vector4(64f, 0.25f, 0f, 0f));
+        Shader.SetGlobalVector("_VWTreeGust", new Vector4(gx, gz, 1f / 160f, 0.5f));
+        Shader.SetGlobalVector("_VWTreeClock", new Vector4(64f, 0.3f, branch, 0f));
 
         RenderTexture rt = new RenderTexture(count, 1, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
         rt.Create();

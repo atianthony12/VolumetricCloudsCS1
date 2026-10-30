@@ -23,14 +23,19 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Glare: grows in fog and rain* (the Halos tab, on by default): the glare round near lamps brightens
   and spreads in fog and rain the way the halos do; off, it is the same in any weather. In clear
   weather it looks as before either way.
-- *Trees move in the wind* (the Weather tab, with *Wind strength on trees*, *Gusts*, *Leaves
-  flutter* and *Rain and storms strengthen the wind*): trees lean downwind and sway, each at its own
-  pace (smaller trees faster), gusts roll across forests along the wind's direction, and leaves
-  flutter; cloud, rain and a waterspout about make the wind stronger. Near trees, mid and far
-  billboards and their shadows move alike. Off by default: a `VolumetricClouds.xml` without it reads
-  it as off and the trees keep the game's own sway. Tree Control's sway factor and "disable distant
-  sway" still apply (they scale each tree's own wind). The game's own tree shaders are used in info
-  views.
+- *Trees move in the wind* (the Weather tab, with *Wind strength on trees*, *Gusts*, *Leaves and
+  branches move* and *Rain and storms strengthen the wind*): trees lean downwind and sway, each at
+  its own uneven pace (smaller trees faster, and less: bushes and small trees are stiffer), gusts
+  roll across forests along the wind's direction, each part of a crown swings on its own, and the
+  leaves are thrown about more and more as the wind rises; cloud, rain and a waterspout about make
+  the wind stronger, and when the wind turns the trees come round over several seconds. Near trees,
+  mid and far billboards and their shadows move alike. In a strong wind, leaves are torn off and
+  blown out of the woods near the camera, and dust lifts off dry open ground (blowing snow on a
+  winter map; none on wet ground): *Leaves blown about in strong wind* and *Dust in strong wind*. Off by default: a `VolumetricClouds.xml` without it reads it as off and the trees keep the
+  game's own sway. Tree Control's sway factor and "disable distant sway" still apply (they scale
+  each tree's own wind). The game's own tree shaders are used in info views.
+- *Override the wind* and *Wind strength* (the Now tab, under the wind direction): set the trees'
+  wind by hand, from calm to a gale, instead of the weather's.
 
 ### Changed
 

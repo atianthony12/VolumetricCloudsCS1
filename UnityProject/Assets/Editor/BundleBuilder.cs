@@ -34,6 +34,7 @@ public static class BundleBuilder
         "Assets/VolumetricClouds/FunnelDebris.shader",
         "Assets/VolumetricClouds/TreesDefault.shader",
         "Assets/VolumetricClouds/TreesGroup.shader",
+        "Assets/VolumetricClouds/WindDebris.shader",
     };
 
     private struct Target

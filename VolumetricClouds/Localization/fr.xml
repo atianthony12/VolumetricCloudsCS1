@@ -76,6 +76,8 @@
   <String key="WindDirection.Slowly">Suivre le jeu lentement</String>
   <String key="WindDirection.Fixed">Fixe</String>
   <String key="WindAngle.Label">Direction fixe du vent</String>
+  <String key="WindOverride.Label">Forcer le vent</String>
+  <String key="WindStrength.Label">Force du vent</String>
 
   <String key="FogOverride.Label">Forcer le brouillard</String>
 
@@ -268,9 +270,13 @@
 
   <String key="TreeGusts.Label">Rafales</String>
 
-  <String key="TreeFlutter.Label">Les feuilles frémissent</String>
+  <String key="TreeFlutter.Label">Feuilles et branches bougent</String>
 
   <String key="TreeStorms.Label">La pluie et les orages renforcent le vent</String>
+
+  <String key="TreeLeaves.Label">Feuilles emportées par le vent fort</String>
+
+  <String key="TreeDust.Label">Poussière par vent fort</String>
 
   <!-- ==================== In-game panel: Light ==================== -->
 
@@ -416,6 +422,12 @@
   <String key="Readout.Warm">chaud {0}%</String>
   <String key="Readout.ActivityNone">{0}% (aucun)</String>
   <String key="Readout.ActivityEvery">{0}% (toutes les {1} s)</String>
+  <String key="Readout.Wind.Calm">{0} (calme)</String>
+  <String key="Readout.Wind.Light">{0} (légère brise)</String>
+  <String key="Readout.Wind.Breezy">{0} (brise)</String>
+  <String key="Readout.Wind.Windy">{0} (venteux)</String>
+  <String key="Readout.Wind.Stormy">{0} (tempête)</String>
+  <String key="Readout.Wind.Gale">{0} (coup de vent)</String>
 
   <!-- ==================== The settings file (VolumetricClouds.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in

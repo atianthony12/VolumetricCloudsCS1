@@ -158,7 +158,7 @@ namespace VolumetricClouds.Sky
         /// How much of a fleck the fog between it and the camera leaves, roughly: the fog's extinction
         /// over half the way (the camera is mostly above the layer). 1 without fog.
         /// </summary>
-        private static float FogInFront(float distance)
+        internal static float FogInFront(float distance)
         {
             if (!CloudFog.Active)
                 return 1f;

@@ -223,18 +223,17 @@ if ($Part -eq 'All' -or $Part -eq 'Render') {
     foreach ($row in Get-Content $tsv) {
         $f = $row -split "`t"
         if ($f[0] -eq '# globals') {
-            $v = @($f[1..12] | ForEach-Object { [float]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) })
+            $v = @($f[1..13] | ForEach-Object { [float]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) })
             $g.Lean = $v[0]; $g.Gusts = $v[1]; $g.Flutter = $v[2]; $g.DirX = $v[3]; $g.DirZ = $v[4]; $g.Clock = $v[5]
             $g.GustX = $v[6]; $g.GustZ = $v[7]; $g.InvCell = $v[8]; $g.SwayShare = $v[9]; $g.Period = $v[10]; $g.Across = $v[11]
+            $g.Branch = $v[12]
             continue
         }
         if ($row.StartsWith('#')) { continue }
         $x = @($f | ForEach-Object { [float]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) })
         # A tree whose whole cycles sit on a rounding edge (within 0.01 of a half) may round the other
         # way on the GPU (its rsqrt is not the CPU's): a different rate, not a different law. Counted apart.
-        $c = [math]::Min(1.4, [math]::Max(0.25, 2.5 / [math]::Sqrt([math]::Max([double]$x[8], 1.0)))) * $g.Period
-        $cr = [math]::Max(1.0, [math]::Round($c, [MidpointRounding]::ToEven))
-        $edges = @($c, ($cr * 0.73), ($cr * 3.0 * 1.37))
+        $edges = [VolumetricClouds.Sky.TreeWind]::RawRates($x[8], $g.Period)
         if (@($edges | Where-Object { [math]::Abs(($_ - [math]::Floor($_)) - 0.5) -lt 0.01 }).Count -gt 0) { $edge++; continue }
         $ox = 0.0; $oy = 0.0; $oz = 0.0
         [VolumetricClouds.Sky.TreeWind]::PointAt($g, $x[0], $x[1], $x[2], $x[3], $x[4], $x[5], $x[6], $x[7], $x[8], $x[9], $x[10], $x[11], $x[12], $x[13], [ref]$ox, [ref]$oy, [ref]$oz)
@@ -255,7 +254,7 @@ if ($Part -eq 'All' -or $Part -eq 'Render') {
     $half = 6.0; $scale = 1.3; $speed = 1.2
     $tree = @(1234.5, 41.0, -2210.25)
     $worstHand = 0.0; $most = 0.0
-    $wind = [VolumetricClouds.Sky.TreeWind]::Compute(2.0, 1.0, 1.0, 1.0, 0.6, 0.4, 0.0)
+    $wind = [VolumetricClouds.Sky.TreeWind]::Compute(2.0, 1.0, 1.0, 1.0, 0.6, 0.4, 0.0, -1.0)
     $motion = New-Object VolumetricClouds.Sky.TreeWind+Motion
     for ($step = 0; $step -lt 60; $step++) {
         $motion.Advance(1.0, 0.6, 0.8, $wind.GustSpeed)

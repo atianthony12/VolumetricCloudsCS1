@@ -90,6 +90,8 @@
   <String key="WindDirection.Slowly">缓慢跟随游戏</String>
   <String key="WindDirection.Fixed">固定</String>
   <String key="WindAngle.Label">固定风向</String>
+  <String key="WindOverride.Label">覆盖风力</String>
+  <String key="WindStrength.Label">风力</String>
 
   <String key="FogOverride.Label">覆盖雾量</String>
 
@@ -282,9 +284,13 @@
 
   <String key="TreeGusts.Label">阵风</String>
 
-  <String key="TreeFlutter.Label">树叶抖动</String>
+  <String key="TreeFlutter.Label">树叶和树枝摆动</String>
 
   <String key="TreeStorms.Label">雨和风暴使风更强</String>
+
+  <String key="TreeLeaves.Label">强风吹落树叶</String>
+
+  <String key="TreeDust.Label">强风扬起尘土</String>
 
   <!-- ==================== In-game panel: Light ==================== -->
 
@@ -436,6 +442,12 @@
   <String key="Readout.Warm">暖 {0}%</String>
   <String key="Readout.ActivityNone">{0}%（无）</String>
   <String key="Readout.ActivityEvery">{0}%（每 {1} 秒）</String>
+  <String key="Readout.Wind.Calm">{0}（无风）</String>
+  <String key="Readout.Wind.Light">{0}（微风）</String>
+  <String key="Readout.Wind.Breezy">{0}（和风）</String>
+  <String key="Readout.Wind.Windy">{0}（大风）</String>
+  <String key="Readout.Wind.Stormy">{0}（暴风）</String>
+  <String key="Readout.Wind.Gale">{0}（狂风）</String>
 
   <!-- ==================== The settings file (VolumetricClouds.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in

@@ -58,7 +58,9 @@ their own rain, snow, lightning, rainbows and fog with them.
 - **Larger weather pattern**: the cloud layout repeats four times further apart, for
   zooming far out with a camera mod.
 - **Trees move in the wind** *(opt-in, the Weather tab)*: trees lean downwind and sway, gusts roll
-  across forests with the wind, and leaves flutter; the wind grows with cloud, rain and storms.
+  across forests with the wind, branches swing and leaves are thrown about in a storm, torn-off
+  leaves fly out of the woods and dust blows over dry ground; the wind grows with cloud, rain and
+  storms, or set it yourself on the Now tab.
   Near trees and distant billboards move alike, shadows included. Tree Control's sway settings
   still apply.
 
@@ -200,8 +202,9 @@ screenshot.
 8. **Trees are a shader swap too** *(opt-in)*: the game's two tree shaders rebuilt from their
    compiled code, checked program by program against the game's own, put on the game's tree
    materials and given back. Only their vertex motion differs: a bend about each tree's base
-   (after Tiago Sousa, *GPU Gems 3*, chapter 16), a gust field drifting downwind, and a flutter
-   weighted by the game's own sway mask.
+   (after Tiago Sousa, *GPU Gems 3*, chapter 16) swaying on three rates that never line up, a gust
+   field drifting downwind, and branches and leaves each moving on their own, weighted by the game's
+   own sway mask.
 
 ## Translations
 
