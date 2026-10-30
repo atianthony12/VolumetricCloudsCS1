@@ -274,6 +274,18 @@
 
   <String key="LightningStormScale.Label">暴雨中的闪电</String>
 
+  <String key="Group.Trees">树木</String>
+
+  <String key="TreeWind.Label">树木随风摆动</String>
+
+  <String key="TreeWindStrength.Label">树上的风力</String>
+
+  <String key="TreeGusts.Label">阵风</String>
+
+  <String key="TreeFlutter.Label">树叶抖动</String>
+
+  <String key="TreeStorms.Label">雨和风暴使风更强</String>
+
   <!-- ==================== In-game panel: Light ==================== -->
 
   <String key="Group.Shadows">地面阴影</String>

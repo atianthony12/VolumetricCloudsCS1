@@ -2359,6 +2359,64 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = 400f, Step = 5f,
                 Enabled = LightningOn,
             });
+
+            // 2026-10-30 (the author: "tree movement in high wind like other games do"): the game's tree
+            // shaders rebuilt with VW's wind (Sky.TreeShaders, Sky.TreeWind). Off by default; 100% = the
+            // design's breezy fair day, the gusts, the flutter and how rain and storms strengthen it.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.Weather,
+                Group = "Trees",
+                Bool = Settings.TreeWind,
+                DefaultBool = Settings.Defaults.TreeWind,
+                AfterChange = State("trees move in the wind", OnOff(Settings.TreeWind)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeWindStrength,
+                DefaultFloat = Settings.Defaults.TreeWindStrength,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeGusts,
+                DefaultFloat = Settings.Defaults.TreeGusts,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeFlutter,
+                DefaultFloat = Settings.Defaults.TreeFlutter,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.TreeStorms,
+                DefaultFloat = Settings.Defaults.TreeStorms,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = TreeWindOn,
+            });
+        }
+
+        private static bool TreeWindOn()
+        {
+            return Settings.TreeWind != null && Settings.TreeWind.value;
         }
 
         /// <summary>

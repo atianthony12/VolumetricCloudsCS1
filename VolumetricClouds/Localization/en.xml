@@ -303,6 +303,18 @@
 
   <String key="LightningStormScale.Label">Lightning in storms</String>
 
+  <String key="Group.Trees">Trees</String>
+
+  <String key="TreeWind.Label">Trees move in the wind</String>
+
+  <String key="TreeWindStrength.Label">Wind strength on trees</String>
+
+  <String key="TreeGusts.Label">Gusts</String>
+
+  <String key="TreeFlutter.Label">Leaves flutter</String>
+
+  <String key="TreeStorms.Label">Rain and storms strengthen the wind</String>
+
   <!-- ==================== In-game panel: Light ==================== -->
 
   <String key="Group.Shadows">Shadows on the ground</String>

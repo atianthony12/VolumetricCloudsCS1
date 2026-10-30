@@ -32,6 +32,8 @@ public static class BundleBuilder
         "Assets/VolumetricClouds/FogLamps.shader",
         "Assets/VolumetricClouds/SkyLayer.shader",
         "Assets/VolumetricClouds/FunnelDebris.shader",
+        "Assets/VolumetricClouds/TreesDefault.shader",
+        "Assets/VolumetricClouds/TreesGroup.shader",
     };
 
     private struct Target
@@ -96,7 +98,65 @@ public static class BundleBuilder
         Debug.Log("BUNDLE BUILD ALL OK");
     }
 
+    /// <summary>The project settings a build changes to the game's, as found, to put back.</summary>
+    public class GameRendering
+    {
+        public UnityEditor.Rendering.TierSettings[] Tiers;
+        public ColorSpace ColourSpace;
+    }
+
+    private static readonly GraphicsTier[] AllTiers = { GraphicsTier.Tier1, GraphicsTier.Tier2, GraphicsTier.Tier3 };
+
+    /// <summary>
+    /// The game's rendering for the build, and what was there (put back by <see cref="Restore"/>):
+    /// - every standalone tier on legacy deferred (light pre-pass): a build strips the passes of
+    ///   rendering paths no tier uses, and the tree shaders (Trees*.shader) live in PrePassBase/
+    ///   PrePassFinal -- without this the bundle held only their shadow casters, with no error;
+    /// - LINEAR colour space, the game's: the tree shaders' generated code takes the light probe's
+    ///   colour through UnityCG's ShadeSH9, which converts it to gamma when UNITY_COLORSPACE_GAMMA is
+    ///   defined (the tree bench caught it against the game's own programs).
+    /// No other shader here has a LightMode pass or any colour-space dependent code (checked 2026-10-30).
+    /// </summary>
+    public static GameRendering UseGameRendering()
+    {
+        GameRendering found = new GameRendering
+        {
+            Tiers = new UnityEditor.Rendering.TierSettings[AllTiers.Length],
+            ColourSpace = PlayerSettings.colorSpace,
+        };
+        for (int i = 0; i < AllTiers.Length; i++)
+        {
+            UnityEditor.Rendering.TierSettings s = UnityEditor.Rendering.EditorGraphicsSettings.GetTierSettings(BuildTargetGroup.Standalone, AllTiers[i]);
+            found.Tiers[i] = s;
+            s.renderingPath = RenderingPath.DeferredLighting;
+            UnityEditor.Rendering.EditorGraphicsSettings.SetTierSettings(BuildTargetGroup.Standalone, AllTiers[i], s);
+        }
+
+        PlayerSettings.colorSpace = ColorSpace.Linear;
+        return found;
+    }
+
+    public static void Restore(GameRendering found)
+    {
+        for (int i = 0; i < AllTiers.Length; i++)
+            UnityEditor.Rendering.EditorGraphicsSettings.SetTierSettings(BuildTargetGroup.Standalone, AllTiers[i], found.Tiers[i]);
+        PlayerSettings.colorSpace = found.ColourSpace;
+    }
+
     private static bool BuildOne(Target target)
+    {
+        GameRendering found = UseGameRendering();
+        try
+        {
+            return BuildOneAsTheGame(target);
+        }
+        finally
+        {
+            Restore(found);
+        }
+    }
+
+    private static bool BuildOneAsTheGame(Target target)
     {
         // Set from the script every time, never left as hidden state in the binary
         // ProjectSettings.asset: what each bundle holds must be readable here.

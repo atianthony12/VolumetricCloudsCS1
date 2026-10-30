@@ -237,6 +237,25 @@ namespace VolumetricClouds
         public static FloatSetting LightningStormScale { get; private set; }
 
         /// <summary>
+        /// "Trees move in the wind" (Sky.TreeShaders, Sky.TreeWind): the game's tree shaders rebuilt
+        /// with VW's wind -- a lean downwind, gusts rolling across the map, each tree's sway, the leaves'
+        /// flutter. OFF by default: a new look, the author judges it in-game first.
+        /// </summary>
+        public static BoolSetting TreeWind { get; private set; }
+
+        /// <summary>The wind's strength on the trees, 1 = a breezy fair day as designed (0..3).</summary>
+        public static FloatSetting TreeWindStrength { get; private set; }
+
+        /// <summary>How much the gusts swing the trees' lean (0..2).</summary>
+        public static FloatSetting TreeGusts { get; private set; }
+
+        /// <summary>The leaves' and twigs' quick flutter (0..2).</summary>
+        public static FloatSetting TreeFlutter { get; private set; }
+
+        /// <summary>How much rain and storms (a waterspout about) strengthen the wind (0..2).</summary>
+        public static FloatSetting TreeStorms { get; private set; }
+
+        /// <summary>
         /// Volumetric fog in the cloud pass, in place of the game's even grey-out. The game's
         /// distance haze, edge fog and pollution tint stay. OFF by default: it is the most
         /// expensive thing this mod draws.
@@ -1030,6 +1049,14 @@ namespace VolumetricClouds
             public const float LightningActivity = 0.5f;
             public const float LightningStormScale = 1f;
 
+            // ---- trees in the wind (2026-10-30) ----
+            // Off for everyone until the author has judged it in-game; the rest at the design's 100%.
+            public const bool TreeWind = false;
+            public const float TreeWindStrength = 1f;
+            public const float TreeGusts = 1f;
+            public const float TreeFlutter = 1f;
+            public const float TreeStorms = 1f;
+
             // ---- fog ----
 
             /// <summary>
@@ -1182,6 +1209,12 @@ namespace VolumetricClouds
                 // means exactly what it meant, so a saved one is still the sky it described.
                 LightningActivity = new FloatSetting("LightningActivity", Defaults.LightningActivity);
                 LightningStormScale = new FloatSetting("LightningStormScale", Defaults.LightningStormScale);
+
+                TreeWind = new BoolSetting("TreeWind", Defaults.TreeWind);
+                TreeWindStrength = new FloatSetting("TreeWindStrength", Defaults.TreeWindStrength);
+                TreeGusts = new FloatSetting("TreeGusts", Defaults.TreeGusts);
+                TreeFlutter = new FloatSetting("TreeFlutter", Defaults.TreeFlutter);
+                TreeStorms = new FloatSetting("TreeStorms", Defaults.TreeStorms);
 
                 // "VolumetricFogEnabled" in the .cgs, not the older "FogEnabled" key: that one is
                 // saved as true on the one machine that has it, from before the switch became an

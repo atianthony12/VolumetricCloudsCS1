@@ -55,6 +55,20 @@ and switch-on lines of its first pass's vertex shader are copied from `LightHalo
 are excluded from the MIT licence in the same way. The rest of that file is original and
 MIT-licensed.
 
+`TreesDefault.shader`, `TreesGroup.shader` and their shared `TreesDefault.cginc` and
+`TreesGroup.cginc` are reconstructions of the game's tree shaders, `Custom/Trees/Default` (near
+trees) and `Custom/Trees/Group` (billboards), from the Direct3D 11 disassembly of the compiled
+originals: the same surface functions, passes and shadow casters, so that with Volumetric
+Weather's wind off they compute what the game's do (`tools/tree-bench.ps1` sets every compiled
+program against the game's own and renders the two side by side). They too exist solely for
+interoperability: the game reads its tree materials at draw time, so swapping the shader on them
+is the only way to move its trees. The reconstructed parts — the surface, lighting and caster
+code and the game's own sway (`VWGameSway`, `VWTreePhase`, the billboard geometry, the shadow
+bias, the damage maps' lookup) — are the work of **Colossal Order Ltd.** and are excluded from the
+MIT licence in the same way. The wind in `Trees.cginc` (`VWWindPoint` and what it calls) is
+original and MIT-licensed. `TreeBenchGame*.shader` are bench-only copies with the wind compiled
+out and are not shipped.
+
 The disassembly itself is never committed. `tools/shaderdump.ps1` regenerates it from your own
 installed copy of the game, and is the only way to verify a port.
 
@@ -78,6 +92,14 @@ Wrenninge (*Oz: The Great and Volumetric*, SIGGRAPH 2013) as presented by Sébas
 weather map's normal scores use Peter Acklam's rational approximation of the normal quantile,
 and the raymarches' blue-noise jitter is made with Robert Ulichney's void-and-cluster method
 (*The void-and-cluster method for dither array generation*, SPIE 1993).
+
+The trees' wind bends each tree about its base and puts every point back at its old distance from
+it, so the tree leans instead of shearing — the main bending of Tiago Sousa's *Vegetation
+Procedural Animation and Shading in Crysis* (*GPU Gems 3*, chapter 16, 2007), whose detail bending
+also suggested the leaves' flutter weighted by a per-vertex mask (here the game's own sway weight).
+The gust field's value noise hashes its cells with pcg2d from Mark Jarzynski and Marc Olano, *Hash
+Functions for GPU Rendering* (Journal of Computer Graphics Techniques, 2020). Both were written for
+this mod from the published descriptions.
 
 Other mods were read to understand the game's behaviour and to stay compatible with them —
 Unified UI, CitiesHarmony, Render It!, Theme Mixer, Intersection Marking Tool, Persistent Fog

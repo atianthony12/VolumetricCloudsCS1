@@ -57,11 +57,22 @@ foreach ($t in $targets) {
 if (Test-Path $log) { Remove-Item $log -Force }
 
 Write-Host "Building the three bundles with Unity (headless)..."
-$p = Start-Process -FilePath $Unity -Wait -PassThru -ArgumentList @(
-    "-batchmode", "-nographics", "-quit",
-    "-projectPath", "`"$project`"",
-    "-executeMethod", "BundleBuilder.Build",
-    "-logFile", "`"$log`"")
+# BundleBuilder sets the game's rendering for the build (legacy deferred tiers, linear colour space) and
+# puts it back, but Unity rewrites the settings files as it saves them: they are put back byte for byte.
+$settings = Join-Path $project "ProjectSettings"
+$kept = Join-Path $env:TEMP ("vc-projectsettings-" + [guid]::NewGuid().ToString("N"))
+Copy-Item $settings $kept -Recurse
+try {
+    $p = Start-Process -FilePath $Unity -Wait -PassThru -ArgumentList @(
+        "-batchmode", "-nographics", "-quit",
+        "-projectPath", "`"$project`"",
+        "-executeMethod", "BundleBuilder.Build",
+        "-logFile", "`"$log`"")
+}
+finally {
+    Copy-Item (Join-Path $kept '*') $settings -Force
+    Remove-Item -Recurse -Force $kept
+}
 
 if ($p.ExitCode -ne 0) {
     Get-Content $log -Tail 25

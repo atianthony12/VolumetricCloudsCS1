@@ -57,6 +57,10 @@ their own rain, snow, lightning, rainbows and fog with them.
   bow, colored by the physics of real raindrops.
 - **Larger weather pattern**: the cloud layout repeats four times further apart, for
   zooming far out with a camera mod.
+- **Trees move in the wind** *(opt-in, the Weather tab)*: trees lean downwind and sway, gusts roll
+  across forests with the wind, and leaves flutter; the wind grows with cloud, rain and storms.
+  Near trees and distant billboards move alike, shadows included. Tree Control's sway settings
+  still apply.
 
 ### Fog *(opt-in)*
 
@@ -193,6 +197,11 @@ screenshot.
    arch fixed in the world, colored by Airy's theory of light in a raindrop.
 7. **Halos are a shader swap** into the game's light layers; the game's own materials are never
    modified.
+8. **Trees are a shader swap too** *(opt-in)*: the game's two tree shaders rebuilt from their
+   compiled code, checked program by program against the game's own, put on the game's tree
+   materials and given back. Only their vertex motion differs: a bend about each tree's base
+   (after Tiago Sousa, *GPU Gems 3*, chapter 16), a gust field drifting downwind, and a flutter
+   weighted by the game's own sway mask.
 
 ## Translations
 
@@ -219,9 +228,11 @@ testing and tuning are mine.
 
 The source is under the [MIT License](LICENSE), copyright © 2026 Anthony Ibrahim, except
 `LightHalo.shader`, `LightHaloDynamic.shader` and the few lines of `FogLamps.shader` taken from
-them, which are ports of the game's own halo shader made for compatibility. Those, the shipped
-third-party DLLs, the icons and the published cloud-rendering techniques this mod builds on are
-credited in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The distant clouds' photographed
+them, which are ports of the game's own halo shader made for compatibility, and the parts of the
+tree shaders (`Trees*.shader`, `TreesDefault.cginc`, `TreesGroup.cginc`) reconstructed from the
+game's own tree shaders. Those, the shipped third-party DLLs, the icons and the published
+rendering techniques this mod builds on (among them Tiago Sousa's vegetation bending, *GPU Gems 3*
+chapter 16) are credited in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The distant clouds' photographed
 skies are from [Poly Haven](https://polyhaven.com) (CC0).
 
 Cities: Skylines is © Colossal Order Ltd., published by Paradox Interactive AB. Unity is a

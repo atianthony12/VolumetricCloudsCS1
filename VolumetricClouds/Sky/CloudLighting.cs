@@ -186,6 +186,10 @@ namespace VolumetricClouds.Sky
             // wind, the cover and the rain they follow.
             Funnels.Advance(_field, Time.deltaTime, simulationRate);
 
+            // The trees' wind (2026-10-30): after everything it follows -- the wind's direction, the
+            // cover, the rain and a waterspout about.
+            TreeShaders.Advance(Time.deltaTime, simulationRate);
+
             // The fog is drawn by the volumetric cloud pass, so it needs that pass running.
             CloudFog.Advance(Time.deltaTime, CloudVolume.IsActive, CloudWeather.WindDirection, simulationRate);
 

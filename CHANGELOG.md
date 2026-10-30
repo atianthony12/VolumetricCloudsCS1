@@ -23,6 +23,14 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Glare: grows in fog and rain* (the Halos tab, on by default): the glare round near lamps brightens
   and spreads in fog and rain the way the halos do; off, it is the same in any weather. In clear
   weather it looks as before either way.
+- *Trees move in the wind* (the Weather tab, with *Wind strength on trees*, *Gusts*, *Leaves
+  flutter* and *Rain and storms strengthen the wind*): trees lean downwind and sway, each at its own
+  pace (smaller trees faster), gusts roll across forests along the wind's direction, and leaves
+  flutter; cloud, rain and a waterspout about make the wind stronger. Near trees, mid and far
+  billboards and their shadows move alike. Off by default: a `VolumetricClouds.xml` without it reads
+  it as off and the trees keep the game's own sway. Tree Control's sway factor and "disable distant
+  sway" still apply (they scale each tree's own wind). The game's own tree shaders are used in info
+  views.
 
 ### Changed
 

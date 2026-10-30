@@ -382,6 +382,8 @@ UnityProject/*.booproj
 # Intermediate bundle output. build-bundle.ps1 copies the results to
 # VolumetricClouds/Resources/volumetricclouds-{win,linux,mac}.bundle, which ARE tracked.
 UnityProject/Bundles/
+# The tree bench's bundle and wind tables (tools/tree-bench.ps1).
+UnityProject/TreeBench/
 
 # The Visual Studio template above ignores *.meta, but Unity asset metadata
 # (stable GUIDs) belongs in source control.

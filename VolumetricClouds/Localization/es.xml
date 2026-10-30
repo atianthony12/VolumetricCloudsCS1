@@ -260,6 +260,18 @@
 
   <String key="LightningStormScale.Label">Rayos en tormentas</String>
 
+  <String key="Group.Trees">Árboles</String>
+
+  <String key="TreeWind.Label">Los árboles se mueven con el viento</String>
+
+  <String key="TreeWindStrength.Label">Fuerza del viento en los árboles</String>
+
+  <String key="TreeGusts.Label">Ráfagas</String>
+
+  <String key="TreeFlutter.Label">Las hojas se agitan</String>
+
+  <String key="TreeStorms.Label">La lluvia y las tormentas refuerzan el viento</String>
+
   <!-- ==================== In-game panel: Light ==================== -->
 
   <String key="Group.Shadows">Sombras en el suelo</String>
