@@ -976,9 +976,13 @@ Shader "VolumetricClouds/CloudRaymarch"
                 float steps = clamp(_RainSteps, 4.0, 32.0);
                 float len = tEnd - tStart;
 
-                // Rain scatters forwards far more than cloud does: bright towards the sun.
+                // Rain scatters forwards far more than cloud does: bright towards the sun -- the sun
+                // that reaches it (1.5.2): under the cloud it falls from, the cloud takes the sun's
+                // beam (SunShaft, the map that shadows the ground: exact below the clouds), so a
+                // curtain is lit by the sky's light there and glows only where the sun gets in under
+                // the edge of the shower. Without the map, every drop in the sun as before.
                 float phase = 0.5 + 0.5 * min(HenyeyGreenstein(cosTheta, 0.7), 6.0);
-                float3 radiance = _RainAmbient + _RainSun * phase;
+                float3 sunlit = _RainSun * phase;
 
                 float transmittance = 1.0;
                 float3 light = 0;
@@ -1005,7 +1009,7 @@ Shader "VolumetricClouds/CloudRaymarch"
                     if (sigma > 0.0)
                     {
                         // A strike lights the rain around it as well as the cloud above it.
-                        float3 lit = radiance;
+                        float3 lit = _RainAmbient + sunlit * SunShaft(p);
                         if (_FlashCount > 0.5)
                             lit += Lightning(p) * 0.6;
 

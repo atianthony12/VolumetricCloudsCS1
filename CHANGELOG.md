@@ -32,6 +32,14 @@ below; the mods list shows it after the mod's name, and the first line of
   Real Light draws its own sun after the clouds, so the sun is still hidden behind them. Without
   Real Light nothing changes.
 
+- Rain curtains (and snow) are lit by the sun only where it reaches them: under the cloud the rain
+  falls from, the cloud takes the sun's beam (read from the cloud shadow map, as the fog's sun shafts
+  are), so a curtain is lit by the sky there and glows only where the sun gets in under the edge of
+  the shower. With cloud shadows off, or *Shadow darkness* at 0%, every drop is in the sun as before.
+  Under Real Light's sky the curtains no longer take the extra light that sky gives the clouds (x3-4
+  by day and at dusk): they are seen against the city, which is no brighter for it, and they glowed
+  well over the cloud base above them. Without Real Light that part changes nothing.
+
 - *Dynamic distant clouds* is off by default. This reaches new installs and *Reset all* only: a
   `VolumetricClouds.xml` written by 1.5.0 or 1.5.1 already holds
   `<DynamicDistantClouds>true</DynamicDistantClouds>` and keeps it, so players who have it stay as

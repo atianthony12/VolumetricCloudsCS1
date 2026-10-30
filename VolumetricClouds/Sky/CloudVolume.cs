@@ -1346,7 +1346,13 @@ namespace VolumetricClouds.Sky
             _material.SetFloat(IdRainCurtainScale, CloudRain.CurtainScale);
             Color rainAmbient = WithFloor(airLightAmbient * brightness);
             _material.SetVector(IdRainAmbient, AsVector(rainAmbient) * (snow ? 1f : 0.6f));
-            _material.SetVector(IdRainSun, AsVector(cloudSun) * (snow ? 0.3f : 0.12f));
+            // Its sun is the cloud's WITHOUT Real Light's sky multiplier (1.5.2): that lifts the clouds
+            // to the sky drawn behind them, but the curtains are seen against the city, which is no
+            // brighter for it -- with it they glowed x3-4 brighter than tuned (x3.87 at dusk, 2026-10-30),
+            // as the funnels did (2026-10-19). Without Real Light it is 1: the same light. The shader
+            // then lets through only the sun the cloud above leaves it (SunShaft).
+            Color rainSun = cloudLightSun * brightness;
+            _material.SetVector(IdRainSun, AsVector(rainSun) * (snow ? 0.3f : 0.12f));
 
             // The funnels (1.5.0, FunnelShape.cginc): low down in the air's light as the FOG has it (its
             // fixed FogLightScale and lean, not the fog's own brightness/tint/colour rows: a funnel is not
@@ -1364,9 +1370,10 @@ namespace VolumetricClouds.Sky
             ApplySkyGlow(properties);
             ApplyFog(airLightAmbient, baseSun);
 
-            // The cloud shadow map, as the air under the clouds reads it: the fog's sun shafts and
-            // the rainbow's "is this drop in the sun" (1.3.0; until then only the fog's, so it was
-            // set only while the fog was on). Uploaded whenever either wants it -- and never at
+            // The cloud shadow map, as the air under the clouds reads it: the fog's sun shafts, the
+            // rainbow's "is this drop in the sun" (1.3.0; until then only the fog's, so it was set
+            // only while the fog was on) and the rain's sun under its cloud (1.5.2). Uploaded whenever
+            // one wants it -- and never at
             // "Shadow darkness" 0%, where the map is white and says nothing: the fog is then lit as
             // with the shadows off (until 1.3.0 it had no sun at all), and the rainbow says why
             // there is none.
@@ -1374,7 +1381,7 @@ namespace VolumetricClouds.Sky
             bool shadowMap = Settings.ShadowsCast && sun != null && map != null && map.IsReady && map.Texture != null;
             bool bow = ApplyRainbow(sun, key, cloudSun, shadowMap, sunElevation);
             ApplyShadowLookup(sun, map, shadowMap && CloudShadowMap.Readable(CloudShaderParams.Coverage) &&
-                                        (CloudFog.Active || bow || Funnels.Count > 0));
+                                        (CloudFog.Active || bow || Funnels.Count > 0 || CloudRain.Active));
 
             if (!_loggedLighting)
             {
