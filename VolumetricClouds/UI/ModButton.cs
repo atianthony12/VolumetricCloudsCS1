@@ -18,7 +18,8 @@ namespace VolumetricClouds.UI
         /// <summary>
         /// Play It!'s button size (36 x 36, read from its IL: ModManager.CreateUI), so the two sit
         /// side by side as one set. It also uses the same OptionBase sprites and stretches its
-        /// icon over the whole button, as this does; our icon's art has its own margin.
+        /// icon over the whole button, as this does; our icon's art has its own margin (a white
+        /// Lucide glyph two thirds of the square, as Play It!'s: ModsLibCS1's make-button-icon.ps1).
         /// </summary>
         public const float ButtonSize = 36f;
 
@@ -61,21 +62,10 @@ namespace VolumetricClouds.UI
             // takes the focus: the button would stay lit. Blue means the mouse is on it, only.
             canFocus = false;
 
-            // The panel's look (1.5.0): the new looks' own button sprites; Vanilla, or a look whose
-            // sprites are missing, the game's as before.
-            ModsLibCS1.UI.Builder look = PanelLook.NewBuilder();
-            ModsLibCS1.UI.SkinSprites own = look.Theme.Sprites;
-            string[] sprites = null;
-            if (own.OwnSheet && own.Hud != null && look.Atlas != null && look.Atlas[own.Hud] != null)
-            {
-                atlas = look.Atlas;
-                sprites = new[] { own.Hud, own.HudHover ?? own.Hud, own.HudHover ?? own.Hud, own.Hud };
-            }
-            else
-            {
-                atlas = UIView.GetAView().defaultAtlas;
-                sprites = PickBackground(atlas);
-            }
+            // The game's round sprites in every panel look, as Play It!'s and Render It's buttons are
+            // (the looks' own "hud" sprite was a rounded square: the author's call, 2026-10-31).
+            atlas = UIView.GetAView().defaultAtlas;
+            string[] sprites = PickBackground(atlas);
             if (sprites != null)
             {
                 normalBgSprite = sprites[0];

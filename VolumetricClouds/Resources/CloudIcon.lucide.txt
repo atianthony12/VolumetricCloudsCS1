@@ -1,0 +1,5 @@
+# Volumetric Weather's button icon (the HUD button and the Unified UI button; IconLoader.cs embeds CloudIcon.png).
+# Lucide's cloud-sun-rain (lucide.dev, lucide-static 0.460.0, ISC: THIRD-PARTY-NOTICES.md), path data
+# copied from its SVG. After a change:
+# powershell -File ModsLibCS1\tools\make-button-icon.ps1 -Spec <this file> (it writes CloudIcon.png beside it).
+cloud-sun-rain | M12 2v2 | m4.93 4.93 1.41 1.41 | M20 12h2 | m19.07 4.93-1.41 1.41 | M15.947 12.65a4 4 0 0 0-5.925-4.128 | M3 20a5 5 0 1 1 8.9-4H13a3 3 0 0 1 2 5.24 | M11 20v2 | M7 19v2
