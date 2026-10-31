@@ -66,6 +66,11 @@ below; the mods list shows it after the mod's name, and the first line of
   they are. A profile saved before 1.5.0 has no such line and now reads it off, as it looked then.
   With it off and the four *Distant clouds* sliders at 0%, no photographed sky is loaded at all.
 
+- A new button icon, on a round button: the mod's button (and its Unified UI icon) shows a white
+  cloud, sun and rain glyph in place of the coloured cloud picture, and the button is the game's
+  round one in every panel look, matching Play It!'s and Render It's buttons beside it. It was a
+  rounded square in the See-through, Blue and Frosted looks.
+
 ## 1.5.1 — 2026-10-21
 
 A fix for players whose game draws with OpenGL: native Linux, and the game started with
