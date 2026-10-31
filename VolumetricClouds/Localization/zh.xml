@@ -276,7 +276,7 @@
 
   <String key="LightningStormScale.Label">暴雨中的闪电</String>
 
-  <String key="Group.Trees">树木</String>
+  <String key="Group.Trees">树木（实验性）</String>
 
   <String key="TreeWind.Label">树木随风摆动</String>
 

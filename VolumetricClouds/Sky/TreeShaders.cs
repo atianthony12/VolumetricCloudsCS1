@@ -34,11 +34,9 @@ namespace VolumetricClouds.Sky
         private static readonly int IdSize = Shader.PropertyToID("_VWTreeSize");
         private static readonly int IdGameWind = Shader.PropertyToID("_WindDirection");
 
-        // The wind, advanced by CloudLighting (the one place the weather moves) and read here.
-        private static TreeWind.Motion _motion;
+        // The trees' share of the city's wind (WeatherWind: its direction, gusts and clock are theirs),
+        // advanced by CloudLighting (the one place the weather moves) and read here.
         private static TreeWind.Wind _wind;
-        private static float _storm;
-        private static float _angle;    // the trees' wind direction (degrees, eased toward the weather's)
         private static bool _started;
 
         /// <summary>True while our tree shaders carry the wind (WindDebris draws only then).</summary>
@@ -52,12 +50,12 @@ namespace VolumetricClouds.Sky
 
         public static TreeWind.Motion Clock
         {
-            get { return _motion; }
+            get { return WeatherWind.Motion; }
         }
 
         public static Vector3 Blowing
         {
-            get { return Direction(); }
+            get { return WeatherWind.Direction; }
         }
 
         /// <summary>Material -> the game's shader it had.</summary>
@@ -71,55 +69,32 @@ namespace VolumetricClouds.Sky
         private string _lastLine;
 
         /// <summary>
-        /// Once a frame from CloudLighting, after the wind's direction, the cover, the rain and the funnels:
-        /// the trees' wind and its clock and gusts (simulation time: a paused city's trees stand still).
+        /// Once a frame from CloudLighting, after WeatherWind: the trees' share of the city's wind -- the
+        /// Trees rows scale how strongly they answer it (simulation time: a paused city's trees stand still).
         /// </summary>
         public static void Advance(float deltaTime, float simulationRate)
         {
             // Off means nothing runs (invariant 10).
             if (Settings.TreeWind == null || !Settings.TreeWind.value)
                 return;
-            float storm = Funnels.Count > 0 ? 1f : 0f;
-            _storm = Mathf.MoveTowards(_storm, storm, deltaTime / 20f);
-            bool overridden = Settings.WindOverride != null && Settings.WindOverride.value;
             TreeWind.Wind target = TreeWind.Compute(Value(Settings.TreeWindStrength, Settings.Defaults.TreeWindStrength),
                                                     Value(Settings.TreeGusts, Settings.Defaults.TreeGusts),
                                                     Value(Settings.TreeFlutter, Settings.Defaults.TreeFlutter),
                                                     Value(Settings.TreeStorms, Settings.Defaults.TreeStorms),
-                                                    CloudWeather.Coverage, CloudWeather.Rain, _storm,
-                                                    overridden ? Value(Settings.WindStrength, Settings.Defaults.WindStrength) : -1f);
+                                                    CloudWeather.Coverage, CloudWeather.Rain, WeatherWind.Storm,
+                                                    WeatherWind.Overridden ? Value(Settings.WindStrength, Settings.Defaults.WindStrength) : -1f);
 
             // The trees follow a change of wind over a few seconds of simulation (paused: they hold).
             float seconds = deltaTime * simulationRate;
-            float weather = WeatherAngle();
             if (!_started)
             {
                 _started = true;
                 _wind = target;
-                _angle = weather;
             }
             else
             {
                 _wind = TreeWind.Ease(_wind, target, 1f - Mathf.Exp(-seconds / TreeWind.EaseSeconds));
-                _angle = TreeWind.Turn(_angle, weather, seconds);
             }
-
-            Vector3 d = Direction();
-            _motion.Advance(seconds, d.x, d.z, _wind.GustSpeed);
-        }
-
-        /// <summary>The weather's wind (CloudWeather.WindDirection), degrees in the game's convention.</summary>
-        private static float WeatherAngle()
-        {
-            Vector3 d = CloudWeather.WindDirection;
-            return Mathf.Repeat(Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 360f);
-        }
-
-        /// <summary>The way the trees' wind blows (level, unit): the weather's, eased.</summary>
-        private static Vector3 Direction()
-        {
-            float a = _angle * Mathf.Deg2Rad;
-            return new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
         }
 
         private static float Value(FloatSetting s, float fallback)
@@ -270,8 +245,8 @@ namespace VolumetricClouds.Sky
         private void Publish()
         {
             Active = true;
-            Vector3 d = Direction();
-            TreeWind.Globals g = TreeWind.GlobalsOf(_wind, _motion, d.x, d.z);
+            Vector3 d = WeatherWind.Direction;
+            TreeWind.Globals g = TreeWind.GlobalsOf(_wind, WeatherWind.Motion, d.x, d.z);
             Shader.SetGlobalVector(IdWind, new Vector4(1f, g.Lean, g.Gusts, g.Flutter));
             Shader.SetGlobalVector(IdWindDir, new Vector4(g.DirX, 0f, g.DirZ, g.Clock));
             Shader.SetGlobalVector(IdGust, new Vector4(g.GustX, g.GustZ, g.InvCell, g.SwayShare));
@@ -281,7 +256,7 @@ namespace VolumetricClouds.Sky
         private void Report()
         {
             float strength = Value(Settings.TreeWindStrength, Settings.Defaults.TreeWindStrength);
-            string line = TreeWind.Line(_wind, strength, _angle);
+            string line = TreeWind.Line(_wind, strength, WeatherWind.Angle);
             string kind = TreeWind.Describe(_wind.Speed);
             if (!_logged || kind != _lastLine)
             {
@@ -326,6 +301,7 @@ namespace VolumetricClouds.Sky
             if (Singleton<InfoManager>.exists)
                 Singleton<InfoManager>.instance.EventInfoModeChanged -= OnInfoModeChanged;
             GiveBack("the city closes");
+            WeatherWind.Reset();
         }
     }
 }

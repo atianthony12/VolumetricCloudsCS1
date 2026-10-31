@@ -305,7 +305,7 @@
 
   <String key="LightningStormScale.Label">Lightning in storms</String>
 
-  <String key="Group.Trees">Trees</String>
+  <String key="Group.Trees">Trees (experimental)</String>
 
   <String key="TreeWind.Label">Trees move in the wind</String>
 

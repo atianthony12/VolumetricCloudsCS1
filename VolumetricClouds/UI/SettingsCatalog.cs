@@ -1499,8 +1499,10 @@ namespace VolumetricClouds.UI
             });
 
             // 2026-10-30 (the author: "add a Wind override ... where the wind direction dropdown is"):
-            // the trees' wind set by hand, calm to a gale, instead of the weather's (Sky.TreeWind; the
-            // Weather tab's Trees rows still scale it). The weather of the moment: not in a profile.
+            // the city's wind set by hand, calm to a gale, instead of the weather's (Sky.WeatherWind:
+            // the trees, their leaves and dust, and other mods' wind -- Real Flag's -- follow it; the
+            // Weather tab's Trees rows still scale how the trees answer it). The weather of the moment:
+            // not in a profile.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -1508,7 +1510,6 @@ namespace VolumetricClouds.UI
                 Bool = Settings.WindOverride,
                 DefaultBool = Settings.Defaults.WindOverride,
                 Profiled = false,
-                Enabled = TreeWindOn,
                 AfterChange = State("override the wind", OnOff(Settings.WindOverride)),
             });
 
@@ -1521,7 +1522,7 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = TreeWind.OverrideMost, Step = 0.1f,
                 Format = WindName,
                 Profiled = false,
-                Enabled = () => TreeWindOn() && Settings.WindOverride != null && Settings.WindOverride.value,
+                Enabled = () => Settings.WindOverride != null && Settings.WindOverride.value,
             });
 
             Add(new Row

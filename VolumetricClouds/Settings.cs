@@ -449,9 +449,9 @@ namespace VolumetricClouds
         public static FloatSetting WindAngle { get; private set; }
 
         /// <summary>
-        /// The Now tab's wind (2026-10-30): on, the trees' wind is <see cref="WindStrength"/> instead of
-        /// the weather's (Sky.TreeWind; the Trees rows still scale it). The weather of the moment: not in
-        /// a profile.
+        /// The Now tab's wind (2026-10-30): on, the city's wind (Sky.WeatherWind: the trees, and other
+        /// mods' wind such as Real Flag's) is <see cref="WindStrength"/> instead of the weather's (the
+        /// Trees rows still scale how the trees answer it). The weather of the moment: not in a profile.
         /// </summary>
         public static BoolSetting WindOverride { get; private set; }
 

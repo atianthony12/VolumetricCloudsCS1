@@ -262,7 +262,7 @@
 
   <String key="LightningStormScale.Label">Éclairs en tempête</String>
 
-  <String key="Group.Trees">Arbres</String>
+  <String key="Group.Trees">Arbres (expérimental)</String>
 
   <String key="TreeWind.Label">Les arbres bougent avec le vent</String>
 

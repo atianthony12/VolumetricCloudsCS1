@@ -26,7 +26,7 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Glare: grows in fog and rain* (the Halos tab, on by default): the glare round near lamps brightens
   and spreads in fog and rain the way the halos do; off, it is the same in any weather. In clear
   weather it looks as before either way.
-- *Trees move in the wind* (the Weather tab, with *Wind strength on trees*, *Gusts*, *Leaves and
+- *Trees move in the wind* (experimental, opt-in; the Weather tab, under the heading *Trees (experimental)*, with *Wind strength on trees*, *Gusts*, *Leaves and
   branches move* and *Rain and storms strengthen the wind*): trees lean downwind and sway, each at
   its own uneven pace (smaller trees faster, and less: bushes and small trees are stiffer), gusts
   roll across forests along the wind's direction, each part of a crown swings on its own, and the
@@ -37,8 +37,12 @@ below; the mods list shows it after the mod's name, and the first line of
   winter map; none on wet ground): *Leaves blown about in strong wind* and *Dust in strong wind*. Off by default: a `VolumetricClouds.xml` without it reads it as off and the trees keep the
   game's own sway. Tree Control's sway factor and "disable distant sway" still apply (they scale
   each tree's own wind). The game's own tree shaders are used in info views.
-- *Override the wind* and *Wind strength* (the Now tab, under the wind direction): set the trees'
+- *Override the wind* and *Wind strength* (the Now tab, under the wind direction): set the city's
   wind by hand, from calm to a gale, instead of the weather's.
+- One wind for the whole city: its strength (from the weather or the Now tab), its direction and
+  its gusts, which the trees follow and other mods can read (`VolumetricClouds.Sky.WeatherWind`:
+  `Ready`, `Direction`, `Speed` in m/s at 10 m, `Gusts`, `SpeedAt(x, z)`, `GustAt(x, z)`,
+  `Overridden`; `ApiVersion` 1). Real Flag's flags fly in it.
 
 ### Changed
 
