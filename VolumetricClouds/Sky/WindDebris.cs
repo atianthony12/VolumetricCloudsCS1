@@ -74,14 +74,26 @@ namespace VolumetricClouds.Sky
         private float _nextLog;
         private bool _drawing;
 
-        private void Start()
+        private bool _unavailable;
+
+        /// <summary>
+        /// The materials, meshes and map, made the first time leaves or dust are to fly (2026-11-02, the
+        /// author: "never let our mod add anything to the user's game, even behind the scenes, unless
+        /// it's needed / toggled on"); freed again when the trees' wind goes off. False if the shader is missing.
+        /// </summary>
+        private bool Build()
         {
+            if (_leaves != null)
+                return true;
+            if (_unavailable)
+                return false;
+
             Shader shader = ShaderBundle.Get(ShaderBundle.WindDebris);
             if (shader == null)
             {
+                _unavailable = true;
                 Log.Warn("wind debris: its shader is missing from the bundle; no leaves or dust fly");
-                enabled = false;
-                return;
+                return false;
             }
 
             _leaves = new Material(shader) { name = "VolumetricCloudsWindLeaves", renderQueue = CloudVolume.AirQueue + 1 };
@@ -101,6 +113,10 @@ namespace VolumetricClouds.Sky
             _pixels = new Color[MapCells * MapCells];
             _leaves.SetTexture(IdMap, _map);
             _dust.SetTexture(IdMap, _map);
+            _mapX0 = _mapZ0 = int.MinValue;
+            _nextMap = 0f;
+            Log.Msg("wind debris: made (" + LeafCount + " leaves, " + DustCount + " dust specks, a " + MapCells + "x" + MapCells + " map)");
+            return true;
         }
 
         private void LateUpdate()
@@ -118,9 +134,10 @@ namespace VolumetricClouds.Sky
 
         private void Draw()
         {
-            if (_leaves == null || !TreeShaders.Active)
+            if (!TreeShaders.Active)
             {
                 Stopped();
+                Release("the trees' wind is off");
                 return;
             }
 
@@ -136,6 +153,9 @@ namespace VolumetricClouds.Sky
                 Stopped();
                 return;
             }
+
+            if (!Build())
+                return;
 
             if (_camera == null)
                 _camera = Camera.main;
@@ -383,16 +403,24 @@ namespace VolumetricClouds.Sky
 
         private void OnDestroy()
         {
-            if (_leaves != null)
-                Destroy(_leaves);
-            if (_dust != null)
-                Destroy(_dust);
-            if (_leafMesh != null)
-                Destroy(_leafMesh);
-            if (_dustMesh != null)
-                Destroy(_dustMesh);
-            if (_map != null)
-                Destroy(_map);
+            Release("the city closes");
+        }
+
+        /// <summary>Everything Build made, gone (the trees' wind off, or the city closes).</summary>
+        private void Release(string why)
+        {
+            if (_leaves == null)
+                return;
+            Destroy(_leaves);
+            Destroy(_dust);
+            Destroy(_leafMesh);
+            Destroy(_dustMesh);
+            Destroy(_map);
+            _leaves = _dust = null;
+            _leafMesh = _dustMesh = null;
+            _map = null;
+            _pixels = null;
+            Log.Msg("wind debris: freed (" + why + ")");
         }
     }
 }

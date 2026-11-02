@@ -110,10 +110,18 @@ namespace VolumetricClouds.Sky
             return !Singleton<InfoManager>.exists || Singleton<InfoManager>.instance.CurrentMode == InfoManager.InfoMode.None;
         }
 
-        private void Start()
+        // Hooked only while ours are on (nothing of ours in the game while the row is off).
+        private bool _hooked;
+
+        private void Hook(bool on)
         {
-            if (Singleton<InfoManager>.exists)
+            if (on == _hooked || !Singleton<InfoManager>.exists)
+                return;
+            _hooked = on;
+            if (on)
                 Singleton<InfoManager>.instance.EventInfoModeChanged += OnInfoModeChanged;
+            else
+                Singleton<InfoManager>.instance.EventInfoModeChanged -= OnInfoModeChanged;
         }
 
         // An info view switches the shaders' keywords right away (InfoManager.SetActualMode): the game's
@@ -199,6 +207,7 @@ namespace VolumetricClouds.Sky
 
             bool first = !_on;
             _on = true;
+            Hook(true);
             if (first || near != _near || mid != _mid || far != _far)
             {
                 _near = near;
@@ -274,6 +283,14 @@ namespace VolumetricClouds.Sky
 
         private void GiveBack(string why)
         {
+            Hook(false);
+            // Never on: nothing of ours to take back, and no global of ours to clear.
+            if (!_on && _held.Count == 0 && !Active)
+            {
+                _skipped.Clear();
+                return;
+            }
+
             int n = 0;
             foreach (KeyValuePair<Material, Shader> h in _held)
             {
@@ -298,8 +315,6 @@ namespace VolumetricClouds.Sky
 
         private void OnDestroy()
         {
-            if (Singleton<InfoManager>.exists)
-                Singleton<InfoManager>.instance.EventInfoModeChanged -= OnInfoModeChanged;
             GiveBack("the city closes");
             WeatherWind.Reset();
         }

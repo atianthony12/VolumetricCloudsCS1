@@ -187,8 +187,8 @@ namespace VolumetricClouds.Sky
             Funnels.Advance(_field, Time.deltaTime, simulationRate);
 
             // The city's wind (2026-10-30): after everything it follows -- the wind's direction, the
-            // cover, the rain and a waterspout about; then the trees' share of it. WeatherWind always
-            // runs: other mods (Real Flag) read it.
+            // cover, the rain and a waterspout about; then the trees' share of it. Both run only while
+            // needed: the trees' wind on, or (WeatherWind) another mod -- Real Flag -- reading it.
             WeatherWind.Advance(Time.deltaTime, simulationRate);
             TreeShaders.Advance(Time.deltaTime, simulationRate);
 

@@ -1514,7 +1514,9 @@ namespace VolumetricClouds.UI
             // the city's wind set by hand, calm to a gale, instead of the weather's (Sky.WeatherWind:
             // the trees, their leaves and dust, and other mods' wind -- Real Flag's -- follow it; the
             // Weather tab's Trees rows still scale how the trees answer it). The weather of the moment:
-            // not in a profile.
+            // not in a profile. Greyed -- so hidden on this basic tab -- while nothing follows the wind
+            // (2026-11-02, his call: nothing of ours in the game unless needed or switched on): the
+            // trees' wind off and no other mod reading it (Sky.WeatherWind.Wanted).
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -1522,6 +1524,7 @@ namespace VolumetricClouds.UI
                 Bool = Settings.WindOverride,
                 DefaultBool = Settings.Defaults.WindOverride,
                 Profiled = false,
+                Enabled = WindFollowed,
                 AfterChange = State("override the wind", OnOff(Settings.WindOverride)),
             });
 
@@ -1534,7 +1537,7 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = TreeWind.OverrideMost, Step = 0.1f,
                 Format = WindName,
                 Profiled = false,
-                Enabled = () => Settings.WindOverride != null && Settings.WindOverride.value,
+                Enabled = () => WindFollowed() && Settings.WindOverride != null && Settings.WindOverride.value,
             });
 
             Add(new Row
@@ -2491,6 +2494,12 @@ namespace VolumetricClouds.UI
         private static bool TreeWindOn()
         {
             return Settings.TreeWind != null && Settings.TreeWind.value;
+        }
+
+        /// <summary>Something follows the city's wind: the trees, or another mod reading it (Real Flag).</summary>
+        private static bool WindFollowed()
+        {
+            return WeatherWind.Wanted;
         }
 
         /// <summary>

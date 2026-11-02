@@ -7,13 +7,16 @@ namespace VolumetricClouds.Sky
     /// Weather"): how strong it blows, from the weather or the Now tab's override, which way (the Now
     /// tab's wind direction, eased), and the gusts rolling downwind across the map. The trees, the
     /// leaves and dust they lose (TreeShaders, WindDebris) and other mods' wind -- Real Flag's flags --
-    /// all follow this one. Advanced once a frame by CloudLighting, whether or not anything of ours
-    /// uses it, so another mod always finds it current (a few numbers a frame).
+    /// all follow this one. Advanced once a frame by CloudLighting, but ONLY while something needs it
+    /// (2026-11-02, the author: "never let our mod add anything to the user's game, even behind the
+    /// scenes, unless it's needed / toggled on"): the trees' wind is on, or another mod has read
+    /// <see cref="Ready"/> in this city. Otherwise nothing here runs and nothing is logged.
     /// </summary>
     /// <remarks>
     /// FOR OTHER MODS (read by reflection; these names and meanings stay, <see cref="ApiVersion"/> says
     /// what is here; main thread):
-    /// - <see cref="Ready"/>: true once advanced in this city; until then read your own wind.
+    /// - <see cref="Ready"/>: true once advanced in this city; until then read your own wind. Reading it
+    ///   is what asks for the wind: from the next frame on it is advanced for the rest of the city.
     /// - <see cref="Direction"/>: where the wind blows TO, level, unit -- the game's convention
     ///   (sin a, 0, cos a), the way the clouds, fog and rain move.
     /// - <see cref="Speed"/>: the mean wind at 10 m over open ground, m/s.
@@ -38,8 +41,33 @@ namespace VolumetricClouds.Sky
         private static float _angle;
         private static float _storm;
         private static bool _started;
+        private static bool _advanced;
+        private static bool _asked;
 
-        public static bool Ready { get; private set; }
+        /// <summary>
+        /// True once advanced in this city. Read by other mods only (our own code reads _advanced): a
+        /// read is the request for the wind (<see cref="Asked"/>).
+        /// </summary>
+        public static bool Ready
+        {
+            get
+            {
+                _asked = true;
+                return _advanced;
+            }
+        }
+
+        /// <summary>Another mod has read <see cref="Ready"/> in this city (the Now tab's wind rows then count).</summary>
+        internal static bool Asked
+        {
+            get { return _asked; }
+        }
+
+        /// <summary>Something needs the city's wind: the trees' wind is on, or another mod reads it.</summary>
+        internal static bool Wanted
+        {
+            get { return _asked || (Settings.TreeWind != null && Settings.TreeWind.value); }
+        }
 
         public static bool Overridden { get; private set; }
 
@@ -91,7 +119,7 @@ namespace VolumetricClouds.Sky
         /// <summary>The gust at a place now: 0 a lull .. 1 a gust (the trees' VWGust, the same field).</summary>
         public static float GustAt(float x, float z)
         {
-            return Ready ? TreeWind.GustAt(_globals, x, z) : 0.5f;
+            return _advanced ? TreeWind.GustAt(_globals, x, z) : 0.5f;
         }
 
         /// <summary>The wind at 10 m at a place now, m/s, the passing gust in it.</summary>
@@ -106,8 +134,17 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static void Advance(float deltaTime, float simulationRate)
         {
+            // Off means nothing runs (invariant 10): nothing needs it, so it stops (and starts again
+            // from the weather of the moment when something does).
+            if (!Wanted)
+            {
+                if (_started)
+                    Stop();
+                return;
+            }
+
             float storm = Funnels.Count > 0 ? 1f : 0f;
-            _storm = Mathf.MoveTowards(_storm, storm, deltaTime / 20f);
+            _storm = _started ? Mathf.MoveTowards(_storm, storm, deltaTime / 20f) : storm;
             Overridden = Settings.WindOverride != null && Settings.WindOverride.value;
             TreeWind.Wind target = TreeWind.Compute(1f, Value(Settings.TreeGusts, Settings.Defaults.TreeGusts), 1f,
                                                     Value(Settings.TreeStorms, Settings.Defaults.TreeStorms),
@@ -134,25 +171,40 @@ namespace VolumetricClouds.Sky
             Vector3 dir = Direction;
             _motion.Advance(seconds, dir.x, dir.z, _wind.GustSpeed);
             _globals = TreeWind.GlobalsOf(_wind, _motion, dir.x, dir.z);
-            Ready = true;
+            _advanced = true;
 
-            // One line when the city starts and whenever the wind changes its name or its source.
+            // One line when it starts and whenever the wind changes its name or its source.
             string kind = TreeWind.Describe(_wind.Speed) + (Overridden ? " (set)" : "");
             if (kind != _loggedKind)
             {
                 _loggedKind = kind;
-                Log.Msg("wind: the city's wind is " + Describe() + " -- the trees, their leaves and dust, and other mods' wind (Real Flag) follow it");
+                Log.Msg("wind: the city's wind is " + Describe() + " -- followed by " +
+                        (Settings.TreeWind != null && Settings.TreeWind.value ? "the trees" : "") +
+                        (Settings.TreeWind != null && Settings.TreeWind.value && _asked ? " and " : "") +
+                        (_asked ? "another mod reading it (Real Flag)" : ""));
             }
         }
 
         private static string _loggedKind;
 
-        /// <summary>A new city starts from its own weather.</summary>
+        /// <summary>Nothing needs the wind any more: it stops, said once.</summary>
+        private static void Stop()
+        {
+            _started = false;
+            _advanced = false;
+            _loggedKind = null;
+            Overridden = false;
+            Log.Msg("wind: the city's wind stopped (the trees' wind is off and no other mod reads it)");
+        }
+
+        /// <summary>A new city starts from its own weather, and with nothing asking for the wind.</summary>
         public static void Reset()
         {
             _started = false;
+            _advanced = false;
+            _asked = false;
             _loggedKind = null;
-            Ready = false;
+            Overridden = false;
         }
 
         /// <summary>For the log: "4.1 m/s (0.68 breezes, light breeze) toward 274 deg, gusts +-45%".</summary>

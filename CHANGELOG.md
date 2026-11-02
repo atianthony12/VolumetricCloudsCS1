@@ -35,14 +35,19 @@ below; the mods list shows it after the mod's name, and the first line of
   mid and far billboards and their shadows move alike. In a strong wind, leaves are torn off and
   blown out of the woods near the camera, and dust lifts off dry open ground (blowing snow on a
   winter map; none on wet ground): *Leaves blown about in strong wind* and *Dust in strong wind*. Off by default: a `VolumetricClouds.xml` without it reads it as off and the trees keep the
-  game's own sway. Tree Control's sway factor and "disable distant sway" still apply (they scale
+  game's own sway; while it is off the mod adds nothing for it to the game (no tree shaders, no
+  leaves or dust, no wind worked out). Tree Control's sway factor and "disable distant sway" still apply (they scale
   each tree's own wind). The game's own tree shaders are used in info views.
 - *Override the wind* and *Wind strength* (the Now tab, under the wind direction): set the city's
-  wind by hand, from calm to a gale, instead of the weather's.
+  wind by hand, from calm to a gale, instead of the weather's. They only show while something
+  follows the wind (*Trees move in the wind* on, or a mod such as Real Flag reading it); otherwise
+  they are hidden, or greyed out with the advanced options on.
 - One wind for the whole city: its strength (from the weather or the Now tab), its direction and
   its gusts, which the trees follow and other mods can read (`VolumetricClouds.Sky.WeatherWind`:
   `Ready`, `Direction`, `Speed` in m/s at 10 m, `Gusts`, `SpeedAt(x, z)`, `GustAt(x, z)`,
-  `Overridden`; `ApiVersion` 1). Real Flag's flags fly in it.
+  `Overridden`; `ApiVersion` 1). Real Flag's flags fly in it. It only runs while the trees' wind is
+  on or another mod has read `Ready` in this city (reading it asks for the wind; it is ready from
+  the next frame on). With neither, nothing of it runs.
 - *Where to show mod icon* (the options page): Unified UI, Toolbar (the mod's own button) or Never
   (the panel's key alone opens it). It replaces *Show icon in Unified UI*; with that off, the mod's
   own button stays.
