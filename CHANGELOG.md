@@ -5,7 +5,18 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## 1.5.2 — unreleased
+## 1.5.2 — 2026-11-02
+
+Curved clouds out to the horizon (a trial), glare round near lamps, trees that move in the wind
+(experimental), one wind for the whole city that other mods can read, simpler clouds for older
+graphics cards, a check that the clouds really draw, and a new round button. `VolumetricClouds.xml`
+gains sixteen lines and loses one: `CurvedClouds` (0%), `SimplerClouds` (off), `TreeWind` (off) with
+`TreeWindStrength`, `TreeGusts`, `TreeFlutter`, `TreeStorms`, `TreeLeaves` and `TreeDust` (100%),
+`WindOverride` (off) with `WindStrength`, `HaloGlare` (10%), `HaloGlareSize` (170%),
+`HaloGlareDistance` (600 m) and `HaloGlareDynamic` (on), and `IconPlace`, which takes the place of
+`ShowInUnifiedUI` (with that off, the mod's own button stays). Off, the new rows change nothing; the
+one new look players already get is the faint glare round near lamps, and only with the replacement
+halos on. Profiles saved before read the new rows at those values. Nothing in saved cities changes.
 
 ### Added
 

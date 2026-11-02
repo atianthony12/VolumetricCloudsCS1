@@ -1,5 +1,5 @@
-[h1]Version 1.5.1[/h1]
-Hotfix for clouds not rendering on Linux. Soft and Mixed cloud styles, distant clouds, sliders for sunset, night and overcast, changing fog, waterspouts and new panel looks. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
+[h1]Version 1.5.2[/h1]
+Curved clouds to the horizon, glare around near lamps, trees that move in the wind (experimental), simpler clouds for older graphics cards, and a fix for clouds vanishing on some Macs. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
@@ -20,12 +20,14 @@ To see more tabs in the in-game UI like the screenshots above, go to the mod's o
 [*]Volumetric 3D clouds with real shadows
 [*]4 cloud styles: Classic, Cumulus, Soft and Mixed
 [*]Distant clouds: HDRI skies from [url=https://polyhaven.com]Poly Haven[/url]
+[*]Curved clouds to the horizon (new in v1.5.2)
 [/list]
 [h3]Weather[/h3]
 [list]
 [*]Follows the game's weather, or set it yourself
 [*]Rain, lightning, rainbows and waterspouts
 [*]Volumetric fog and smaller light halos (optional)
+[*]Trees that move in the wind (new in v1.5.2, experimental)
 [/list]
 [h3]Mod options[/h3]
 [list]
