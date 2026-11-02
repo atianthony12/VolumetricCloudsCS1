@@ -2963,13 +2963,27 @@ namespace VolumetricClouds.UI
                 },
             });
 
+            // Where the panel's button goes (1.5.2, the author's call: Unified UI, the HUD button --
+            // "Toolbar" -- or none). Stored by value, append only. It replaced the switch
+            // "ShowInUnifiedUI": a file with that off and no IconPlace meant the HUD button.
             Add(new Row
             {
-                Kind = RowKind.Toggle,
+                Kind = RowKind.Choice,
                 Options = OptionsPage.General,
-                Bool = Settings.ShowInUnifiedUI,
-                DefaultBool = Settings.Defaults.ShowInUnifiedUI,
+                Int = Settings.IconPlace,
+                DefaultInt = Settings.Defaults.IconPlace,
+                ChoiceKeys = new[] { "IconPlace.UnifiedUI", "IconPlace.Toolbar", "IconPlace.Never" },
+                ChoiceValues = new[] { Settings.IconPlaces.UnifiedUI, Settings.IconPlaces.Toolbar, Settings.IconPlaces.Never },
                 Profiled = false,
+                OlderFile = written =>
+                {
+                    string old;
+                    bool on;
+                    if (written.TryGetValue("ShowInUnifiedUI", out old) && SettingsXmlFormat.TryParseBool(old, out on) && !on)
+                        return Settings.IconPlaces.Toolbar.ToString(CultureInfo.InvariantCulture);
+
+                    return null;
+                },
                 AfterChange = ModController.RefreshButton,
             });
 

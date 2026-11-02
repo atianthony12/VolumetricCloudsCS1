@@ -722,7 +722,7 @@ namespace VolumetricClouds
                 if (NotProfiled.Count > 0)
                     text += "; ignored, not part of a profile: " + List(NotProfiled);
                 if (Retired.Count > 0)
-                    text += "; retired in 1.5.0, read only for what an older file meant: " + List(Retired);
+                    text += "; retired, read only for what an older file meant: " + List(Retired);
                 if (Duplicates.Count > 0)
                     text += "; written twice, the last one taken: " + List(Duplicates);
                 if (Version > SettingsXmlFormat.Version)
@@ -908,9 +908,11 @@ namespace VolumetricClouds
         /// brightness (CloudLight) -- "Brightness follows the cloud intensity", its clear sky and full
         /// overcast, the fixed brightness, each with its Sunset and Night. A file of 1.4.0 or before has
         /// the first seven, one of the clock's days the rest; the first save leaves them out.
+        /// 1.5.2: "ShowInUnifiedUI", the switch IconPlace replaced.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
+            "ShowInUnifiedUI",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",
             "CloudNightColors", "CloudMoonlitColor", "CloudNightShadeColor",
             "CloudBrightnessAuto",

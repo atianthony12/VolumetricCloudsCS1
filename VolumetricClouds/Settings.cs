@@ -41,7 +41,22 @@ namespace VolumetricClouds
         /// </summary>
         private const string InMemory = "VolumetricCloudsHotkey";
 
-        public static BoolSetting ShowInUnifiedUI { get; private set; }
+        /// <summary>
+        /// Where the panel's button goes, stored by VALUE (append only; <see cref="IconPlaces"/>):
+        /// 0 Unified UI's bar (when that is there, else the HUD button), 1 the HUD button, 2 none
+        /// (the key alone opens the panel). 1.5.2: it replaced the switch "ShowInUnifiedUI"
+        /// (SettingsXml.Retired), whose "false" an older file reads as the HUD button.
+        /// </summary>
+        public static IntSetting IconPlace { get; private set; }
+
+        /// <summary>The values of <see cref="IconPlace"/>, as stored. Never renumber.</summary>
+        public static class IconPlaces
+        {
+            public const int UnifiedUI = 0;
+            public const int Toolbar = 1;
+            public const int Never = 2;
+        }
+
         public static SavedInputKey ToggleKey { get; private set; }
 
         /// <summary>
@@ -776,7 +791,7 @@ namespace VolumetricClouds
         public static class Defaults
         {
             // ---- housekeeping ----
-            public const bool ShowInUnifiedUI = true;
+            public const int IconPlace = IconPlaces.UnifiedUI;
             public const bool ShowAdvancedInPanel = false;
             public const bool DetailedLogging = false;
 
@@ -1189,7 +1204,7 @@ namespace VolumetricClouds
                 if (GameSettings.FindSettingsFileByName(InMemory) == null)
                     GameSettings.AddSettingsFile(new SettingsFile { fileName = InMemory, dontSave = true });
 
-                ShowInUnifiedUI = new BoolSetting("ShowInUnifiedUI", Defaults.ShowInUnifiedUI);
+                IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
                 ToggleKey = new SavedInputKey("ToggleKey", InMemory, DefaultToggleKey, false);
                 WeatherKey = new SavedInputKey("WeatherKey", InMemory, DefaultWeatherKey, false);
                 ShowAdvancedInPanel = new BoolSetting("ShowAdvancedInPanel", Defaults.ShowAdvancedInPanel);

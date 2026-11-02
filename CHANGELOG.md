@@ -43,6 +43,9 @@ below; the mods list shows it after the mod's name, and the first line of
   its gusts, which the trees follow and other mods can read (`VolumetricClouds.Sky.WeatherWind`:
   `Ready`, `Direction`, `Speed` in m/s at 10 m, `Gusts`, `SpeedAt(x, z)`, `GustAt(x, z)`,
   `Overridden`; `ApiVersion` 1). Real Flag's flags fly in it.
+- *Where to show mod icon* (the options page): Unified UI, Toolbar (the mod's own button) or Never
+  (the panel's key alone opens it). It replaces *Show icon in Unified UI*; with that off, the mod's
+  own button stays.
 
 ### Changed
 
@@ -70,6 +73,11 @@ below; the mods list shows it after the mod's name, and the first line of
   cloud, sun and rain glyph in place of the coloured cloud picture, and the button is the game's
   round one in every panel look, matching Play It!'s and Render It's buttons beside it. It was a
   rounded square in the See-through, Blue and Frosted looks.
+
+### Fixed
+
+- The mod's button shows its name when the mouse rests on it, in Unified UI's bar and on its own:
+  neither had a tooltip.
 
 ## 1.5.1 — 2026-10-21
 

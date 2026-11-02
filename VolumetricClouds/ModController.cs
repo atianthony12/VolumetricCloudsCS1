@@ -260,12 +260,20 @@ namespace VolumetricClouds
             UUIIntegration.Unregister();
             DestroyHudButton();
 
-            bool registered = false;
-            if (Settings.ShowInUnifiedUI != null && Settings.ShowInUnifiedUI.value)
-                registered = UUIIntegration.Register(IconLoader.Load(), OnUUIToggled);
+            int place = Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace;
+            if (place == Settings.IconPlaces.Never)
+            {
+                // No button anywhere: the panel's key (polled in Update while Unified UI holds
+                // nothing of ours) still opens it.
+                Log.Msg("panel button: none (icon place = Never; the panel key opens the panel)");
+                return;
+            }
 
-            // A fresh button starts inactive, but this also runs from the "Show icon in
-            // Unified UI" checkbox -- which lives in the panel, so the panel is open.
+            bool wanted = place == Settings.IconPlaces.UnifiedUI;
+            bool registered = wanted && UUIIntegration.Register(IconLoader.Load(), OnUUIToggled);
+
+            // A fresh button starts inactive, but this also runs from the "Where to show mod
+            // icon" row, and the panel may be open behind the options.
             if (registered && _panel != null)
                 UUIIntegration.SetPressed(_panel.isVisible);
 
@@ -274,8 +282,7 @@ namespace VolumetricClouds
             if (!registered)
                 CreateHudButton();
 
-            Log.Msg("panel button: " + (registered ? "Unified UI" : "HUD button") +
-                    " (Unified UI wanted=" + (Settings.ShowInUnifiedUI != null && Settings.ShowInUnifiedUI.value) + ")");
+            Log.Msg("panel button: " + (registered ? "Unified UI" : "HUD button") + " (Unified UI wanted=" + wanted + ")");
         }
 
         private void CreateHudButton()
