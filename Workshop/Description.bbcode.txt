@@ -1,5 +1,5 @@
 [h1]Version 1.5.2[/h1]
-Curved clouds to the horizon, glare around near lamps, trees that move in the wind (experimental), simpler clouds for older graphics cards, and a fix for clouds vanishing on some Macs. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
+Trees that move in the wind, experimental and off by default on the Weather tab (needs advanced settings on). Curved clouds to the horizon, glare around near lamps, simpler clouds for older graphics cards, and a fix for clouds not showing on older Macs. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
