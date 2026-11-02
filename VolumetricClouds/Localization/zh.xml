@@ -376,6 +376,8 @@
 
   <String key="CloudTemporal.Label">更平滑的云层（混合多帧画面：减少颗粒感）</String>
 
+  <String key="SimplerClouds.Label">适用于较旧显卡的简化云层（从下一次载入城市开始生效）</String>
+
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">语言</String>
 

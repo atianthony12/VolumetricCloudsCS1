@@ -70,6 +70,7 @@ namespace VolumetricClouds
 
             Object.Destroy(_root);
             _root = null;
+            CloudShaders.Clear();
         }
 
         /// <summary>
@@ -80,10 +81,15 @@ namespace VolumetricClouds
         /// shader is unsupported and ShaderBundle returns null. The mod used to carry on with
         /// its billboard fallback there; the author does not want a player to meet it that way
         /// (1.1.0), so without the raymarch shader nothing starts at all.
+        /// Since 2026-11-02 "the raymarch shader" is whichever of the two this machine's driver really
+        /// draws -- the whole one, or Simpler clouds' (CloudShaders: each drawn once off screen) -- and
+        /// the player's "Simpler clouds" switch puts the light one first. Read here, so it takes effect
+        /// at a city's load and holds for the city.
         /// </summary>
         private static bool CanDrawClouds()
         {
-            return ShaderBundle.Get(ShaderBundle.Raymarch) != null;
+            bool simpler = Settings.SimplerClouds != null ? Settings.SimplerClouds.value : Settings.Defaults.SimplerClouds;
+            return CloudShaders.Choose(simpler);
         }
 
         /// <summary>

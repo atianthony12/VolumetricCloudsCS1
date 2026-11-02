@@ -693,6 +693,13 @@ namespace VolumetricClouds
         public static BoolSetting CloudTemporal { get; private set; }
 
         /// <summary>
+        /// Simpler clouds (2026-11-02, Sky/CloudShaders): the light cloud shaders (about 1.4.0's) first, for an
+        /// older or weaker graphics card. Read when a city loads. Off by default: the mod picks them by itself
+        /// only where the whole ones draw nothing.
+        /// </summary>
+        public static BoolSetting SimplerClouds { get; private set; }
+
+        /// <summary>
         /// World illumination at 100% coverage, 0..1. Overcast, not night. The CLOUD never takes it
         /// since 1.5.0 (Cloud brightness has its own Overcast values; with Auto brightness on it never
         /// did): it dims only the fog's sunlight. Kept for the players who set it,
@@ -1036,6 +1043,9 @@ namespace VolumetricClouds
             /// <summary>Smoother clouds: off, so a new row changes nothing for anyone (invariant 15).</summary>
             public const bool Temporal = false;
 
+            /// <summary>Simpler clouds: off, so the new row changes nothing for anyone (invariant 15).</summary>
+            public const bool SimplerClouds = false;
+
             /// <summary>
             /// Raymarch steps. 96 is the slider's maximum, what the author runs, and the shader's
             /// hard limit: CloudRaymarch.shader marches `for (int s = 0; s &lt; 96; s++)` while
@@ -1373,6 +1383,7 @@ namespace VolumetricClouds
                 CloudQuality = new FloatSetting("CloudQuality", Defaults.Quality);
                 CloudDepthOcclusion = new BoolSetting("CloudDepthOcclusion", Defaults.DepthOcclusion);
                 CloudTemporal = new BoolSetting("CloudTemporal", Defaults.Temporal);
+                SimplerClouds = new BoolSetting("SimplerClouds", Defaults.SimplerClouds);
                 MinIllumination = new FloatSetting("MinIllumination", Defaults.MinIllumination);
 
                 CloudsVisible = new BoolSetting("CloudsVisible", Defaults.CloudsVisible);

@@ -61,10 +61,13 @@ namespace VolumetricClouds.Sky
         private static readonly int IdCurveFront = Shader.PropertyToID("_CurveFront");
         private static readonly int IdCurveStats = Shader.PropertyToID("_CurveStats");
 
-        /// <summary>Curved clouds' strength (Sky.CurvedClouds): 1 = the real Earth, 0 = off.</summary>
+        /// <summary>
+        /// Curved clouds' strength (Sky.CurvedClouds): 1 = the real Earth, 0 = off. Always 0 under Simpler
+        /// clouds (CloudShaders.Lite: flat clouds, the old reach).
+        /// </summary>
         public static float CurvedStrength
         {
-            get { return Settings.CurvedClouds != null ? CurvedClouds.Strength(Settings.CurvedClouds.value) : 0f; }
+            get { return Settings.CurvedClouds != null && !CloudShaders.Lite ? CurvedClouds.Strength(Settings.CurvedClouds.value) : 0f; }
         }
 
         /// <summary>Metres the Cumulus slab reaches above the tallest cloud: the march must not clip its tops.</summary>
@@ -329,7 +332,8 @@ namespace VolumetricClouds.Sky
             // Always on the log: it changes what is drawn. Once per state. Chosen but not there
             // yet is the few seconds its noise takes to make (CloudVolume), or a failure, said once.
             bool failed = CloudStyle.Failed || (CloudStyle.IsMixed && CloudMixMap.Failed);
-            string state = soft ? "soft" : mixed ? "mixed" : heaps ? "cumulus" : !CloudStyle.UsesNoise ? "classic" : failed ? "failed" : "waiting";
+            string state = soft ? "soft" : mixed ? "mixed" : heaps ? "cumulus" : !CloudStyle.UsesNoise ? "classic"
+                         : CloudShaders.Lite && !CloudStyle.IsCumulus ? "classic (simpler clouds)" : failed ? "failed" : "waiting";
             if (state != _styleLogged)
             {
                 _styleLogged = state;
@@ -341,6 +345,8 @@ namespace VolumetricClouds.Sky
                         ? "cloud style: Cumulus -- " + CloudStyle.DescribeShape()
                         : state == "classic"
                             ? "cloud style: Classic (the layer as it has always been drawn)"
+                            : state == "classic (simpler clouds)"
+                            ? "cloud style: " + name + " chosen, drawn Classic: Simpler clouds has no Soft or Mixed (CloudShaders)"
                             : state == "failed"
                                 ? "cloud style: " + name + " chosen but its noise or map failed: drawn Classic"
                                 : "cloud style: " + name + " chosen; its noise or map is being made, drawn Classic until it is there");

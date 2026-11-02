@@ -82,6 +82,11 @@ namespace VolumetricClouds
                         " curvedClouds=" + Percent(Settings.CurvedClouds, Settings.Defaults.CurvedClouds) +
                         // 1.5.0: Smoother clouds.
                         " smootherClouds=" + On(Settings.CloudTemporal, Settings.Defaults.Temporal) +
+                        // 2026-11-02: the switch, and which cloud shaders this city draws (Sky.CloudShaders).
+                        " simplerClouds=" + On(Settings.SimplerClouds, Settings.Defaults.SimplerClouds) +
+                        " cloudShaders=" + (Sky.CloudShaders.Lite ? "simpler" : "whole") +
+                        (Sky.CloudShaders.ShadowMap == null ? "/no-shadows" : "") +
+                        (Sky.CloudShaders.FunnelsDrawn || Sky.CloudShaders.Lite ? "" : "/no-funnels") +
                         " fragments=" + Sky.CloudFragments.Describe() +
                         // 1.5.0: distant clouds (dynamic, or cirrus/sheep/far/layers by hand).
                         " dynamicDistantClouds=" + On(Settings.DynamicDistantClouds, Settings.Defaults.DynamicDistantClouds) +

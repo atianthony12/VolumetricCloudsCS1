@@ -364,7 +364,8 @@ namespace VolumetricClouds.Sky
 
         private void Start()
         {
-            Shader shader = ShaderBundle.Get(ShaderBundle.Raymarch);
+            // The whole cloud shader or Simpler clouds', as CloudShaders chose at this city's load.
+            Shader shader = CloudShaders.Raymarch;
             if (shader == null)
             {
                 _failed = true;
@@ -535,10 +536,10 @@ namespace VolumetricClouds.Sky
                 _skyLayer.Update(_material, AsVector(_skyLayerAmbient));
         }
 
-        /// <summary>The Smoother clouds setting is on.</summary>
+        /// <summary>The Smoother clouds setting is on (never under Simpler clouds, whose shader has no blend: CloudShaders.Lite).</summary>
         private static bool TemporalWanted
         {
-            get { return Settings.CloudTemporal != null && Settings.CloudTemporal.value; }
+            get { return Settings.CloudTemporal != null && Settings.CloudTemporal.value && !CloudShaders.Lite; }
         }
 
         /// <summary>
@@ -1723,7 +1724,8 @@ namespace VolumetricClouds.Sky
             // For everyone: a Real-Light-only lock was built and taken out again on 2026-10-20 (the author,
             // after seeing it without Real Light: "it honestly looks good, maybe on some LUTs it looks bad
             // but that's up to each user, since this option is off by default anyway").
-            bool toHorizon = Settings.CloudsToHorizon != null && Settings.CloudsToHorizon.value;
+            // Not under Simpler clouds (CloudShaders.Lite): its shader has no far deck.
+            bool toHorizon = Settings.CloudsToHorizon != null && Settings.CloudsToHorizon.value && !CloudShaders.Lite;
             // Curved clouds (trial, 2026-10-23) take the clouds themselves down to the horizon: the band
             // would only be drawn behind them.
             float curve = CloudShaderParams.CurvedStrength;

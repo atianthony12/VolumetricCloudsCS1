@@ -362,6 +362,8 @@
 
   <String key="CloudTemporal.Label">Nubes más suaves (mezcla varios fotogramas: menos grano)</String>
 
+  <String key="SimplerClouds.Label">Nubes más simples para tarjetas gráficas antiguas (a partir de la próxima ciudad que cargues)</String>
+
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Idioma</String>
 

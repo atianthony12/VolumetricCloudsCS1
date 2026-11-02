@@ -79,10 +79,13 @@ namespace VolumetricClouds.Sky
             get { return Current == Soft; }
         }
 
-        /// <summary>The Soft style is drawn: chosen AND the Cumulus noise it is carved from is there. Until then, Classic.</summary>
+        /// <summary>
+        /// The Soft style is drawn: chosen AND the Cumulus noise it is carved from is there. Until then, Classic.
+        /// Never under Simpler clouds (CloudShaders.Lite: its shaders have no puffs): Classic there.
+        /// </summary>
         public static bool SoftDrawn
         {
-            get { return IsSoft && Texture != null; }
+            get { return IsSoft && Texture != null && !CloudShaders.Lite; }
         }
 
         /// <summary>
@@ -134,10 +137,13 @@ namespace VolumetricClouds.Sky
             get { return MixedWanted && CloudMixMap.Ready; }
         }
 
-        /// <summary>The Mixed style is chosen and its noise is up: its type map should be baked.</summary>
+        /// <summary>
+        /// The Mixed style is chosen and its noise is up: its type map should be baked. Never under Simpler
+        /// clouds (CloudShaders.Lite): no map, Classic drawn.
+        /// </summary>
         public static bool MixedWanted
         {
-            get { return IsMixed && Texture != null && !CloudMixMap.Failed; }
+            get { return IsMixed && Texture != null && !CloudMixMap.Failed && !CloudShaders.Lite; }
         }
 
         /// <summary>

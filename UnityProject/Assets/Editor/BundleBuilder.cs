@@ -37,6 +37,10 @@ public static class BundleBuilder
         "Assets/VolumetricClouds/TreesDefault.shader",
         "Assets/VolumetricClouds/TreesGroup.shader",
         "Assets/VolumetricClouds/WindDebris.shader",
+        // "Simpler clouds" (Sky/CloudShaders.cs): the two above compiled with VC_LITE, for a driver
+        // that cannot run the whole of them.
+        "Assets/VolumetricClouds/CloudRaymarchLite.shader",
+        "Assets/VolumetricClouds/CloudShadowMapLite.shader",
     };
 
     private struct Target

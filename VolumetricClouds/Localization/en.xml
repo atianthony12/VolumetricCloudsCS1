@@ -406,6 +406,8 @@
 
   <String key="CloudTemporal.Label">Smoother clouds (blends frames together: less grain)</String>
 
+  <String key="SimplerClouds.Label">Simpler clouds for older graphics cards (starts with the next city you load)</String>
+
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Language</String>
 

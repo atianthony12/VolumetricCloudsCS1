@@ -177,6 +177,14 @@ namespace VolumetricClouds.Sky
             if (_failed)
                 return false;
 
+            // Simpler clouds' shader never reads the map (CloudShaders.Lite): not made at all.
+            if (CloudShaders.Lite)
+            {
+                _failed = true;
+                Log.Msg("lightning: no bolt map under Simpler clouds; clouds behind a bolt cover it, as before 1.5.0.");
+                return false;
+            }
+
             Shader shader = ShaderBundle.Get(ShaderBundle.LightningBoltMap);
             if (shader == null || !SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RHalf))
             {

@@ -1159,10 +1159,22 @@ namespace VolumetricClouds.UI
             return CloudStyle.IsCumulus;
         }
 
-        /// <summary>A style that mixes the Classic layer with clouds of its own is picked: Cumulus, Mixed or Soft.</summary>
+        /// <summary>
+        /// A style that mixes the Classic layer with clouds of its own is picked: Cumulus, Mixed or Soft
+        /// (not Mixed or Soft under Simpler clouds, which draws them Classic).
+        /// </summary>
         private static bool LayerMixPicked()
         {
-            return CloudStyle.UsesNoise;
+            return CloudStyle.IsCumulus || (CloudStyle.UsesNoise && !CloudShaders.Lite);
+        }
+
+        /// <summary>
+        /// This city draws the whole cloud shaders, not Simpler clouds' (Sky.CloudShaders), which leave
+        /// out what the rows greyed by this do. True with no city loaded.
+        /// </summary>
+        private static bool WholeShaders()
+        {
+            return !CloudShaders.Lite;
         }
 
         // ---- the time of day (1.5.0) ------------------------------------------------------------
@@ -1596,6 +1608,9 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.WaterspoutChance,
                 Min = 0f, Max = 400f, Step = 5f,
                 Profiled = false,
+                // None under Simpler clouds (its shader has no funnels), nor where the funnels' variant
+                // does not run (Sky.CloudShaders).
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.FunnelsDrawn),
             });
         }
 
@@ -1915,7 +1930,7 @@ namespace VolumetricClouds.UI
                 Float = Settings.FogInValleys,
                 DefaultFloat = Settings.Defaults.FogInValleys,
                 Min = 0f, Max = 100f, Step = 5f,
-                Enabled = () => FogOn() && CloudFog.FollowsGround && !CloudFog.Overridden,
+                Enabled = () => FogOn() && CloudFog.FollowsGround && !CloudFog.Overridden && WholeShaders(),
             });
 
             Add(new Row
@@ -2086,8 +2101,9 @@ namespace VolumetricClouds.UI
                 Float = Settings.FogOverWater,
                 DefaultFloat = Settings.Defaults.FogOverWater,
                 Min = 0f, Max = 100f, Step = 5f,
-                // "Override fog" overrides every amount of fog, this one too (the author's call).
-                Enabled = () => FogOn() && !CloudFog.Overridden,
+                // "Override fog" overrides every amount of fog, this one too (the author's call). None
+                // under Simpler clouds (Sky.CloudShaders).
+                Enabled = () => FogOn() && !CloudFog.Overridden && WholeShaders(),
             });
 
             // Last on the tab (1.5.0, the author: it "should be at the bottom because it triggers the
@@ -2190,6 +2206,7 @@ namespace VolumetricClouds.UI
                 Options = OptionsPage.Weather,
                 Bool = Settings.CloudsToHorizon,
                 DefaultBool = Settings.Defaults.CloudsToHorizon,
+                Enabled = WholeShaders,
                 AfterChange = State("clouds to the horizon", OnOff(Settings.CloudsToHorizon)),
             });
 
@@ -2204,6 +2221,7 @@ namespace VolumetricClouds.UI
                 Float = Settings.CurvedClouds,
                 DefaultFloat = Settings.Defaults.CurvedClouds,
                 Min = 0f, Max = CurvedClouds.MaxStrength * 100f, Step = 10f,
+                Enabled = WholeShaders,
                 AfterChange = State("curved clouds", () => (Settings.CurvedClouds.value * 100f).ToString("F0") + "%"),
             });
 
@@ -2735,7 +2753,21 @@ namespace VolumetricClouds.UI
                 Bool = Settings.CloudTemporal,
                 DefaultBool = Settings.Defaults.Temporal,
                 Profiled = false,
+                Enabled = WholeShaders,
                 AfterChange = State("smoother clouds", OnOff(Settings.CloudTemporal)),
+            });
+
+            // Simpler clouds (2026-11-02, Sky/CloudShaders): the light cloud shaders first, for an older or
+            // weaker graphics card. The machine's choice: never in a profile; off by default (the mod picks
+            // them by itself where the whole ones draw nothing). Read when a city loads, as its label says.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.General,
+                Bool = Settings.SimplerClouds,
+                DefaultBool = Settings.Defaults.SimplerClouds,
+                Profiled = false,
+                AfterChange = State("simpler clouds (from the next city loaded)", OnOff(Settings.SimplerClouds)),
             });
         }
 

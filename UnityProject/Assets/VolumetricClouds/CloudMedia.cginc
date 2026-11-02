@@ -302,9 +302,11 @@ float CloudPresence(float tEnter)
     fade *= fade;
     // Curved clouds (trial, Sky/CurvedClouds.Presence): the curve ends them at the horizon, so they fade
     // only into the haze in front of them, not to nothing at the reach. x = how much at most, y = 1 /
-    // its length (m); x = 0: off.
+    // its length (m); x = 0: off. (Never in the light shader: no Curved clouds there.)
+#ifndef VC_LITE
     if (_CurveFade.x > 0.0)
         fade = 1.0 - _CurveFade.x * (1.0 - exp(-tEnter * _CurveFade.y));
+#endif
 
     float edge = 1.0 - smoothstep(_EdgeStart, 1.0, tEnter / max(_CloudExtent, 1.0));
     return lerp(fade, max(fade, edge), _NightOpacity);
@@ -363,8 +365,10 @@ float HollowAt(float3 p)
 bool InFogLayerAt(float3 p, float above)
 {
     float extra = 0.0;
+#ifndef VC_LITE
     if (_FogValley > 0.0)
         extra = _FogValley * HollowAt(p);
+#endif
 
     return above < _FogBase + _FogHeight + extra && (_FogBase <= 0.0 || above >= _FogBase);
 }
@@ -378,13 +382,16 @@ float FogAt(float3 p, float above, bool detailed, out float layerHeight)
     // where the fog is, not how much of it there is, so this one goes past "Fog height" on purpose.
     // The march's ceiling still holds: the ground plus its hollow is the land round it, never
     // higher than the highest ground.
+    // Valleys and the banks over water are not in the light shader (VC_LITE): there the fog is as before 1.5.0.
     layerHeight = _FogHeight;
     float hollow = 0.0;
+#ifndef VC_LITE
     if (_FogValley > 0.0)
     {
         hollow = HollowAt(p);
         layerHeight += _FogValley * hollow;
     }
+#endif
 
     float h = (above - _FogBase) / layerHeight;
     if (h >= 1.0 || h < -0.25)
@@ -416,13 +423,16 @@ float FogAt(float3 p, float above, bool detailed, out float layerHeight)
     // Valleys (1.5.0): the weather's fog gathers in hollows -- more of it there -- and leaves the
     // open high ground, all of it at 100%.
     float valley = 0.0;
+#ifndef VC_LITE
     if (_FogValley > 0.0)
     {
         valley = saturate(hollow / 40.0);
         gathered += _FogValleyGather * valley;
     }
+#endif
 
     float cover = saturate((gathered - _FogThreshold) / 0.1);
+#ifndef VC_LITE
     if (_FogValley > 0.0)
         cover *= lerp(1.0, valley, _FogValley);
 
@@ -435,6 +445,7 @@ float FogAt(float3 p, float above, bool detailed, out float layerHeight)
         float near = smoothstep(0.05, 0.6, tex2Dlod(_FogPlaceTex, float4(wuv, 0, 0)).g);
         cover = max(cover, saturate((weather - _FogWaterThreshold) / 0.1) * near);
     }
+#endif
 
     if (cover <= 0.0)
         return 0.0;

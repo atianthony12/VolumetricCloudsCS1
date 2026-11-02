@@ -362,6 +362,8 @@
 
   <String key="CloudTemporal.Label">Nuages plus lisses (mélange plusieurs images : moins de grain)</String>
 
+  <String key="SimplerClouds.Label">Nuages simplifiés pour cartes graphiques anciennes (à partir de la prochaine ville chargée)</String>
+
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Langue</String>
 

@@ -91,9 +91,14 @@ namespace VolumetricClouds.Sky
 
         public static CloudShadowMap TryCreate()
         {
-            Shader shader = ShaderBundle.Get(ShaderBundle.ShadowMap);
+            // The whole shadow shader or Simpler clouds', as CloudShaders chose with the clouds' (null: none
+            // runs here, no cloud shadows -- never a cookie nothing draws into).
+            Shader shader = CloudShaders.ShadowMap;
             if (shader == null)
+            {
+                Log.Msg("cloud shadow map: no shader that runs here; no cloud shadows");
                 return null;
+            }
 
             CloudShadowMap map = new CloudShadowMap(shader);
             Current = map;

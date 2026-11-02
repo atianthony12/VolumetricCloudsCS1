@@ -38,6 +38,36 @@ float3 _DetailPhase;     // the same, for the erosion lookup at _DetailScale x t
 // distance they come in over, w = 1 when they are on.
 float4 _Curve;
 
+// VC_LITE (CloudRaymarchLite / CloudShadowMapLite, "Simpler clouds", Sky/CloudShaders.cs): no Curved
+// clouds, no far sky, no Soft or Mixed. Their parts below are left out and the lookups that use them
+// are the plain ones -- exactly what the whole shader computes with them off, which the C# side makes
+// sure of while the light shaders are drawn.
+#ifdef VC_LITE
+
+float CurveHeight(float3 p)
+{
+    return p.y;
+}
+
+struct FarLook
+{
+    float unused;
+};
+
+FarLook FarLookAt(float2 xz)
+{
+    FarLook f;
+    f.unused = 0.0;
+    return f;
+}
+
+float FarWeather(FarLook f, float2 uv)
+{
+    return tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+}
+
+#else
+
 // A point's height over the curved Earth: its own y, plus how far the ground has fallen away under it.
 float CurveHeight(float3 p)
 {
@@ -147,19 +177,29 @@ float FarBlend(FarLook f, float4 v, float mean, float sd)
 }
 
 // The map's value (as the GPU reads it, r) at p. `uv` = its own lookup there.
+// One return each, here and in FarScore / FarMixType: this compiler calls an early one from inside a
+// [branch] "potentially uninitialized", and build-bundle.ps1 refuses any warning.
 float FarWeather(FarLook f, float2 uv)
 {
+    float weather;
     [branch]
     if (f.w.x >= 1.0)
-        return tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
-
-    float4 v = _CurveStats.xxxx;
-    [branch] if (f.w.x > 0.0) v.x = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
-    [branch] if (f.w.y > 0.0) v.y = tex2Dlod(_WeatherTex, float4(f.uv1, 0, 0)).r;
-    [branch] if (f.w.z > 0.0) v.z = tex2Dlod(_WeatherTex, float4(f.uv2, 0, 0)).r;
-    [branch] if (f.w.w > 0.0) v.w = tex2Dlod(_WeatherTex, float4(f.uv3, 0, 0)).r;
-    return FarBlend(f, v, _CurveStats.x, _CurveStats.y);
+    {
+        weather = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+    }
+    else
+    {
+        float4 v = _CurveStats.xxxx;
+        [branch] if (f.w.x > 0.0) v.x = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+        [branch] if (f.w.y > 0.0) v.y = tex2Dlod(_WeatherTex, float4(f.uv1, 0, 0)).r;
+        [branch] if (f.w.z > 0.0) v.z = tex2Dlod(_WeatherTex, float4(f.uv2, 0, 0)).r;
+        [branch] if (f.w.w > 0.0) v.w = tex2Dlod(_WeatherTex, float4(f.uv3, 0, 0)).r;
+        weather = FarBlend(f, v, _CurveStats.x, _CurveStats.y);
+    }
+    return weather;
 }
+
+#endif // VC_LITE
 
 float Remap(float v, float a, float b, float c, float d)
 {
@@ -278,6 +318,16 @@ UNITY_DECLARE_TEX2D_NOSAMPLER(_MixMap); // bilinear, LINEAR, through the score t
 float4 _MixThreshold;   // the layer's threshold: x in a layer area, y between, z in a puff area;
                         // w = the type's strength (0 at 100%)
 
+#ifdef VC_LITE
+
+// The map's normal score at p (Cumulus's heaps, the layer's thickness): the plain lookup.
+float FarScore(FarLook f, float2 uv)
+{
+    return VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+}
+
+#else
+
 // The type at the map's uv, its strength applied: 0 tips towards layer, 1 towards puffs, 0.5 neither.
 float MixType(float2 uvWeather)
 {
@@ -287,31 +337,41 @@ float MixType(float2 uvWeather)
 // The map's normal score at p (Cumulus's heaps, the layer's thickness), blended as FarWeather.
 float FarScore(FarLook f, float2 uv)
 {
+    float score;
     [branch]
     if (f.w.x >= 1.0)
-        return VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
-
-    float4 v = _CurveStats.zzzz;
-    [branch] if (f.w.x > 0.0) v.x = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
-    [branch] if (f.w.y > 0.0) v.y = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv1).a;
-    [branch] if (f.w.z > 0.0) v.z = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv2).a;
-    [branch] if (f.w.w > 0.0) v.w = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv3).a;
-    return FarBlend(f, v, _CurveStats.z, _CurveStats.w);
+    {
+        score = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+    }
+    else
+    {
+        float4 v = _CurveStats.zzzz;
+        [branch] if (f.w.x > 0.0) v.x = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+        [branch] if (f.w.y > 0.0) v.y = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv1).a;
+        [branch] if (f.w.z > 0.0) v.z = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv2).a;
+        [branch] if (f.w.w > 0.0) v.w = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv3).a;
+        score = FarBlend(f, v, _CurveStats.z, _CurveStats.w);
+    }
+    return score;
 }
 
 // Mixed's type at p: a slow control, so a plain weighted mean of the lookups (no front: the fronts move
 // the cover, not the kind of cloud).
 float FarMixType(FarLook f, float2 uv)
 {
+    float t = 0.0;
     [branch]
     if (f.w.x >= 1.0)
-        return MixType(uv);
-
-    float t = 0.0;
-    [branch] if (f.w.x > 0.0) t += f.w.x * MixType(uv);
-    [branch] if (f.w.y > 0.0) t += f.w.y * MixType(f.uv1);
-    [branch] if (f.w.z > 0.0) t += f.w.z * MixType(f.uv2);
-    [branch] if (f.w.w > 0.0) t += f.w.w * MixType(f.uv3);
+    {
+        t = MixType(uv);
+    }
+    else
+    {
+        [branch] if (f.w.x > 0.0) t += f.w.x * MixType(uv);
+        [branch] if (f.w.y > 0.0) t += f.w.y * MixType(f.uv1);
+        [branch] if (f.w.z > 0.0) t += f.w.z * MixType(f.uv2);
+        [branch] if (f.w.w > 0.0) t += f.w.w * MixType(f.uv3);
+    }
     return t;
 }
 
@@ -321,6 +381,8 @@ float MixThresholdAt(float4 thresholds, float t)
 {
     return t < 0.5 ? lerp(thresholds.x, thresholds.y, t * 2.0) : lerp(thresholds.y, thresholds.z, t * 2.0 - 1.0);
 }
+
+#endif // VC_LITE
 
 // Coverage over height: the cloud's silhouette. A cloud only reaches as high as its coverage lets
 // it (cg below): what makes every cloud its own height.
@@ -570,6 +632,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     float2 uvWeather = p.xz / _WeatherTile - _WeatherPhase;
     FarLook look = FarLookAt(p.xz);
 
+#ifndef VC_LITE
     [branch]
     if (_CloudStyle > 1.5)
     {
@@ -600,6 +663,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
 
         return puffs;
     }
+#endif
 
     if (_CloudStyle > 0.5)
     {

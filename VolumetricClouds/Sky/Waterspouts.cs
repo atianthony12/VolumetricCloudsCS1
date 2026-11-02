@@ -38,7 +38,14 @@ namespace VolumetricClouds.Sky
         /// <summary>"Waterspout chance": 1 = 100%.</summary>
         public static float Chance
         {
-            get { return Settings.WaterspoutChance != null ? Mathf.Max(0f, Settings.WaterspoutChance.value) : Settings.Defaults.WaterspoutChance; }
+            get
+            {
+                // None where their funnels cannot be drawn: Simpler clouds, or a driver that does not run
+                // the cloud shader's funnels variant (CloudShaders). The setting itself stays as it is.
+                if (!CloudShaders.FunnelsDrawn)
+                    return 0f;
+                return Settings.WaterspoutChance != null ? Mathf.Max(0f, Settings.WaterspoutChance.value) : Settings.Defaults.WaterspoutChance;
+            }
         }
 
         /// <summary>Ours showing now.</summary>
@@ -56,6 +63,14 @@ namespace VolumetricClouds.Sky
             if (!draw)
             {
                 Clear("the clouds are hidden");
+                return;
+            }
+
+            // Their funnels cannot be drawn with this city's cloud shader (CloudShaders): none at all.
+            if (!CloudShaders.FunnelsDrawn)
+            {
+                if (_spouts.Count > 0)
+                    Clear("this city's cloud shader has no funnels");
                 return;
             }
 

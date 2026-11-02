@@ -46,6 +46,15 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Where to show mod icon* (the options page): Unified UI, Toolbar (the mod's own button) or Never
   (the panel's key alone opens it). It replaces *Show icon in Unified UI*; with that off, the mod's
   own button stays.
+- *Simpler clouds for older graphics cards* (the mod's options page, under *How the clouds are
+  drawn*; off by default): a lighter cloud shader, about the size of 1.4's. The mod picks it by
+  itself where the full one doesn't draw (see Fixed below); a player can also tick it, for example
+  on a card that draws the full clouds too slowly. It starts with the next city you load. It has no
+  *Soft* or *Mixed* style (those draw as *Classic*), *Curved clouds*, *Smoother clouds*, *Clouds to
+  the horizon*, fog that fills valleys or lies over water, or waterspouts; those rows are greyed out
+  while it is in use, and their settings stay as you set them for when the full clouds are back.
+  Everything else (Classic and Cumulus clouds, cloud detail, rain, fog, lightning, rainbows, cloud
+  shadows) is drawn as before. A `VolumetricClouds.xml` without it reads it as off.
 
 ### Changed
 
@@ -78,6 +87,12 @@ below; the mods list shows it after the mod's name, and the first line of
 
 - The mod's button shows its name when the mouse rests on it, in Unified UI's bar and on its own:
   neither had a tooltip.
+- Clouds could vanish without any message on some graphics cards since 1.5.0 (reported on a 2017
+  iMac with a Radeon Pro 555): the cloud shader grew past what that card's driver could build, and
+  the mod never knew. Now, when a city loads, the mod checks that its cloud shader really draws on
+  this computer. If it doesn't, the mod draws *Simpler clouds* instead (see Added), and if even
+  those don't draw, it shows its "not supported" message rather than a sky with nothing in it.
+  Computers where the clouds already worked keep drawing them exactly as before.
 
 ## 1.5.1 — 2026-10-21
 
