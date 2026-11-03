@@ -1,21 +1,21 @@
 [h1]Version 1.5.2[/h1]
 [b]New[/b]
 [list]
-[*][b]Curved clouds[/b]: the cloud layer follows the curve of the Earth and carries on down to the horizon, with no repeating pattern far out (Weather tab; a trial, off by default).
-[*][b]Glare around near lamps[/b]: with the replacement light halos on, lamps near the camera get a soft glow that grows in fog and rain (Halos tab).
-[*][b]Trees move in the wind[/b]: trees lean and sway with the weather's wind, gusts roll across forests, and strong wind blows leaves and dust about (Weather tab; experimental, off by default).
-[*][b]Wind strength[/b]: set the city's wind by hand, from calm to a gale (Now tab). Other mods can read the wind too.
-[*][b]Simpler clouds for older graphics cards[/b]: a lighter cloud shader, picked by the mod by itself where the full one doesn't draw, or ticked on the options page.
-[*][b]Where to show mod icon[/b]: Unified UI, the mod's own button, or none (options page).
+[*][b]Curved clouds[/b]: clouds follow the curve of the Earth all the way to the horizon, without the repeating pattern in the distance (Weather tab, experimental, off by default).
+[*][b]Glare around near lamps[/b]: lamps close to the camera get a soft glow, stronger in fog and rain (Halos tab, needs the light halos on).
+[*][b]Trees move in the wind[/b]: trees sway with the wind, gusts move across forests, and strong wind blows leaves and dust around (Weather tab, experimental, off by default).
+[*][b]Wind strength[/b]: set the wind yourself, from calm to a gale (Now tab).
+[*][b]Simpler clouds for older graphics cards[/b]: a lighter version of the clouds, used automatically when the full ones don't work on your graphics card. You can also turn it on in the mod's options.
+[*][b]Where to show mod icon[/b]: Unified UI, the toolbar, or never (mod options).
 [/list]
 [b]Fixed[/b]
 [list]
-[*]On some graphics cards (a 2017 iMac among them) the clouds vanished without any message since 1.5.0; the mod now checks that its clouds really draw and falls back to the simpler ones.
-[*]The mod's button shows its name when the mouse rests on it.
+[*]Clouds not showing on some graphics cards since 1.5.0, like older Macs. The mod now checks that the clouds actually show, and switches to the simpler clouds if they don't.
+[*]The mod's button now shows its name when hovered.
 [/list]
 [b]Changed[/b]
 [list]
-[*]Rain curtains are lit by the sun only where it gets in under the clouds.
-[*]A new white icon on a round button, matching Play It!'s and Render It's.
-[*][i]Dynamic distant clouds[/i] is off for new installs; players who have it on keep it.
+[*]Rain curtains are only lit by the sun where it shines in under the clouds.
+[*]New white icon on a round button, matching Play It! and Render It!.
+[*][i]Dynamic distant clouds[/i] is now off by default for new installs. If you already have it on, it stays on.
 [/list]
