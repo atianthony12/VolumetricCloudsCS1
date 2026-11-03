@@ -4,7 +4,7 @@
 [*][b]Curved clouds[/b]: the cloud layer follows the curve of the Earth and carries on down to the horizon, with no repeating pattern far out (Weather tab; a trial, off by default).
 [*][b]Glare around near lamps[/b]: with the replacement light halos on, lamps near the camera get a soft glow that grows in fog and rain (Halos tab).
 [*][b]Trees move in the wind[/b]: trees lean and sway with the weather's wind, gusts roll across forests, and strong wind blows leaves and dust about (Weather tab; experimental, off by default).
-[*][b]Wind strength[/b]: set the city's wind by hand, from calm to a gale (Now tab). Other mods can read the wind too; Real Flag's flags fly in it.
+[*][b]Wind strength[/b]: set the city's wind by hand, from calm to a gale (Now tab). Other mods can read the wind too.
 [*][b]Simpler clouds for older graphics cards[/b]: a lighter cloud shader, picked by the mod by itself where the full one doesn't draw, or ticked on the options page.
 [*][b]Where to show mod icon[/b]: Unified UI, the mod's own button, or none (options page).
 [/list]
@@ -16,7 +16,6 @@
 [b]Changed[/b]
 [list]
 [*]Rain curtains are lit by the sun only where it gets in under the clouds.
-[*]Under Real Light's sky, no more dark disc round a low sun in the far clouds.
 [*]A new white icon on a round button, matching Play It!'s and Render It's.
 [*][i]Dynamic distant clouds[/i] is off for new installs; players who have it on keep it.
 [/list]
