@@ -56,6 +56,16 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public const float FrontStrength = 1f, FrontBlend = 40000f;
 
+        /// <summary>
+        /// THE NOISE past the same ring (the author, 2026-11-05: "the pattern is still super obvious when the
+        /// clouds are curved"). The patches move the map; the noise that carves it (Soft's repeats every 2300
+        /// m, its fine read every 575 m) ran on as one grid to the horizon: his shot's texture repeats at
+        /// about 600 m on the sky, and multiples. Past the ring it is read in cells about this wide (m), each
+        /// moved by up to <see cref="NoiseShiftMost"/> metres (CloudCommon FarNoiseShift;
+        /// <see cref="NoiseShift"/> is the twin). A shift only: the noise's drift stays the wind's.
+        /// </summary>
+        public const float NoiseCell = 2500f, NoiseShiftMost = 50000f;
+
         /// <summary>The lattice's skew (Mikkelsen's hex tiling): cells = (x - z / sqrt 3, 2 z / sqrt 3) / spacing.</summary>
         public const double Skew = 0.57735027, Stretch = 1.15470054;
 
@@ -68,6 +78,22 @@ namespace VolumetricClouds.Sky
 
         /// <summary>The longest march: past it a ray from high up would only meet clouds a few pixels tall.</summary>
         public const float MaxReach = 250000f;
+
+        /// <summary>
+        /// While Real Light carries the sky on below the horizon, what lies past the map's edge is sky, and
+        /// the clouds go on down to it past the curved ground's horizon (they ended there on a straight
+        /// line; the author, 2026-11-05: "the curve looks cut-off"). The ground still stops rays that come
+        /// down to the world's level inside this square (half its side, m): 500 m inside the map's 8640,
+        /// so the blended clouds' low-resolution march covers the pixels at the edge.
+        /// </summary>
+        public const float MapEdge = 8140f;
+
+        /// <summary>
+        /// Those rays meet the base 222 km further out for every degree down: ~1000 km at 4.5 degrees,
+        /// ~2000 km at 9. The clouds fade out between the two, so a camera low by the map's edge looking
+        /// out and down gets no new line.
+        /// </summary>
+        public const float BelowFrom = 1000000f, BelowReach = 2000000f;
 
         /// <summary>The strength from the slider's stored value (1 = 100%), clamped; 0 is off.</summary>
         public static float Strength(float stored)
@@ -113,20 +139,30 @@ namespace VolumetricClouds.Sky
             return Math.Min(MaxReach, Math.Max(flatReach, far));
         }
 
+        /// <summary>The march's end (the shader's _MaxDistance): <paramref name="reach"/>, or <see cref="BelowReach"/> while the clouds go on past the ground's horizon.</summary>
+        public static float MarchReach(float reach, bool pastGround)
+        {
+            return pastGround ? Math.Max(reach, BelowReach) : reach;
+        }
+
         /// <summary>How much of a cloud t metres away is left after the haze in front of it (CloudPresence's curved fade).</summary>
         public static float Presence(float t)
         {
-            return 1f - Haze * (1f - (float)Math.Exp(-Math.Max(t, 0f) / HazeLength));
+            float haze = 1f - Haze * (1f - (float)Math.Exp(-Math.Max(t, 0f) / HazeLength));
+            float s = Math.Max(0f, Math.Min(1f, (t - BelowFrom) / (BelowReach - BelowFrom)));
+            return haze * (1f - s * s * (3f - 2f * s));
         }
 
         /// <summary>
         /// Where along a ray the layer is, as the shader works it out (CloudRaymarch CurvedSlab): the ray's
         /// height over the curved Earth is a t^2 + b t + h0, with a = k |dir.xz|^2, b = dir.y + 2 k
         /// origin.xz . dir.xz, h0 = origin.y + k |origin.xz|^2. Returns false when it never is. Leaves
-        /// where it first leaves it (out of the top, or under the base); stops at the ground.
+        /// where it first leaves it (out of the top, or under the base); stops at the ground. With
+        /// mapEdge (<see cref="MapEdge"/>) the ground stops only a ray that comes down to the world's
+        /// level inside that square; 0: every ray.
         /// </summary>
         public static bool Slab(float k, float ox, float oy, float oz, float dx, float dy, float dz,
-                                float bottom, float top, out float enter, out float exit)
+                                float bottom, float top, out float enter, out float exit, float mapEdge = 0f)
         {
             double a = k * (dx * (double)dx + dz * (double)dz);
             double b = dy + 2.0 * k * (ox * (double)dx + oz * (double)dz);
@@ -154,7 +190,16 @@ namespace VolumetricClouds.Sky
             if (underBase && base1 > from)
                 to = Math.Min(to, base1);  // out under the base
             if (toGround && ground1 > 0.0 && ground1 < from)
-                return false;              // the ground first
+            {
+                bool onMap = true;
+                if (mapEdge > 0f)
+                {
+                    double down = oy / Math.Max(-(double)dy, 1e-6);
+                    onMap = Math.Max(Math.Abs(ox + dx * down), Math.Abs(oz + dz * down)) < mapEdge;
+                }
+                if (onMap)
+                    return false;          // the ground first
+            }
             if (to <= from)
                 return false;
 
@@ -218,11 +263,60 @@ namespace VolumetricClouds.Sky
                 weights[i] /= kept;
         }
 
+        /// <summary>
+        /// The noise's cells to a side of a patch (_CurveFront.z): whole, so its lattice rides the patches'
+        /// drift and wraps with it; a tiny Weather pattern size gets one to a patch.
+        /// </summary>
+        public static float NoiseCells(float spacing)
+        {
+            return Math.Max(1f, (float)Math.Round(spacing / NoiseCell));
+        }
+
+        /// <summary>
+        /// FarNoiseShift's cell and shift, past the ring: skX, skZ = the point in the noise's skewed cells,
+        /// repeat = their repeat, pick = its random number 0..1 for the cell. (dx, dz) = what the noise's
+        /// lookups move by there.
+        /// </summary>
+        public static void NoiseShift(float skX, float skZ, float repeat, float pick, out float dx, out float dz)
+        {
+            float cellX = (float)Math.Floor(skX), cellZ = (float)Math.Floor(skZ);
+            float tx = skX - cellX, tz = skZ - cellZ, tw = 1f - tx - tz;
+            float s = tw < 0f ? 1f : 0f;
+            float s2 = 2f * s - 1f;
+
+            float b0 = Fourth(Math.Max(-tw * s2, 0f));
+            float b1 = Fourth(Math.Max(s - tz * s2, 0f));
+            float b2 = Fourth(Math.Max(s - tx * s2, 0f));
+            float sum = b0 + b1 + b2;
+            b0 /= sum;
+            b1 /= sum;
+
+            float idX = pick < b0 ? cellX + s : (pick < b0 + b1 ? cellX + s : cellX + 1f - s);
+            float idZ = pick < b0 ? cellZ + s : (pick < b0 + b1 ? cellZ + 1f - s : cellZ + s);
+
+            float h0, h1, h2;
+            CellHash(idX, idZ, repeat, out h0, out h1, out h2);
+            dx = h1 * NoiseShiftMost;
+            dz = h2 * NoiseShiftMost;
+        }
+
+        private static float Fourth(float v)
+        {
+            v *= v;
+            return v * v;
+        }
+
         /// <summary>PatchHash: three numbers 0..1 for the patch at cell (x, z) (Hoskins' hash, no sines).</summary>
         public static void PatchHash(float x, float z, out float h0, out float h1, out float h2)
         {
-            x -= LatticeRepeat * (float)Math.Floor(x / LatticeRepeat);
-            z -= LatticeRepeat * (float)Math.Floor(z / LatticeRepeat);
+            CellHash(x, z, LatticeRepeat, out h0, out h1, out h2);
+        }
+
+        /// <summary>CellHash: three numbers 0..1 for a cell of a lattice that repeats every `repeat` cells.</summary>
+        public static void CellHash(float x, float z, float repeat, out float h0, out float h1, out float h2)
+        {
+            x -= repeat * (float)Math.Floor(x / repeat);
+            z -= repeat * (float)Math.Floor(z / repeat);
             float p0 = Frac(x * 0.1031f + 0.37f), p1 = Frac(z * 0.1030f + 0.37f), p2 = Frac(x * 0.0973f + 0.37f);
             float d = p0 * (p1 + 33.33f) + p1 * (p0 + 33.33f) + p2 * (p2 + 33.33f);
             p0 += d; p1 += d; p2 += d;

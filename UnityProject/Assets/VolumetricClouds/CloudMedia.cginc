@@ -303,9 +303,14 @@ float CloudPresence(float tEnter)
     // Curved clouds (trial, Sky/CurvedClouds.Presence): the curve ends them at the horizon, so they fade
     // only into the haze in front of them, not to nothing at the reach. x = how much at most, y = 1 /
     // its length (m); x = 0: off. (Never in the light shader: no Curved clouds there.)
+    // Past the curved ground's horizon (CurvedSlab) they go on to the march's end: 1000 km is ~4.5
+    // degrees under the level, 2000 km ~9 (CurvedClouds.BelowFrom, BelowReach): gone softly by there.
 #ifndef VC_LITE
     if (_CurveFade.x > 0.0)
+    {
         fade = 1.0 - _CurveFade.x * (1.0 - exp(-tEnter * _CurveFade.y));
+        fade *= 1.0 - smoothstep(1000000.0, 2000000.0, tEnter);
+    }
 #endif
 
     float edge = 1.0 - smoothstep(_EdgeStart, 1.0, tEnter / max(_CloudExtent, 1.0));

@@ -84,24 +84,71 @@ float CurveHeight(float3 p)
 // _CurvePatch.z cells), so a cloud never crosses into another patch. The fronts: slow waves, 100 km and
 // more, raise or lower the map past the ring by up to ~1.5 of its standard deviations x _CurveFront.x:
 // stretches of clear sky and of overcast out there, whatever the city has.
+//
+// THE NOISE (2026-11-05, the author: "the pattern is still super obvious when the clouds are curved"; CurvedClouds.
+// NoiseShift is the C# twin). The patches only ever moved the MAP. The noise that carves it (Soft's puffs repeat
+// every 2300 m, their fine read every 575 m; measured on his shot: peaks at 600 m along the sky and its multiples)
+// ran on as one straight grid to the horizon. Past the ring it is read in cells of the same lattice, each about a
+// repeat across (_CurveFront.z of them to a patch's side), each from its own place in the noise. A shift, no turn:
+// the noise's drift stays the wind's. Where cells meet, each READ of the density picks one at random by the
+// weights (never three more 3D reads a sample): a ray out there crosses many cells over its march, so the picks
+// average into a blend along it, and over the frames with Smoother clouds.
 float4 _CurvePatch;     // xy = the lattice's drift (cells, 0..z), z = its repeat (cells), w = 1 / the patches' spacing (m)
-float4 _CurveFront;     // x = the fronts' strength (standard deviations), y = 1 / the distance they come in over (m)
+float4 _CurveFront;     // x = the fronts' strength (standard deviations), y = 1 / the distance they come in over (m),
+                        // z = the noise's cells to a patch's side, whole (0: the noise is left alone)
 float4 _CurveStats;     // the map as read: x = its mean, y = its standard deviation; its scores: z, w the same
+
+// How far a cell's noise may be moved (m): past every noise's repeat.
+#define FAR_NOISE_SHIFT 50000.0
 
 struct FarLook
 {
     float4 w;           // x = the map's own lookup (inside the ring: 1), yzw = the three patches round p
     float2 uv1, uv2, uv3;
     float shift;        // the front here, in standard deviations
+    float2 noise;       // what the noise's lookups move by here (m)
 };
 
-// Three numbers 0..1 for a patch, from its place in the lattice (Hoskins' hash: no sines).
-float3 PatchHash(float2 id)
+// Three numbers 0..1 for a cell, from its place in a lattice that repeats every `repeat` cells (Hoskins'
+// hash: no sines).
+float3 CellHash(float2 id, float repeat)
 {
-    id -= _CurvePatch.z * floor(id / _CurvePatch.z);
+    id -= repeat * floor(id / repeat);
     float3 p3 = frac(float3(id.xyx) * float3(0.1031, 0.1030, 0.0973) + 0.37);
     p3 += dot(p3, p3.yxz + 33.33);
     return frac((p3.xxy + p3.yzz) * p3.zyx);
+}
+
+float3 PatchHash(float2 id)
+{
+    return CellHash(id, _CurvePatch.z);
+}
+
+// What the noise moves by at xz: `sk` = xz in the noise's skewed cells, `repeat` their repeat, `into` how far in
+// past the ring (0..1: the share of reads moved, so the noise comes in as the map's patches do).
+float2 FarNoiseShift(float2 sk, float repeat, float2 xz, float into)
+{
+    // Fresh for every read: where along the ray it falls.
+    float3 r = frac(float3(xz.xyx) * float3(0.1031, 0.1030, 0.0973));
+    r += dot(r, r.yxz + 33.33);
+    float pick = frac((r.x + r.y) * r.z);
+    float keep = frac((r.y + r.z) * r.x);
+
+    // The three cells round it, as FarLookAt's patches, a wider meeting (^4, not ^16).
+    float2 cell = floor(sk);
+    float3 t = float3(sk - cell, 0.0);
+    t.z = 1.0 - t.x - t.y;
+    float s = t.z < 0.0 ? 1.0 : 0.0;
+    float s2 = 2.0 * s - 1.0;
+    float3 b = max(float3(-t.z * s2, s - t.y * s2, s - t.x * s2), 0.0);
+    b *= b;
+    b *= b;
+    b /= dot(b, float3(1.0, 1.0, 1.0));
+
+    float2 id = pick < b.x ? cell + float2(s, s)
+              : (pick < b.x + b.y ? cell + float2(s, 1.0 - s) : cell + float2(1.0 - s, s));
+    float moved = keep < into ? 1.0 : 0.0;
+    return CellHash(id, repeat).yz * (FAR_NOISE_SHIFT * moved);
 }
 
 // The map's uv as patch `id` reads it: turned by a quarter turn h.x picks (mirrored for half of them),
@@ -130,6 +177,7 @@ FarLook FarLookAt(float2 xz)
     f.w = float4(1.0, 0.0, 0.0, 0.0);
     f.uv1 = f.uv2 = f.uv3 = float2(0.0, 0.0);
     f.shift = 0.0;
+    f.noise = float2(0.0, 0.0);
 
     float beyond = _Curve.w > 0.0 ? length(xz) - _Curve.y : 0.0;
     [branch]
@@ -164,6 +212,9 @@ FarLook FarLookAt(float2 xz)
         f.uv1 = PatchUV(uv, cell + float2(s, s));
         f.uv2 = PatchUV(uv, cell + float2(s, 1.0 - s));
         f.uv3 = PatchUV(uv, cell + float2(1.0 - s, s));
+
+        if (_CurveFront.z > 0.0)
+            f.noise = FarNoiseShift(sk * _CurveFront.z, _CurvePatch.z * _CurveFront.z, xz, into);
     }
     return f;
 }
@@ -633,6 +684,9 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     FarLook look = FarLookAt(p.xz);
 
 #ifndef VC_LITE
+    // Past the ring every noise lookup below reads from its cell's own place (the map's are done: uvWeather, look).
+    p.xz += look.noise;
+
     [branch]
     if (_CloudStyle > 1.5)
     {

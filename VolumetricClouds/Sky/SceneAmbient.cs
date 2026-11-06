@@ -35,6 +35,16 @@ namespace VolumetricClouds.Sky
         private static readonly int IdRealLightHeld = Shader.PropertyToID("_RLAmbientHeld");
         private static readonly int IdRealLightGameSky = Shader.PropertyToID("_RLGameAmbientSky");
         private static readonly int IdRealLightCloudLight = Shader.PropertyToID("_RLCloudLight");
+        private static readonly int IdRealLightSkyBelow = Shader.PropertyToID("_RLSkyBelow");
+
+        /// <summary>
+        /// True while Real Light carries the sky on below the horizon, so what lies past the map's edge
+        /// is sky: Curved clouds go on down to it. False without Real Light.
+        /// </summary>
+        public static bool SkyBelowHorizon
+        {
+            get { return Shader.GetGlobalFloat(IdRealLightSkyBelow) > 0.5f; }
+        }
 
         /// <summary>The clouds': the game's own sky ambient, also while Real Light brightens the city's.</summary>
         public static Color Sky()

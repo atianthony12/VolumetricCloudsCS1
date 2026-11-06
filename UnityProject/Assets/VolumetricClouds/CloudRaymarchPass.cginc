@@ -562,6 +562,11 @@ float2 CurveRoots(float a, float b, float c)
 // -- out of the top, or under the base (a ray that comes back up beyond the deck's horizon is not
 // marched again) -- and never past the ground: beyond the map there is no scene to stop it. Out to
 // the reach (_MaxDistance: CurvedClouds.Reach). tExit <= tEnter: not at all.
+// While Real Light carries the sky on below the horizon, what lies past the map's edge is sky, so
+// the ground stops only rays that come down on the map (_CurveFade.w, CurvedClouds.MapEdge; 0: every
+// ray). The others run on and meet the base further out: the clouds carry on past the curved
+// ground's horizon, with no line there, down to the map's edge. Rays that end on the map stay
+// unmarched: Smoother clouds' march would pay for every pixel of the city otherwise.
 void CurvedSlab(float3 origin, float3 dir, inout float tEnter, inout float tExit)
 {
     float k = _Curve.x;
@@ -578,7 +583,14 @@ void CurvedSlab(float3 origin, float3 dir, inout float tEnter, inout float tExit
     float to = top.y;
     if (base.x > from)
         to = min(to, base.x);
-    if (top.y <= 0.0 || (ground.x > 0.0 && ground.x < from))
+    bool stopped = ground.x > 0.0 && ground.x < from;
+    if (stopped && _CurveFade.w > 0.0)
+    {
+        // Where it comes down to the world's level: on the map, the terrain has it before that.
+        float2 met = abs(origin.xz + dir.xz * (origin.y / max(-dir.y, 1e-6)));
+        stopped = max(met.x, met.y) < _CurveFade.w;
+    }
+    if (top.y <= 0.0 || stopped)
         to = from;
 
     tEnter = max(from, 0.0);

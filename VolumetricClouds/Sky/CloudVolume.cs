@@ -152,6 +152,7 @@ namespace VolumetricClouds.Sky
 
         // Curved clouds (trial): the strength last logged (LogCurve); -1 before the first.
         private float _loggedCurve = -1f;
+        private bool _loggedPastGround;
 
         // Smoother clouds (1.5.0, Settings.CloudTemporal): the clouds marched at half size and blended
         // over the frames for the main camera, run from the box's OnWillRenderObject (CloudTemporalHook).
@@ -983,7 +984,7 @@ namespace VolumetricClouds.Sky
             // The jitter tile, or 0: the shader's white-noise hash.
             _material.SetTexture(IdBlueNoiseTex, _blueNoise);
             _material.SetFloat(IdBlueNoiseScale, _blueNoise != null ? 1f / BlueNoise.Size : 0f);
-            _material.SetFloat(IdMaxDistance, Reach);
+            _material.SetFloat(IdMaxDistance, CurvedClouds.MarchReach(Reach, CloudShaderParams.CurvedStrength > 0f && SceneAmbient.SkyBelowHorizon));
             _material.SetFloat(IdUseDepth, useDepth ? 1f : 0f);
 
             ApplyLighting();
@@ -1661,6 +1662,16 @@ namespace VolumetricClouds.Sky
         /// <summary>Curved clouds (trial): one line when the strength changes (and at the start while on).</summary>
         private void LogCurve(float curve, bool toHorizon)
         {
+            bool pastGround = curve > 0f && SceneAmbient.SkyBelowHorizon;
+            if (pastGround != _loggedPastGround)
+            {
+                _loggedPastGround = pastGround;
+                Log.Msg(pastGround
+                    ? "curved clouds: Real Light carries the sky on below the horizon: the clouds go on past the curved ground's horizon, down to the map's edge (march to " +
+                      (CurvedClouds.BelowReach / 1000f).ToString("F0") + " km, fading out from " + (CurvedClouds.BelowFrom / 1000f).ToString("F0") + " km)"
+                    : "curved clouds: they end at the curved ground's horizon");
+            }
+
             if (curve == _loggedCurve || (_loggedCurve < 0f && curve <= 0f))
             {
                 _loggedCurve = curve;
@@ -1688,7 +1699,8 @@ namespace VolumetricClouds.Sky
                     (CurvedClouds.PatchFrom / 1000f).ToString("F0") + " km the map in patches " +
                     (spacing / 1000f).ToString("F1") + " km apart (each its own quarter turn and place), fronts of " +
                     CurvedClouds.FrontStrength.ToString("F1") + " x the map's spread (as read: mean " + mean.ToString("F3") +
-                    ", spread " + spread.ToString("F3") + ") eased in over " + (CurvedClouds.FrontBlend / 1000f).ToString("F0") + " km" +
+                    ", spread " + spread.ToString("F3") + ") eased in over " + (CurvedClouds.FrontBlend / 1000f).ToString("F0") + " km, the noise in cells ~" +
+                    (spacing / Mathf.Max(CurvedClouds.NoiseCells(spacing), 1f) / 1000f).ToString("F1") + " km wide" +
                     (toHorizon ? "; Clouds to the horizon's band not drawn meanwhile" : ""));
         }
 

@@ -5,6 +5,17 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
+## Unreleased
+
+### Changed
+
+- *Curved clouds*: the noise that carves the clouds no longer repeats across the far sky. Past 20 km from
+  the map's centre it is read in cells about 2.5 km wide, each from its own place, so its grid stops
+  showing as a regular texture toward the horizon. The weather map's own patches are as they were.
+- *Curved clouds* under Real Light's sky below the horizon: the clouds carry on past the curved
+  ground's horizon, down to the map's edge, instead of ending there on a straight line. Without Real
+  Light, or with its haze look, they end at the horizon as before.
+
 ## 1.5.2 — 2026-11-02
 
 Curved clouds out to the horizon (a trial), glare round near lamps, trees that move in the wind

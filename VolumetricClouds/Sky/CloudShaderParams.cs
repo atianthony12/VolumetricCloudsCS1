@@ -195,7 +195,8 @@ namespace VolumetricClouds.Sky
                 ? new Vector4(CurvedClouds.InverseTwoRadius(curve), CurvedClouds.PatchFrom, 1f / CurvedClouds.PatchBlend, 1f)
                 : Vector4.zero);
             material.SetVector(IdCurveFade, curve > 0f
-                ? new Vector4(CurvedClouds.Haze, 1f / CurvedClouds.HazeLength, CurvedClouds.LodHold, 0f)
+                ? new Vector4(CurvedClouds.Haze, 1f / CurvedClouds.HazeLength, CurvedClouds.LodHold,
+                              SceneAmbient.SkyBelowHorizon ? CurvedClouds.MapEdge : 0f)
                 : Vector4.zero);
             if (curve > 0f)
             {
@@ -206,7 +207,7 @@ namespace VolumetricClouds.Sky
                 float mean, spread;
                 field.ReadStats(out mean, out spread);
                 material.SetVector(IdCurvePatch, new Vector4(lattice.x, lattice.y, CurvedClouds.LatticeRepeat, 1f / spacing));
-                material.SetVector(IdCurveFront, new Vector4(CurvedClouds.FrontStrength, 1f / CurvedClouds.FrontBlend, 0f, 0f));
+                material.SetVector(IdCurveFront, new Vector4(CurvedClouds.FrontStrength, 1f / CurvedClouds.FrontBlend, CurvedClouds.NoiseCells(spacing), 0f));
                 material.SetVector(IdCurveStats, new Vector4(mean, spread, 0.5f, CloudDensityField.ScoreSpread));
             }
 

@@ -172,7 +172,10 @@ Check "fronts slow (per km)" ($steep -lt 0.15) ("{0:F3} at most per km" -f $stee
 Check "presence 1 at the camera" (Near $C::Presence(0) 1 1e-6)
 $p10 = $C::Presence(10000); $p30 = $C::Presence(30000); $p100 = $C::Presence(100000)
 Check "presence falls" ($p10 -gt $p30 -and $p30 -gt $p100) ("10 km {0:F2}, 30 km {1:F2}, 100 km {2:F2}" -f $p10, $p30, $p100)
-Check "presence never under 1 - Haze" ($C::Presence(1e9) -ge 1 - $C::Haze - 1e-6)
+Check "presence never under 1 - Haze before the far fade" ($C::Presence($C::BelowFrom) -ge 1 - $C::Haze - 1e-6)
+Check "presence gone at the march's end" ($C::Presence($C::BelowReach) -eq 0 -and $C::Presence(1e9) -eq 0)
+$pMid = $C::Presence(($C::BelowFrom + $C::BelowReach) / 2)
+Check "presence half way through the far fade" (Near $pMid ((1 - $C::Haze) / 2) 0.01) ("{0:F3}" -f $pMid)
 
 # ---- the reach -----------------------------------------------------------------------------------
 
@@ -268,6 +271,74 @@ foreach ($strength in 1.0, 4.0) {
 }
 Check "slab = the walk along the ray" ($agree -eq $cases -and $crossing -gt $cases / 3) ("{0} of {1} rays, {2} of them in the layer" -f $agree, $cases, $crossing)
 foreach ($line in ($bad | Select-Object -First 6)) { Write-Host "      $line" }
+
+# ---- past the curved ground's horizon, with Real Light's sky below it (2026-11-05) -------------------
+
+Check "march's end only grows, only when asked" ($C::MarchReach(246000, $false) -eq 246000 -and $C::MarchReach(246000, $true) -eq $C::BelowReach)
+
+# From 176 m at the map's centre, under a base at 1600 m: the first row past the ground's horizon, due +x.
+$k = $C::InverseTwoRadius(1.0); $eyeY = 176.0; $dip = [math]::Sqrt(4 * $k * $eyeY)
+function Row([double]$sinDown, [float]$edge) {
+    $cosDown = [math]::Sqrt(1 - $sinDown * $sinDown)
+    $e = [float]0; $x = [float]0
+    $hit = $C::Slab([float]$k, 0, [float]$eyeY, 0, [float]$cosDown, [float](-$sinDown), 0, 1600, 3100, [ref]$e, [ref]$x, $edge)
+    return @($hit, $e, $x)
+}
+$above = Row ($dip * 0.999) 0
+$under = Row ($dip * 1.001) 0
+$through = Row ($dip * 1.001) $C::MapEdge
+Check "the line today: the ground stops the row under the horizon" ($above[0] -and -not $under[0])
+Check "with the map's edge the row under the horizon goes on" ($through[0]) ("enters at {0:F0} km" -f ($through[1] / 1000))
+Check "and with no step where the line was" ([math]::Abs($through[1] - $above[1]) -lt 500) ("{0:F0} m apart" -f [math]::Abs($through[1] - $above[1]))
+$down1 = Row ([math]::Sin(1 * [math]::PI / 180)) $C::MapEdge
+Check "a degree down meets the base ~300 km out" ($down1[0] -and $down1[1] -gt 240000 -and $down1[1] -lt 340000) ("{0:F0} km" -f ($down1[1] / 1000))
+$map = Row ([math]::Sin(5 * [math]::PI / 180)) $C::MapEdge
+Check "a ray that comes down on the map stays stopped" (-not $map[0]) "5 deg from 176 m: 2 km out"
+$off = Row ([math]::Sin(1 * [math]::PI / 180)) 0
+Check "edge 0 = every ray stopped, as without Real Light" (-not $off[0])
+
+# ---- the noise past the ring: its repeat no longer runs across the sky (2026-11-05) ---------------
+
+$spacingN = $C::PatchSpacing * 54000
+$nCells = $C::NoiseCells($spacingN)
+Check "cells whole, about a noise repeat" ($nCells -eq [math]::Round($nCells) -and (Near ($spacingN / $nCells) $C::NoiseCell 150)) ("{0} to a patch, {1:F0} m" -f $nCells, ($spacingN / $nCells))
+Check "a tiny weather pattern gets one cell" ($C::NoiseCells(600) -eq 1)
+
+# A noise with a repeat of $P read along a line across the sky: its correlation whole repeats on, past a cell (a cell keeps its own few repeats: 4 of the fine read).
+function Correlation([double]$P, [bool]$moved) {
+    $lag = $P * [math]::Ceiling(5000.0 / $P)
+    $rand = New-Object System.Random 77
+    $inv = 1.0 / $spacingN; $repeat = [float]($C::LatticeRepeat * $nCells)
+    $n = 6000; $step = 37.0; $va = New-Object double[] $n; $vb = New-Object double[] $n
+    $wave = { param([double]$x, [double]$z) [math]::Sin(2 * [math]::PI * $x / $P) * [math]::Sin(2 * [math]::PI * $z / $P) + 0.5 * [math]::Sin(6 * [math]::PI * ($x + $z) / $P) }
+    for ($i = 0; $i -lt $n; $i++) {
+        $t = 30000 + $i * $step
+        foreach ($which in 0, 1) {
+            # Along a bearing that follows no axis of the lattice, the second read whole repeats on along x.
+            $x = 0.83 * $t + $which * $lag; $z = 0.56 * $t
+            $dx = [float]0; $dz = [float]0
+            if ($moved) {
+                $stX = $x * $inv; $stZ = $z * $inv
+                $C::NoiseShift([float](($stX - $C::Skew * $stZ) * $nCells), [float]($C::Stretch * $stZ * $nCells), $repeat, [float]$rand.NextDouble(), [ref]$dx, [ref]$dz)
+            }
+            $v = & $wave ($x + $dx) ($z + $dz)
+            if ($which -eq 0) { $va[$i] = $v } else { $vb[$i] = $v }
+        }
+    }
+    $ma = ($va | Measure-Object -Average).Average; $mb = ($vb | Measure-Object -Average).Average
+    $ab = 0.0; $aa = 0.0; $bb = 0.0
+    for ($i = 0; $i -lt $n; $i++) { $a = $va[$i] - $ma; $b = $vb[$i] - $mb; $ab += $a * $b; $aa += $a * $a; $bb += $b * $b }
+    return $ab / [math]::Sqrt($aa * $bb)
+}
+foreach ($P in 2300.0, 575.0) {
+    $before = Correlation $P $false; $after = Correlation $P $true
+    Check ("a {0:F0} m repeat: gone past the ring" -f $P) ($before -gt 0.99 -and [math]::Abs($after) -lt 0.3) ("correlation over 5 km on {0:F2} -> {1:F2}" -f $before, $after)
+}
+
+$hx = [float]0; $hz = [float]0; $hx2 = [float]0; $hz2 = [float]0; $rep = [float](64 * $nCells)
+$C::NoiseShift(12.3, 45.6, $rep, 0.4, [ref]$hx, [ref]$hz)
+$C::NoiseShift(12.3 + $rep, 45.6 - $rep, $rep, 0.4, [ref]$hx2, [ref]$hz2)
+Check "shifts wrap with the lattice's drift" ((Near $hx $hx2 300) -and (Near $hz $hz2 300)) ("{0:F0},{1:F0} vs {2:F0},{3:F0}" -f $hx, $hz, $hx2, $hz2)
 
 if ($failed -gt 0) { Write-Host "$failed FAILED"; exit 1 }
 Write-Host "all passed"
