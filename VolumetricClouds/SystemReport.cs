@@ -76,9 +76,8 @@ namespace VolumetricClouds
                         // 1.5.0: changes what shows through the far clouds (by day; at sunset and night
                         // in the time-of-day part below when they differ).
                         " hideSky=" + Percent(Settings.CloudDayOpacity, Settings.Defaults.DayOpacity) +
-                        // 1.5.0: the far deck under a full overcast.
-                        " cloudsToHorizon=" + On(Settings.CloudsToHorizon, Settings.Defaults.CloudsToHorizon) +
-                        // Curved clouds (trial, 2026-10-23): 100% = the real Earth, 0 = off.
+                        // Curved clouds (trial, 2026-10-23): 100% = the real Earth, 0 = off. By day under a
+                        // clear sky; the others in the time-of-day part below when they differ.
                         " curvedClouds=" + Percent(Settings.CurvedClouds, Settings.Defaults.CurvedClouds) +
                         // 1.5.0: Smoother clouds.
                         " smootherClouds=" + On(Settings.CloudTemporal, Settings.Defaults.Temporal) +

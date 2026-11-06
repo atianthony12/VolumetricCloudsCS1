@@ -35,7 +35,7 @@ float3 _DetailPhase;     // the same, for the erosion lookup at _DetailScale x t
 // CURVED CLOUDS (trial, 2026-10-23, Sky/CurvedClouds.cs): the layer follows the curved Earth, centred on
 // the map's centre, and the march carries on to the horizon. x = 1 / 2R' per metre (0: off, and nothing
 // of it runs), y = the ring the far sky's patches begin at (m from the map's centre), z = 1 / the
-// distance they come in over, w = 1 when they are on.
+// distance they come in over, w = how much of them there is, 0..1 (CurvedClouds.Share: 1 from 25% up).
 float4 _Curve;
 
 // VC_LITE (CloudRaymarchLite / CloudShadowMapLite, "Simpler clouds", Sky/CloudShaders.cs): no Curved
@@ -205,7 +205,7 @@ FarLook FarLookAt(float2 xz)
         b = max(b - 0.05, 0.0);
         b /= dot(b, float3(1.0, 1.0, 1.0));
 
-        float into = saturate(beyond * _Curve.z);
+        float into = saturate(beyond * _Curve.z) * _Curve.w;
         f.w = float4(1.0 - into, b * into);
 
         float2 uv = xz / _WeatherTile - _WeatherPhase;
@@ -323,7 +323,8 @@ float3 _DetailTexPhase;  // the wind's drift over one repeat of it (CloudWind.No
 // and a heaped top) -- with the CLASSIC LAYER among and under them (the author's idea: "combine the
 // classic and cumulus clouds"), its thickness following the map. _CloudStyle == 0 is Classic: the
 // layer alone, computed exactly as it always was.
-float _CloudStyle;          // 0 Classic, 1 Cumulus, 2 Mixed, 3 Soft (below); above 0.5 the Cumulus light
+float _CloudStyle;          // 0 Classic, 1 Cumulus, 2 Mixed, 3 Soft (below), 4 Auto's hand-over from Soft to
+                            // Cumulus (Sky/CloudAuto.cs: both); above 0.5 the Cumulus light
 float4 _LayerShape;         // the layer under the Cumulus style: x = Layer thickness in metres; its
                             // factor on that is a line in the map's score, y + z * score (thick where
                             // the map is high), within w .. _LayerShapeMax
@@ -683,6 +684,19 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     float2 uvWeather = p.xz / _WeatherTile - _WeatherPhase;
     FarLook look = FarLookAt(p.xz);
 
+    // One copy each of the puffs, the heaps and the layer, the style choosing which run: this function is
+    // inlined at every look along a ray, and with a copy of the layer per style CloudRaymarch took 19 of
+    // the 20 minutes Unity gives a shader compile (2026-11-06; over it, the build fails).
+    // Classic: the layer alone. Cumulus: the heaps and the layer. Soft and Mixed: the puffs and the layer.
+    // Auto's hand-over (4): all three. Where several are, the denser wins.
+    float weather = FarWeather(look, uvWeather);
+    float threshold = _Threshold;
+    float clouds = 0.0;
+    bool heaps = _CloudStyle > 0.5 && (_CloudStyle < 1.5 || _CloudStyle > 3.5);
+    bool layer = true;
+    float hLayer = h;
+    float lodLayer = lod;
+
 #ifndef VC_LITE
     // Past the ring every noise lookup below reads from its cell's own place (the map's are done: uvWeather, look).
     p.xz += look.noise;
@@ -690,11 +704,8 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     [branch]
     if (_CloudStyle > 1.5)
     {
-        // Soft and Mixed: the puffs, and the Classic layer beside them where the map passes its cut (none
-        // at Soft's low intensities: the score is not even read there). Where both are, the denser wins.
-        // Under Mixed the type tips both cuts.
-        float weather = FarWeather(look, uvWeather);
-        float threshold = _Threshold;
+        // The puffs. Under Mixed the type tips both cuts. The layer only where the map passes its cut (none
+        // at Soft's low intensities: the score is not even read there).
         float puffThreshold = _SoftThreshold.y;
         [branch]
         if (_CloudStyle < 2.5)
@@ -704,40 +715,31 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
             puffThreshold = MixThresholdAt(_SoftThreshold, t);
         }
 
-        float puffs = SoftDensity(p, detailed, lod, weather, puffThreshold);
-        [branch]
-        if (weather > threshold || _FragAmount > 0.0)
-        {
-            float score = FarScore(look, uvWeather);
-            float thicknessHere = _LayerShape.x * clamp(_LayerShape.y + _LayerShape.z * score, _LayerShape.w, _LayerShapeMax);
-            float hHere = (p.y - _CloudBottom) / thicknessHere;
-            if (hHere < 1.0)
-                puffs = max(puffs, LayerDensity(p, detailed, max(lod + _DetailLodShift, 0.0), hHere, weather, threshold));
-        }
-
-        return puffs;
+        clouds = SoftDensity(p, detailed, lod, weather, puffThreshold);
+        layer = weather > threshold || _FragAmount > 0.0;
     }
 #endif
 
-    if (_CloudStyle > 0.5)
+    [branch]
+    if (_CloudStyle > 0.5 && (layer || heaps))
     {
-        // Cumulus: the heaps, and the Classic layer among and under them. Where both are, the denser wins.
         float score = FarScore(look, uvWeather);
-        float clouds = CumulusDensity(p, max(lod, 0.0), score);
+        [branch]
+        if (heaps)
+            clouds = max(clouds, CumulusDensity(p, max(lod, 0.0), score));
 
-        // The layer is thick where the map is high and thin where it is low: variety over
-        // kilometres, so a full sky is not one even carpet of the same puffs.
+        // Beside its own clouds the layer is thick where the map is high and thin where it is low: variety
+        // over kilometres, so a full sky is not one even carpet of the same puffs.
         float thickness = _LayerShape.x * clamp(_LayerShape.y + _LayerShape.z * score, _LayerShape.w, _LayerShapeMax);
-        float hLayer = (p.y - _CloudBottom) / thickness;
-        if (hLayer >= 1.0)
-            return clouds;
-
-        float weatherHere = FarWeather(look, uvWeather);
-        return max(clouds, LayerDensity(p, detailed, max(lod + _DetailLodShift, 0.0), hLayer, weatherHere, _Threshold));
+        hLayer = (p.y - _CloudBottom) / thickness;
+        lodLayer = max(lod + _DetailLodShift, 0.0);
     }
 
-    float weather = FarWeather(look, uvWeather);
-    return LayerDensity(p, detailed, lod, h, weather, _Threshold);
+    [branch]
+    if (layer && hLayer < 1.0)
+        clouds = max(clouds, LayerDensity(p, detailed, lodLayer, hLayer, weather, threshold));
+
+    return clouds;
 }
 
 float SampleDensity(float3 p, bool detailed)

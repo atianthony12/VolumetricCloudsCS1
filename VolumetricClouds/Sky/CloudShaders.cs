@@ -28,7 +28,7 @@ namespace VolumetricClouds.Sky
     ///
     /// While the light pair is drawn every feature it leaves out is switched off at its one source
     /// (<see cref="Lite"/>: CloudStyle.SoftDrawn / MixedWanted, CloudShaderParams.CurvedStrength,
-    /// CloudVolume's Smoother clouds and far deck, CloudFog's valleys and water, Waterspouts.Chance,
+    /// CloudVolume's Smoother clouds, CloudFog's valleys and water, Waterspouts.Chance,
     /// BoltMap), so the light shader is never handed what it cannot draw and the settings themselves
     /// stay as the player set them (invariant 15): the next city with the whole shaders has them all.
     /// </remarks>

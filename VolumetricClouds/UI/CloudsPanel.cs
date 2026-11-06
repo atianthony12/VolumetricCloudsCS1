@@ -1524,7 +1524,9 @@ namespace VolumetricClouds.UI
                 else
                 {
                     // The value the clouds use now, between the three -- and the two weathers.
-                    float now = row.HasWeather
+                    float now = row.NowValue != null
+                        ? row.NowValue()
+                        : row.HasWeather
                         ? Settings.Now(row.Times[0].Float, row.Times[1].Float, row.Times[2].Float,
                             row.Overcasts[0].Float, row.Overcasts[1].Float, row.Overcasts[2].Float, row.DefaultFloat)
                         : Settings.Now(row.Times[0].Float, row.Times[1].Float, row.Times[2].Float, row.DefaultFloat);

@@ -1,5 +1,5 @@
 # Written by build-bundle.ps1: per bundle, tools\bundle-sources.ps1's hash of the sources it was built from.
 # release.ps1 refuses a release unless every line matches the sources (build-bundle.ps1 -All).
-win 4798b7eafb3bebd8ee59a3e9c57af8120dfb6d0497e9c754b8d713a5e024039e
+win 49bc5f4d08cfce2f3b2c8d086f6a4faf3f54aac3d00e8b62aca86fdd36b9caee
 linux b088a8edbf49b809ddbbd918082ad1c1c299ea4a130f8a60f2767c4c0152f624
 mac b088a8edbf49b809ddbbd918082ad1c1c299ea4a130f8a60f2767c4c0152f624

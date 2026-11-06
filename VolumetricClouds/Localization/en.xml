@@ -137,6 +137,7 @@
   <String key="CloudStyle.Cumulus">Cumulus</String>
   <String key="CloudStyle.Mixed">Mixed</String>
   <String key="CloudStyle.Soft">Soft</String>
+  <String key="CloudStyle.Auto">Auto</String>
 
   <String key="CumulusLayer.Label">Classic layer</String>
   <String key="CumulusSize.Label">Cumulus size</String>
@@ -260,8 +261,6 @@
   <String key="WeatherTileSize.Label">Weather pattern size</String>
 
   <String key="LargerWeatherPattern.Label">Larger weather pattern (same cloud size)</String>
-
-  <String key="CloudsToHorizon.Label">Clouds to the horizon</String>
 
   <String key="CurvedClouds.Label">Curved clouds (100% = Earth's curve)</String>
 

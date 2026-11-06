@@ -908,11 +908,13 @@ namespace VolumetricClouds
         /// brightness (CloudLight) -- "Brightness follows the cloud intensity", its clear sky and full
         /// overcast, the fixed brightness, each with its Sunset and Night. A file of 1.4.0 or before has
         /// the first seven, one of the clock's days the rest; the first save leaves them out.
-        /// 1.5.2: "ShowInUnifiedUI", the switch IconPlace replaced.
+        /// 1.5.2: "ShowInUnifiedUI", the switch IconPlace replaced. 2026-11-06: "CloudsToHorizon", the far
+        /// deck, taken out (Curved clouds at high overcast does its work; nothing to carry over).
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "ShowInUnifiedUI",
+            "CloudsToHorizon",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",
             "CloudNightColors", "CloudMoonlitColor", "CloudNightShadeColor",
             "CloudBrightnessAuto",

@@ -7,6 +7,15 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## Unreleased
 
+### Added
+
+- *Cloud style* has a new choice, **Auto**: the style follows the sky. It is Soft up to 60% cloud cover and
+  Cumulus from 92%, and in between the sky changes from one to the other as the cover rises, Cumulus's
+  heaps forming while Soft's puffs thin out, with no jump. *Classic layer* and the Cumulus rows apply. The
+  other styles work as before and stay yours to pick, and nobody's style changes. Under *Simpler clouds*
+  Auto is drawn Classic, as Soft and Mixed are. `VolumetricClouds.xml` gains no lines: `CloudStyle` takes
+  the new value 4.
+
 ### Changed
 
 - *Curved clouds*: the noise that carves the clouds no longer repeats across the far sky. Past 20 km from
@@ -15,6 +24,19 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Curved clouds* under Real Light's sky below the horizon: the clouds carry on past the curved
   ground's horizon, down to the map's edge, instead of ending there on a straight line. Without Real
   Light, or with its haze look, they end at the horizon as before.
+- *Curved clouds* has the clock and cloud buttons now, so it can differ by day, sunset and night and
+  between clear sky and overcast. Its Overcast values come in between 70% and 90% cloud cover, half way
+  at 80%: Clear sky 0% with Overcast 100% is flat clouds until the sky closes up. A settings file or
+  profile without them gives every one of the six the value it had, so nobody's sky changes.
+- *Curved clouds* under 25%: the clouds come out to the horizon gradually over 0-25% instead of all at
+  once at the first step above 0, so a value that changes with the weather or the hour never jumps.
+  From 25% up they are as they were.
+
+### Removed
+
+- *Clouds to the horizon*: the band of cloud under a full overcast. *Curved clouds*, now settable for
+  overcast alone, takes real clouds to the horizon instead. A file or profile that has it still loads
+  and the value is ignored; players who had it on lose the band.
 
 ## 1.5.2 — 2026-11-02
 

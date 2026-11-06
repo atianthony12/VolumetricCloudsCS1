@@ -114,6 +114,7 @@
   <String key="CloudStyle.Cumulus">积云</String>
   <String key="CloudStyle.Mixed">混合</String>
   <String key="CloudStyle.Soft">柔和</String>
+  <String key="CloudStyle.Auto">自动</String>
 
   <String key="CumulusLayer.Label">经典云层</String>
   <String key="CumulusSize.Label">积云大小</String>
@@ -231,8 +232,6 @@
   <String key="WeatherTileSize.Label">天气图案大小</String>
 
   <String key="LargerWeatherPattern.Label">更大的天气图案（云大小不变）</String>
-
-  <String key="CloudsToHorizon.Label">云层延伸至地平线</String>
 
   <String key="CurvedClouds.Label">弧形云层（100% = 地球曲率）</String>
 

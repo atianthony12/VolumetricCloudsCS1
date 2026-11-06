@@ -487,19 +487,18 @@ namespace VolumetricClouds
         public static BoolSetting LargerWeatherPattern { get; private set; }
 
         /// <summary>
-        /// CLOUDS TO THE HORIZON (1.5.0, off): under a full overcast the deck carries on to the horizon
-        /// (Sky.CloudVolume's far deck, CloudRaymarch MarchFarDeck). Built as a test switch, kept and made
-        /// always on, then a real row again (the author, 2026-10-13: "We'll need to add it as a real
-        /// option under Weather").
-        /// </summary>
-        public static BoolSetting CloudsToHorizon { get; private set; }
-
-        /// <summary>
         /// CURVED CLOUDS (trial, 2026-10-23, off): the layer follows the curved Earth and the clouds go down
         /// to the horizon (Sky.CurvedClouds). The stored value is the strength: 1 = the real Earth (100%),
-        /// up to 4 (a tighter curve); 0 = off. Its final form waits on the author's look in-game.
+        /// up to 4 (a tighter curve); 0 = off. Its final form waits on the author's look in-game. With a
+        /// clock and a cloud button (2026-11-06): read it through <see cref="CurvedCloudsNow"/>. This one
+        /// is the Day, Clear sky value.
         /// </summary>
         public static FloatSetting CurvedClouds { get; private set; }
+        public static FloatSetting CurvedCloudsSunset { get; private set; }
+        public static FloatSetting CurvedCloudsNight { get; private set; }
+        public static FloatSetting CurvedCloudsOvercast { get; private set; }
+        public static FloatSetting CurvedCloudsSunsetOvercast { get; private set; }
+        public static FloatSetting CurvedCloudsNightOvercast { get; private set; }
 
         /// <summary>Clouds cast shadows on the ground.</summary>
         public static BoolSetting CloudShadows { get; private set; }
@@ -518,7 +517,8 @@ namespace VolumetricClouds
         // The 1.5.0 test switches (skip the empty sky, clouds to the horizon, grain changes every
         // frame, tint smoother clouds) were removed before release: the skip is always on, the jitter
         // stays as it was, no tint. Never in a released file. The far deck came back as a real row,
-        // CloudsToHorizon (not the test switch's name).
+        // CloudsToHorizon (not the test switch's name), released in 1.5.0, removed 2026-11-06 (the
+        // author: Curved clouds at high overcast does it): SettingsXml.Retired, never reuse the name.
 
         /// <summary>Texels per side of the shadow map. A fixed GPU cost, so it is a lever on a weak card.</summary>
         public static IntSetting ShadowMapResolution { get; private set; }
@@ -538,9 +538,10 @@ namespace VolumetricClouds
         /// cloud layer the mod has always drawn; 1 Cumulus, EVE-Redux V5's model -- every cloud
         /// carved from one big noise, each with its own height; 2 Mixed (1.5.0, Sky.CloudMix),
         /// Soft's puffs with the Classic layer coming in as the intensity rises; 3 Soft (1.5.0,
-        /// Sky.CloudSoft), puffs with soft, wispy edges, the layer at high intensity. Classic by
-        /// default, for everyone: the others are chosen on the panel. A settings file from before
-        /// the row existed means Classic too, whatever the default (Row.OlderFileInt).
+        /// Sky.CloudSoft), puffs with soft, wispy edges, the layer at high intensity; 4 Auto
+        /// (Sky.CloudAuto), Soft becoming Cumulus as the cover rises. Classic by default, for
+        /// everyone: the others are chosen on the panel. A settings file from before the row
+        /// existed means Classic too, whatever the default (Row.OlderFileInt).
         /// </summary>
         public static IntSetting CloudStyle { get; private set; }
 
@@ -855,14 +856,13 @@ namespace VolumetricClouds
             /// <summary>Off: every city keeps the pattern it had (the author: "By default let's not change it").</summary>
             public const bool LargerWeatherPattern = false;
 
-            /// <summary>
-            /// Off (2026-10-18, the author: "let's disable Clouds to the horizon by default"). Was on since
-            /// 2026-10-12 ("We'll keep this"); never released on. Only over 90% cover.
-            /// </summary>
-            public const bool CloudsToHorizon = false;
-
             /// <summary>Off (a trial, 2026-10-23): a new row's default reaches every existing file as off.</summary>
             public const float CurvedClouds = 0f;
+            public const float CurvedCloudsSunset = CurvedClouds;
+            public const float CurvedCloudsNight = CurvedClouds;
+            public const float CurvedCloudsOvercast = CurvedClouds;
+            public const float CurvedCloudsSunsetOvercast = CurvedClouds;
+            public const float CurvedCloudsNightOvercast = CurvedClouds;
 
             // ---- the clouds ----
             public const bool CloudsVisible = true;
@@ -1336,8 +1336,12 @@ namespace VolumetricClouds
                 // settings files and is far too small for cloud-sized features.
                 WeatherTileSize = new FloatSetting("WeatherTileSize", Defaults.WeatherTileSize);
                 LargerWeatherPattern = new BoolSetting("LargerWeatherPattern", Defaults.LargerWeatherPattern);
-                CloudsToHorizon = new BoolSetting("CloudsToHorizon", Defaults.CloudsToHorizon);
                 CurvedClouds = new FloatSetting("CurvedClouds", Defaults.CurvedClouds);
+                CurvedCloudsSunset = new FloatSetting("CurvedCloudsSunset", Defaults.CurvedCloudsSunset);
+                CurvedCloudsNight = new FloatSetting("CurvedCloudsNight", Defaults.CurvedCloudsNight);
+                CurvedCloudsOvercast = new FloatSetting("CurvedCloudsOvercast", Defaults.CurvedCloudsOvercast);
+                CurvedCloudsSunsetOvercast = new FloatSetting("CurvedCloudsSunsetOvercast", Defaults.CurvedCloudsSunsetOvercast);
+                CurvedCloudsNightOvercast = new FloatSetting("CurvedCloudsNightOvercast", Defaults.CurvedCloudsNightOvercast);
                 CloudShadows = new BoolSetting("CloudShadows", Defaults.CloudShadows);
                 // Not the old "CloudShadowStrength": that slider had almost no effect at high
                 // coverage, so saved values of it are not meaningful.
@@ -1535,6 +1539,25 @@ namespace VolumetricClouds
             return Sky.CloudTint.Blend6(d, s, n, dayOvercast != null ? dayOvercast.value : d,
                 sunsetOvercast != null ? sunsetOvercast.value : s, nightOvercast != null ? nightOvercast.value : n,
                 Sky.Overcast.Share, Sky.TimeOfDay.Day, Sky.TimeOfDay.Sunset, Sky.TimeOfDay.Night);
+        }
+
+        /// <summary>
+        /// Curved clouds' strength right now, as stored (1 = 100%). As <see cref="Now(FloatSetting, FloatSetting, FloatSetting, FloatSetting, FloatSetting, FloatSetting, float)"/>
+        /// but for the cover's share: this row's Overcast values come in late (Sky.CurvedClouds.OvercastShare),
+        /// so Clear sky 0% and Overcast 100% is flat clouds in fair weather, not half a curve.
+        /// </summary>
+        public static float CurvedCloudsNow
+        {
+            get
+            {
+                float share = Sky.CurvedClouds.OvercastShare(Sky.Overcast.Share);
+                float d = ValueOf(CurvedClouds, Defaults.CurvedClouds);
+                float s = ValueOf(CurvedCloudsSunset, d);
+                float n = ValueOf(CurvedCloudsNight, d);
+                return Sky.TimeOfDay.Blend(Sky.Overcast.Blend(d, ValueOf(CurvedCloudsOvercast, d), share),
+                    Sky.Overcast.Blend(s, ValueOf(CurvedCloudsSunsetOvercast, s), share),
+                    Sky.Overcast.Blend(n, ValueOf(CurvedCloudsNightOvercast, n), share));
+            }
         }
 
         /// <summary>The clouds' density right now (the visible clouds; their shadows take the clear sky's by day).</summary>

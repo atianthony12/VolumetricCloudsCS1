@@ -95,12 +95,45 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public const float BelowFrom = 1000000f, BelowReach = 2000000f;
 
+        /// <summary>
+        /// The row's Overcast values come in over this cover (the author, 2026-11-06: curved "only if overcast
+        /// % is high like above 80% maybe"), half way at 80%. Every other cloud-button row blends straight
+        /// in the cover (Sky.Overcast): here that would curve the clouds by half at half cover.
+        /// </summary>
+        public const float OvercastFrom = 0.7f, OvercastFull = 0.9f;
+
+        /// <summary>
+        /// The strength the far sky is all there by. The row moves with the time of day and the cover now,
+        /// and flat clouds end at 30 km where curved ones reach the horizon: from any strength over 0 at
+        /// once that would be a jump. Under this the reach, the haze and the far patches and fronts come in
+        /// (<see cref="Share"/>) while the curve itself stays the strength's own.
+        /// </summary>
+        public const float ComeIn = 0.25f;
+
         /// <summary>The strength from the slider's stored value (1 = 100%), clamped; 0 is off.</summary>
         public static float Strength(float stored)
         {
             if (float.IsNaN(stored) || stored <= 0f)
                 return 0f;
             return Math.Min(stored, MaxStrength);
+        }
+
+        /// <summary>The Overcast values' share of the row at a cover share (Sky.Overcast.Share), 0..1.</summary>
+        public static float OvercastShare(float cover)
+        {
+            return Smooth((cover - OvercastFrom) / (OvercastFull - OvercastFrom));
+        }
+
+        /// <summary>How much of the far sky there is at a strength, 0..1: exactly 1 from <see cref="ComeIn"/> up, 0 off.</summary>
+        public static float Share(float strength)
+        {
+            return Smooth(strength / ComeIn);
+        }
+
+        private static float Smooth(float x)
+        {
+            x = Math.Max(0f, Math.Min(1f, x));
+            return x * x * (3f - 2f * x);
         }
 
         /// <summary>1 / 2R' (per metre): the shader's _Curve.x. 0 when off.</summary>
@@ -129,20 +162,26 @@ namespace VolumetricClouds.Sky
         /// <summary>
         /// How far the march goes from a camera `cameraHeight` up for a layer whose top is `top` up: the
         /// furthest a line of sight can still touch the top (the camera's horizon + the top's), at least
-        /// `flatReach` (what the flat clouds reach from there), at most <see cref="MaxReach"/>.
+        /// `flatReach` (what the flat clouds reach from there), at most <see cref="MaxReach"/>. Under
+        /// <see cref="ComeIn"/> on the way there from `flatReach`.
         /// </summary>
         public static float Reach(float strength, float cameraHeight, float top, float flatReach)
         {
             if (strength <= 0f)
                 return flatReach;
             float far = HorizonDistance(strength, Math.Max(cameraHeight, 1f)) + HorizonDistance(strength, top);
-            return Math.Min(MaxReach, Math.Max(flatReach, far));
+            far = Math.Min(MaxReach, Math.Max(flatReach, far));
+            float share = Share(strength);
+            return share >= 1f ? far : flatReach + (far - flatReach) * share;
         }
 
-        /// <summary>The march's end (the shader's _MaxDistance): <paramref name="reach"/>, or <see cref="BelowReach"/> while the clouds go on past the ground's horizon.</summary>
-        public static float MarchReach(float reach, bool pastGround)
+        /// <summary>The march's end (the shader's _MaxDistance): <paramref name="reach"/>, or as far as <see cref="BelowReach"/> by <paramref name="share"/> (<see cref="Share"/>) while the clouds go on past the ground's horizon.</summary>
+        public static float MarchReach(float reach, bool pastGround, float share)
         {
-            return pastGround ? Math.Max(reach, BelowReach) : reach;
+            if (!pastGround || share <= 0f)
+                return reach;
+            float far = Math.Max(reach, BelowReach);
+            return share >= 1f ? far : reach + (far - reach) * share;
         }
 
         /// <summary>How much of a cloud t metres away is left after the haze in front of it (CloudPresence's curved fade).</summary>
@@ -151,6 +190,17 @@ namespace VolumetricClouds.Sky
             float haze = 1f - Haze * (1f - (float)Math.Exp(-Math.Max(t, 0f) / HazeLength));
             float s = Math.Max(0f, Math.Min(1f, (t - BelowFrom) / (BelowReach - BelowFrom)));
             return haze * (1f - s * s * (3f - 2f * s));
+        }
+
+        /// <summary>
+        /// CloudPresence as drawn at a far sky's <paramref name="share"/>: the flat clouds' fade to nothing at
+        /// the march's end `reach`, handing over to <see cref="Presence(float)"/>.
+        /// </summary>
+        public static float Presence(float t, float reach, float share)
+        {
+            float flat = Math.Max(0f, 1f - t / reach);
+            flat *= flat;
+            return flat + (Presence(t) - flat) * share;
         }
 
         /// <summary>

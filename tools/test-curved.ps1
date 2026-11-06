@@ -185,6 +185,36 @@ Check "reach never under the flat one" ($C::Reach(4, 10, 300, 30000) -ge 30000)
 Check "reach capped" ($C::Reach(1, 5000, 3000, 30000) -le $C::MaxReach)
 Check "reach off = flat" ($C::Reach(0, 400, 1300, 30000) -eq 30000)
 
+# ---- the row moves with the hour and the cover (2026-11-06) ----------------------------------------
+
+Check "overcast stays out at his clear weather's 47%" ($C::OvercastShare(0.47) -eq 0)
+Check "overcast half way at 80%" (Near $C::OvercastShare(0.8) 0.5 1e-5)
+Check "overcast all there at 90%" ($C::OvercastShare(0.9) -eq 1 -and $C::OvercastShare(0.98) -eq 1)
+Check "far sky none when off, all there from 25%" ($C::Share(0) -eq 0 -and $C::Share(0.25) -eq 1 -and $C::Share(1) -eq 1 -and $C::Share(4) -eq 1)
+
+# From 25% up nothing differs from before the far sky came in by a share.
+$old = [math]::Min($C::MaxReach, [math]::Max(30000, $C::HorizonDistance(0.25, 400) + $C::HorizonDistance(0.25, 1300)))
+Check "reach at 25% = the whole of it" (($C::Reach(0.25, 400, 1300, 30000) - $old) -eq 0) ("{0:F0} m" -f $old)
+Check "presence with all the far sky = the haze's" ($C::Presence(50000, 250000, 1) -eq $C::Presence(50000))
+Check "presence with none = the flat fade" (Near $C::Presence(15000, 30000, 0) 0.25 1e-5)
+
+# The walk from flat to curved has no jump: the point of the share. Strength in 1-point steps, what a
+# weather change or a sunset passes through; the worst step of the reach and of a far cloud's presence.
+$jumpReach = 0.0; $jumpFade = 0.0
+$lastReach = $C::Reach(0, 400, 1300, 30000); $lastFade = $C::Presence(25000, $lastReach, 0)
+foreach ($s in 1..40) {
+    $strength = $s / 100.0
+    $reach = $C::Reach($strength, 400, 1300, 30000)
+    $fade = $C::Presence(25000, $reach, $C::Share($strength))
+    $jumpReach = [math]::Max($jumpReach, [math]::Abs($reach - $lastReach))
+    $jumpFade = [math]::Max($jumpFade, [math]::Abs($fade - $lastFade))
+    $lastReach = $reach; $lastFade = $fade
+}
+Check "flat to curved: no jump in the reach" ($jumpReach -lt 15000) ("{0:F0} m at most a point" -f $jumpReach)
+# Without the share this cloud went from 0.03 to 0.73 in the first point. The weather moves the cover
+# over minutes, so what's left plays out as a slow fade.
+Check "flat to curved: no jump in a far cloud's presence" ($jumpFade -lt 0.15) ("{0:F3} at most a point, 0.70 before" -f $jumpFade)
+
 # ---- roots ---------------------------------------------------------------------------------------
 
 $rng = New-Object System.Random 2310
@@ -274,7 +304,8 @@ foreach ($line in ($bad | Select-Object -First 6)) { Write-Host "      $line" }
 
 # ---- past the curved ground's horizon, with Real Light's sky below it (2026-11-05) -------------------
 
-Check "march's end only grows, only when asked" ($C::MarchReach(246000, $false) -eq 246000 -and $C::MarchReach(246000, $true) -eq $C::BelowReach)
+Check "march's end only grows, only when asked" ($C::MarchReach(246000, $false, 1) -eq 246000 -and $C::MarchReach(246000, $true, 1) -eq $C::BelowReach)
+Check "march's end comes in with the far sky" ($C::MarchReach(30000, $true, 0) -eq 30000 -and (Near $C::MarchReach(30000, $true, 0.5) (30000 + ($C::BelowReach - 30000) / 2) 1))
 
 # From 176 m at the map's centre, under a base at 1600 m: the first row past the ground's horizon, due +x.
 $k = $C::InverseTwoRadius(1.0); $eyeY = 176.0; $dip = [math]::Sqrt(4 * $k * $eyeY)

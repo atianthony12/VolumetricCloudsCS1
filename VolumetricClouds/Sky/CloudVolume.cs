@@ -152,6 +152,7 @@ namespace VolumetricClouds.Sky
 
         // Curved clouds (trial): the strength last logged (LogCurve); -1 before the first.
         private float _loggedCurve = -1f;
+        private const float CurveLogStep = 0.095f;
         private bool _loggedPastGround;
 
         // Smoother clouds (1.5.0, Settings.CloudTemporal): the clouds marched at half size and blended
@@ -190,42 +191,6 @@ namespace VolumetricClouds.Sky
         private const float DayEdgeStart = 0.35f;
         private const float NightEdgeStart = 0.7f;
 
-        // The far deck (1.5.0 trial): out to 250 km (a base 2 km up meets the horizon ~160 km out, a
-        // 3.5 km top ~210 km), thinning by up to a quarter into the sky behind it by then -- the haze
-        // of the air in front of cloud that far. (Half until 2026-10-13: the bright sky under it made
-        // the band read whiter than the clouds, "just a hue".)
-        private static readonly int IdFarDeck = Shader.PropertyToID("_FarDeck");
-        // (The band stays one even light. A pattern of its own -- the weather map where the line of
-        // sight meets the layer -- was built and undone 2026-10-13: under the horizon it showed as a
-        // "stretched band", the streaks of the 2026-10-12 light read per direction again.)
-        private const float FarDeckEnd = 250000f;
-        private const float FarDeckHaze = 0.25f;
-
-        // The far deck is a band, not a march (the march showed the weather map's repeats as arcs). It
-        // begins 12 km out for every ray, where the near clouds already thin seen low over the horizon
-        // (their far detail averages away), and fills up with the layer the line of sight crosses past
-        // that: 63% after 4 km of it, 98% after 16 km -- from the ground it builds up between ~9.5 and
-        // ~5 degrees over the horizon, under the near clouds. (Beginning where their own fade said, per
-        // ray, it came in after they had gone, on a line.) Its light is worked out 40 km out (or at the
-        // reach, from higher up).
-        private static readonly int IdFarDeck2 = Shader.PropertyToID("_FarDeck2");
-        private const float FarDeckFrom = 12000f;
-        private const float FarDeckFill = 4000f;
-        private const float FarDeckLightAt = 40000f;
-
-        // Only for a (nearly) full overcast (the author, 2026-10-12: below 90-95% "it just looks
-        // wrong" -- a broken sky does not close into a band): in from 90% cover, all there at 95%,
-        // so a changing weather fades it rather than switching it.
-        private const float FarDeckCoverFrom = 0.90f;
-        private const float FarDeckCoverFull = 0.95f;
-
-        /// <summary>How much of the far deck the last frame drew, 0..1 (for the frame log line).</summary>
-        private float _farDeckShown;
-
-        // The far deck's light is a thick deck's (reading the noise per direction streaked it): the
-        // sun's optical depth to a point near its base.
-        private static readonly int IdFarLight = Shader.PropertyToID("_FarLight");
-        private const float FarDeckSunDepth = 6f;
         private static readonly int IdNightGlow = Shader.PropertyToID("_NightGlow");
         private static readonly int IdFogAmount = Shader.PropertyToID("_FogAmount");
         private static readonly int IdFogDensity = Shader.PropertyToID("_FogDensity");
@@ -770,7 +735,7 @@ namespace VolumetricClouds.Sky
             get
             {
                 float steps = Settings.CloudQuality != null ? Settings.CloudQuality.value : Settings.Defaults.Quality;
-                return CloudStyle.HeapsDrawn ? steps * CloudStyle.StepFactor : steps;
+                return steps * CloudStyle.StepScale;
             }
         }
 
@@ -984,7 +949,7 @@ namespace VolumetricClouds.Sky
             // The jitter tile, or 0: the shader's white-noise hash.
             _material.SetTexture(IdBlueNoiseTex, _blueNoise);
             _material.SetFloat(IdBlueNoiseScale, _blueNoise != null ? 1f / BlueNoise.Size : 0f);
-            _material.SetFloat(IdMaxDistance, CurvedClouds.MarchReach(Reach, CloudShaderParams.CurvedStrength > 0f && SceneAmbient.SkyBelowHorizon));
+            _material.SetFloat(IdMaxDistance, CurvedClouds.MarchReach(Reach, SceneAmbient.SkyBelowHorizon, CurvedClouds.Share(CloudShaderParams.CurvedStrength)));
             _material.SetFloat(IdUseDepth, useDepth ? 1f : 0f);
 
             ApplyLighting();
@@ -1119,7 +1084,7 @@ namespace VolumetricClouds.Sky
             // (Under Soft and Mixed the span is the puffs' tallest, the height their previews measured
             // the sky light over. Under Cumulus it grows with Cumulus size and height, 1.5.0.)
             float thickness = Settings.CloudThickness != null ? Settings.CloudThickness.value : Settings.Defaults.Thickness;
-            float span = CloudStyle.PuffsDrawn ? CloudStyle.SoftTallestNow : CloudStyle.SpanNow;
+            float span = CloudStyle.LightSpan;
             float reach = cumulus ? Mathf.Max(span, thickness * CloudStyle.LayerThickest) : thickness;
 
             // After the three fine steps (6, 12, 24 m) four more grow by this much each, to about
@@ -1562,8 +1527,10 @@ namespace VolumetricClouds.Sky
                        " fragments=" + (CloudShaderParams.FragmentShare > 0f ? (CloudShaderParams.FragmentShare * 100f).ToString("F0") + "%" : "off") +
                        // 1.5.0: the share of the weather map's cells the march jumps over (0: not skipping).
                        " emptySky=" + (CloudShaderParams.EmptyShareNow * 100f).ToString("F0") + "%" +
-                       // 1.5.0 trial: how much of the far deck shows (0 under 90% cover).
-                       " farDeck=" + (_farDeckShown * 100f).ToString("F0") + "%" +
+                       // Curved clouds' strength now (it moves with the hour and the cover) and how much of
+                       // the far sky that gives.
+                       " curved=" + (CloudShaderParams.CurvedStrength * 100f).ToString("F0") + "%(far sky " +
+                       (CurvedClouds.Share(CloudShaderParams.CurvedStrength) * 100f).ToString("F0") + "%)" +
                        // 1.5.0: Smoother clouds (frames blended / fresh starts in this line's second).
                        " temporal=" + (_temporal != null && _temporal.Running ? "on(" + _temporal.TakeCounts() + ")" : "off") +
                        // 1.5.0: distant clouds' four rows (cirrus/sheep/far/layers), or off.
@@ -1659,8 +1626,11 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>The sun's height over the horizon, degrees; -90 without a sun.</summary>
-        /// <summary>Curved clouds (trial): one line when the strength changes (and at the start while on).</summary>
-        private void LogCurve(float curve, bool toHorizon)
+        /// <summary>
+        /// Curved clouds (trial): one line when the strength changes (and at the start while on). It moves
+        /// with the hour and the cover now: a line per 10 points of it, and when it goes off or comes on.
+        /// </summary>
+        private void LogCurve(float curve)
         {
             bool pastGround = curve > 0f && SceneAmbient.SkyBelowHorizon;
             if (pastGround != _loggedPastGround)
@@ -1677,6 +1647,9 @@ namespace VolumetricClouds.Sky
                 _loggedCurve = curve;
                 return;
             }
+
+            if (curve > 0f && _loggedCurve > 0f && Mathf.Abs(curve - _loggedCurve) < CurveLogStep)
+                return;
 
             _loggedCurve = curve;
             if (curve <= 0f)
@@ -1700,8 +1673,7 @@ namespace VolumetricClouds.Sky
                     (spacing / 1000f).ToString("F1") + " km apart (each its own quarter turn and place), fronts of " +
                     CurvedClouds.FrontStrength.ToString("F1") + " x the map's spread (as read: mean " + mean.ToString("F3") +
                     ", spread " + spread.ToString("F3") + ") eased in over " + (CurvedClouds.FrontBlend / 1000f).ToString("F0") + " km, the noise in cells ~" +
-                    (spacing / Mathf.Max(CurvedClouds.NoiseCells(spacing), 1f) / 1000f).ToString("F1") + " km wide" +
-                    (toHorizon ? "; Clouds to the horizon's band not drawn meanwhile" : ""));
+                    (spacing / Mathf.Max(CurvedClouds.NoiseCells(spacing), 1f) / 1000f).ToString("F1") + " km wide");
         }
 
         private static float SunElevation(Light sun)
@@ -1727,22 +1699,7 @@ namespace VolumetricClouds.Sky
             // horizon band on it: "it hides far away clouds" (GameHorizon takes the band off).
             _material.SetFloat(IdCloudExtent, Reach);
 
-            // The far deck (1.5.0, CloudRaymarch MarchFarDeck): the deck out to the horizon, only over a
-            // full overcast, while "Clouds to the horizon" is on. Behind the near deck, filling in as
-            // that thins. (It followed the clouds' day/night opacity, `shut`, until it became a row of
-            // its own: by day at the default 0% a ticked switch did nothing.)
-            float cover = Mathf.Clamp01(CloudShaderParams.Coverage);
-            float overcast = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FarDeckCoverFrom, FarDeckCoverFull, cover));
-            // For everyone: a Real-Light-only lock was built and taken out again on 2026-10-20 (the author,
-            // after seeing it without Real Light: "it honestly looks good, maybe on some LUTs it looks bad
-            // but that's up to each user, since this option is off by default anyway").
-            // Not under Simpler clouds (CloudShaders.Lite): its shader has no far deck.
-            bool toHorizon = Settings.CloudsToHorizon != null && Settings.CloudsToHorizon.value && !CloudShaders.Lite;
-            // Curved clouds (trial, 2026-10-23) take the clouds themselves down to the horizon: the band
-            // would only be drawn behind them.
-            float curve = CloudShaderParams.CurvedStrength;
-            _farDeckShown = toHorizon && curve <= 0f ? overcast : 0f;
-            LogCurve(curve, toHorizon);
+            LogCurve(CloudShaderParams.CurvedStrength);
 
             // How soon before that they start to thin: the last 30% at night, as always (the stars stay
             // hidden). By day (1.5.0), with the clouds hiding the sky, the last 65%: over the last 30%
@@ -1750,31 +1707,7 @@ namespace VolumetricClouds.Sky
             // under it (the author: "the horizon becomes too obvious"). Thinning over a longer stretch
             // is the haze of the air in front of far cloud, and the haze it thins into is whatever sky
             // is behind -- the game's, Real Light's or a cubemap -- so there is no colour to guess.
-            // With the far deck behind them there is no bright sky under their end: they keep their
-            // detail to the last 30% by day too, as much as the deck shows (2026-10-13, the author: the
-            // horizon "just a hue now, I remember it being much more detailed"; over the last 65% the
-            // clouds' detail ended ~7 degrees up, the deck's even band under it).
-            float edgeStart = Mathf.Lerp(Mathf.Lerp(DayEdgeStart, NightEdgeStart, night), NightEdgeStart, _farDeckShown);
-            _material.SetFloat(IdEdgeStart, edgeStart);
-
-            float reach = Reach;
-            // From high over the clouds the reach grows (up to MaxReach): the band always goes past it.
-            float end = Mathf.Max(FarDeckEnd, reach * 1.5f);
-            _material.SetVector(IdFarDeck, new Vector4(_farDeckShown, FarDeckFrom, end, FarDeckHaze));
-            _material.SetVector(IdFarDeck2, new Vector4(0f, FarDeckFill, 0f, Mathf.Max(reach, FarDeckLightAt)));
-
-            // Its light: a thick deck's base -- the sun through FarDeckSunDepth, the cloud above it
-            // at half density over 90 m (the march's two looks up, 30 + 60 m).
-            // The sun's depth follows what deepens the near clouds' (2026-10-13: at Density 240% and
-            // Cumulus size 200% the band was ~3.4x as bright as the bases over it, "empty space"):
-            // the Density slider against its default, and under Cumulus its size x height. (Under Soft and
-            // Mixed the deck at 90% and more is their Classic layer.) FarDeckSunDepth is the depth at the
-            // defaults, as it was tuned.
-            float density = Settings.CloudDensityNow;
-            float deeper = density / Settings.Defaults.Density;
-            if (CloudStyle.HeapsDrawn)
-                deeper *= CloudStyle.SizeFactor * CloudStyle.HeightFactor;
-            _material.SetVector(IdFarLight, new Vector4(FarDeckSunDepth * deeper, 0.5f * density * 90f, 0f, 0f));
+            _material.SetFloat(IdEdgeStart, Mathf.Lerp(DayEdgeStart, NightEdgeStart, night));
 
             // A small, even, pale luminance under the clouds. A night cloud is nearly black
             // (0.01-0.03 of radiance), so the strength is judged against THAT: at 100% the

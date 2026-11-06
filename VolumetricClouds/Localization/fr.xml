@@ -100,6 +100,7 @@
   <String key="CloudStyle.Cumulus">Cumulus</String>
   <String key="CloudStyle.Mixed">Mixte</String>
   <String key="CloudStyle.Soft">Doux</String>
+  <String key="CloudStyle.Auto">Automatique</String>
 
   <String key="CumulusLayer.Label">Couche classique</String>
   <String key="CumulusSize.Label">Taille des cumulus</String>
@@ -217,8 +218,6 @@
   <String key="WeatherTileSize.Label">Taille du motif météo</String>
 
   <String key="LargerWeatherPattern.Label">Motif météo plus grand (nuages de même taille)</String>
-
-  <String key="CloudsToHorizon.Label">Nuages jusqu'à l'horizon</String>
 
   <String key="CurvedClouds.Label">Nuages courbés (100 % = courbure de la Terre)</String>
 

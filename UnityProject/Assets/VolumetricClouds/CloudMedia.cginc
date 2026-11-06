@@ -234,14 +234,14 @@ float4 _EmptySky;          // x = 1: skip (0 with fragments, or at a full cover)
 // (SampleDensityLod, LayerDensity), and under Cumulus the heaps' coverage line (CumulusDensity) is
 // at or under 0 at its highest score -- it only rises with the score, which the C# side checks
 // is so (_CumulusShape.y >= 0). Under Soft and Mixed the puffs and the layer are both cuts of the map
-// (SoftDensity, LayerDensity), none under _EmptySky.w.
+// (SoftDensity, LayerDensity), none under _EmptySky.w. Over Auto's hand-over the heaps' line must hold too.
 bool CellEmpty(float weather, float score)
 {
-    if (_CloudStyle > 1.5)
-        return weather <= _EmptySky.w;
-
-    if (weather > _Threshold)
+    if (weather > (_CloudStyle > 1.5 ? _EmptySky.w : _Threshold))
         return false;
+
+    if (_CloudStyle > 1.5 && _CloudStyle < 3.5)
+        return true;
 
     if (_CloudStyle > 0.5)
         return _CumulusShape.y >= 0.0 && _CumulusShape.x + _CumulusShape.y * score <= 0.0;
@@ -301,15 +301,18 @@ float CloudPresence(float tEnter)
     float fade = saturate(1.0 - tEnter / _MaxDistance);
     fade *= fade;
     // Curved clouds (trial, Sky/CurvedClouds.Presence): the curve ends them at the horizon, so they fade
-    // only into the haze in front of them, not to nothing at the reach. x = how much at most, y = 1 /
-    // its length (m); x = 0: off. (Never in the light shader: no Curved clouds there.)
+    // only into the haze in front of them, not to nothing at the reach. x = how much of that there is
+    // (CurvedClouds.Share: the row moves with the hour and the cover, so flat clouds hand over to it, 1 from
+    // 25% up), y = 1 / the haze's length (m), its 0.6 = CurvedClouds.Haze; x = 0: off. (Never in the
+    // light shader: no Curved clouds there.)
     // Past the curved ground's horizon (CurvedSlab) they go on to the march's end: 1000 km is ~4.5
     // degrees under the level, 2000 km ~9 (CurvedClouds.BelowFrom, BelowReach): gone softly by there.
 #ifndef VC_LITE
     if (_CurveFade.x > 0.0)
     {
-        fade = 1.0 - _CurveFade.x * (1.0 - exp(-tEnter * _CurveFade.y));
-        fade *= 1.0 - smoothstep(1000000.0, 2000000.0, tEnter);
+        float haze = 1.0 - 0.6 * (1.0 - exp(-tEnter * _CurveFade.y));
+        haze *= 1.0 - smoothstep(1000000.0, 2000000.0, tEnter);
+        fade = lerp(fade, haze, _CurveFade.x);
     }
 #endif
 

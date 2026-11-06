@@ -359,6 +359,23 @@ $cachedLine = [single[]](Value "LayerLineCached")
 $freshLine = [single[]](Call "LayerLine" @())
 Check (($cachedLine[0] -eq $freshLine[0]) -and ($cachedLine[1] -eq $freshLine[1])) "the cached layer line the shader parameters use is LayerLine's"
 
+# Auto's hand-over: the slab reaches the tallest heap at the heaps' coverage now (CloudStyle.HandOverTop).
+$tallestHeap = [single](Value "Tallest")
+$covMax = [single](Value "CoverageMax")
+Check ([single](Call "HeapTopAt" @($covMax)) -eq $tallestHeap) "a heap at the most coverage ends at Tallest"
+Check ([single](Call "HeapTopAt" @([single]1)) -eq $tallestHeap) "more coverage than that never asks for more"
+$topsOk = $true; $prevTop = 0.0
+for ($i = 0; $i -le 50; $i++) {
+    $cv = [single]($i * 0.01)
+    $top = [single](Call "HeapTopAt" @($cv))
+    if ($top -lt $prevTop) { $topsOk = $false; "  HeapTopAt falls at $cv" }
+    # Above the top the coverage curve leaves no cloud at all, so the slab never clips a heap.
+    $hAbove = [single](($top + 1) / [single](Value "Span"))
+    if ($cv -le $covMax -and $cv -gt 0.03 -and ($cv + [single](Call "Curve" @($hAbove)) - 1) -gt 1e-3) { $topsOk = $false; "  a heap of $cv reaches over HeapTopAt" }
+    $prevTop = $top
+}
+Check $topsOk "the tallest heap only rises with its coverage, and none reaches over it"
+
 ""
 "=== CloudStyle: how much cloud (the same amount as Classic) ==="
 $table = [single[]](Value "EdgeTable")

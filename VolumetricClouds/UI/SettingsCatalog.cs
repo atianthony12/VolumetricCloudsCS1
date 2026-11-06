@@ -199,6 +199,9 @@ namespace VolumetricClouds.UI
         /// <summary>Greys the row out, e.g. the fog rows while fog is off.</summary>
         public Func<bool> Enabled;
 
+        /// <summary>The value in use now, for a row with a clock that doesn't blend as the others do; null: Settings.Now.</summary>
+        public Func<float> NowValue;
+
         /// <summary>
         /// Carried by a profile (1.3.0). False for the machine (rendering quality) and housekeeping
         /// -- does the row describe the sky, or the computer (invariant 11)? A profile posted in the
@@ -1153,10 +1156,10 @@ namespace VolumetricClouds.UI
             return Settings.HaloEnabled != null && Settings.HaloEnabled.value;
         }
 
-        /// <summary>The Cumulus style is picked: the rows that shape its heaps.</summary>
+        /// <summary>The Cumulus style is picked, or Auto, which turns into it: the rows that shape its heaps.</summary>
         private static bool CumulusPicked()
         {
-            return CloudStyle.IsCumulus;
+            return CloudStyle.IsCumulus || (CloudStyle.IsAuto && !CloudShaders.Lite);
         }
 
         /// <summary>
@@ -1636,9 +1639,10 @@ namespace VolumetricClouds.UI
 
             // Classic, the layer the mod has always drawn, Cumulus, EVE-Redux V5's model
             // (Sky.CloudStyle), Mixed (1.5.0, Sky.CloudMix): Soft's puffs with the layer coming in as
-            // the intensity rises, or Soft (1.5.0, Sky.CloudSoft): puffs with soft, wispy edges. Stored
-            // by value, append only. A settings file from before the row means Classic: an update never
-            // swaps a player's clouds (Row.OlderFileInt).
+            // the intensity rises, Soft (1.5.0, Sky.CloudSoft): puffs with soft, wispy edges, or Auto
+            // (Sky.CloudAuto): Soft becoming Cumulus as the sky closes up. Stored by value, append only.
+            // A settings file from before the row means Classic: an update never swaps a player's clouds
+            // (Row.OlderFileInt).
             Add(new Row
             {
                 Kind = RowKind.Choice,
@@ -1646,8 +1650,8 @@ namespace VolumetricClouds.UI
                 Int = Settings.CloudStyle,
                 DefaultInt = Settings.Defaults.CloudStyle,
                 OlderFileInt = Settings.Defaults.CloudStyleForOlderFiles,
-                ChoiceKeys = new[] { "CloudStyle.Classic", "CloudStyle.Cumulus", "CloudStyle.Mixed", "CloudStyle.Soft" },
-                ChoiceValues = new[] { CloudStyle.Classic, CloudStyle.Cumulus, CloudStyle.Mixed, CloudStyle.Soft },
+                ChoiceKeys = new[] { "CloudStyle.Classic", "CloudStyle.Cumulus", "CloudStyle.Mixed", "CloudStyle.Soft", "CloudStyle.Auto" },
+                ChoiceValues = new[] { CloudStyle.Classic, CloudStyle.Cumulus, CloudStyle.Mixed, CloudStyle.Soft, CloudStyle.Auto },
                 AfterChange = State("cloud style", CloudStyle.Describe),
             });
 
@@ -2198,26 +2202,14 @@ namespace VolumetricClouds.UI
                 AfterChange = State("larger weather pattern", OnOff(Settings.LargerWeatherPattern)),
             });
 
-            // 1.5.0: the far deck (Sky.CloudVolume, CloudRaymarch MarchFarDeck) -- under a full overcast
-            // the deck carries on to the horizon. A test switch, kept and made always on, then a row of
-            // its own (the author: "add it as a real option under Weather"). On its own now: it no longer
-            // waits for "Clouds hide the sky by day", so ticking it is enough. A look: in profiles (one
-            // saved before has none, and reads it on).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Options = OptionsPage.Weather,
-                Bool = Settings.CloudsToHorizon,
-                DefaultBool = Settings.Defaults.CloudsToHorizon,
-                Enabled = WholeShaders,
-                AfterChange = State("clouds to the horizon", OnOff(Settings.CloudsToHorizon)),
-            });
-
             // Curved clouds (trial, 2026-10-23; Sky.CurvedClouds): the layer
             // over the curved Earth, down to the horizon. 100% = the real Earth, up to 400% (a tighter
-            // curve, the 2026-09-24 look within reach). While above 0 the far deck above is not drawn. A look:
-            // in profiles (one saved before has none, and reads it off).
-            Add(new Row
+            // curve, the 2026-09-24 look within reach). A look: in profiles (one saved before has none,
+            // and reads it off). A clock and a cloud button (2026-11-06, the author: "curved clouds only at
+            // certain times + certain cloud cover"; it replaced Clouds to the horizon, whose band this makes
+            // from real clouds): a file without those values gives each its twin, so nobody's sky changes.
+            // Overcast comes in late (Sky.CurvedClouds.OvercastShare), hence NowValue.
+            Row curved = new Row
             {
                 Kind = RowKind.Percent,
                 Options = OptionsPage.Weather,
@@ -2225,8 +2217,14 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.CurvedClouds,
                 Min = 0f, Max = CurvedClouds.MaxStrength * 100f, Step = 10f,
                 Enabled = WholeShaders,
-                AfterChange = State("curved clouds", () => (Settings.CurvedClouds.value * 100f).ToString("F0") + "%"),
-            });
+                NowValue = () => Settings.CurvedCloudsNow,
+                AfterChange = State("curved clouds", () => (Settings.CurvedCloudsNow * 100f).ToString("F0") + "% now"),
+            };
+            AddTimed(curved, Settings.CurvedCloudsSunset, Settings.Defaults.CurvedCloudsSunset,
+                Settings.CurvedCloudsNight, Settings.Defaults.CurvedCloudsNight, null);
+            AddOvercast(curved, Settings.CurvedCloudsOvercast, Settings.Defaults.CurvedCloudsOvercast,
+                Settings.CurvedCloudsSunsetOvercast, Settings.Defaults.CurvedCloudsSunsetOvercast,
+                Settings.CurvedCloudsNightOvercast, Settings.Defaults.CurvedCloudsNightOvercast);
 
             // 1.3.0 (asked for: "edit the X and Y values" of the clouds' position, "for advanced
             // settings"): moves THIS city's clouds, all of them together (CloudWind.SetShift),
