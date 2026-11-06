@@ -255,7 +255,7 @@ float FunnelsEntry(float3 origin, float3 dir, float tEnd, out int nearest)
 float3 FunnelBaseLight(int i, float t, float cosTheta)
 {
     float3 top = float3(_FunnelTop[i].x, _CloudBottom + 0.05 * (_CloudTop - _CloudBottom), _FunnelTop[i].z);
-    return CloudRadiance(top, CloudLod(t), LightAlong(cosTheta));
+    return CloudRadiance(top, CloudLod(t), LightAlong(cosTheta), false);
 }
 
 // The cloud's optical depth along the ray from u0 to u1, inside the slab: `looks` reads of the

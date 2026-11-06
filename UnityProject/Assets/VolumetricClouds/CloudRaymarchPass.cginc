@@ -31,6 +31,20 @@
 float _VCProbe;         // 1: write PROBE_COLOUR and nothing else (Sky/CloudShaders.cs)
 #define PROBE_COLOUR float4(0.25, 0.5, 0.75, 1.0)
 
+// Three savings on the cloud march (2026-11-07), measured together at 15-20% of a frame for under 1/255
+// on average. Simpler clouds keep the march they were checked with.
+// FAR_LIGHT: past this many metres a pixel is wider than the sun's first looks: SunDepth starts at its
+// 24 m stretch and the sky light looks up once.
+// DEEP_LIGHT: a lit step behind less than this share of the ray's light takes the step before's light.
+// MARCH_STOP: the march ends with this much of the ray left (MarchCloudsRaw stretches it to 0).
+#define FAR_LIGHT 8000.0
+#define DEEP_LIGHT 0.1
+#ifdef VC_LITE
+#define MARCH_STOP 0.02
+#else
+#define MARCH_STOP 0.05
+#endif
+
 // The stretch of ray the fog's step count (Quality^2 / 160) is set for: 9 km, as far as
 // the fog went until its distance became a setting. A longer stretch gets more steps.
 #define FOG_STEP_STRETCH 9000.0
@@ -231,15 +245,17 @@ float DetailPhase(float cosTheta, float c)
 // detail (the small billows shading each other), then four growing ones out to about
 // the layer's thickness from the big shape only. Under Soft and Mixed only the first is read
 // with the detail (their cost, 2026-10-17: offline under 0.5/255 from all three, at 100%).
-float SunDepth(float3 p, float lod)
+// `far` (past FAR_LIGHT): the first three stretches as one, from the big shape only.
+float SunDepth(float3 p, float lod, bool far)
 {
     float tau = 0.0;
     float prev = 0.0;
-    float s = 6.0;
-    int detailedLooks = _CloudStyle > 1.5 ? 1 : 3;
+    float s = far ? 24.0 : 6.0;
+    int first = far ? 2 : 0;
+    int detailedLooks = far ? 0 : (_CloudStyle > 1.5 ? 1 : 3);
 
     [loop]
-    for (int k = 0; k < 7; k++)
+    for (int k = first; k < 7; k++)
     {
         float segment = s - prev;
         tau += SampleDensityLod(p + _SunDir * (prev + segment * 0.5), k < detailedLooks, lod) * segment;
@@ -442,8 +458,8 @@ RayLight LightAlong(float cosTheta)
     return r;
 }
 
-// The light a cloud at p sends along the ray (before its density).
-float3 CloudRadiance(float3 p, float lod, RayLight r)
+// The light a cloud at p sends along the ray (before its density). `far`: p is past FAR_LIGHT.
+float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
 {
     bool detail = _DetailAmount > 0.0;
     bool cumulus = _CloudStyle > 0.5;
@@ -467,15 +483,19 @@ float3 CloudRadiance(float3 p, float lod, RayLight r)
     float3 radiance;
     if (cumulus)
     {
-        float tau = SunDepth(p, lod);
+        float tau = SunDepth(p, lod, far);
         float multipleT = exp(-tau * _CumulusLight.x);
         if (soak)
             multipleT = Soak(multipleT, tau);
         float sunLit = r.lobes.x * exp(-tau) + r.lobes.y * multipleT;
 
-        // The sky light is blocked by the cloud above: two looks straight up.
-        float above = SampleDensityLod(p + float3(0.0, 15.0, 0.0), false, lod) * 30.0
-                    + SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 60.0;
+        // The sky light is blocked by the cloud above: two looks straight up (one, for both, when far).
+        float above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 60.0;
+        [branch]
+        if (far)
+            above *= 1.5;
+        else
+            above += SampleDensityLod(p + float3(0.0, 15.0, 0.0), false, lod) * 30.0;
         radiance = sunColor * sunLit + ShadeSky(hSky) * exp(-above * _Absorption * _DetailLight2.x);
         if (_ShadeLight.y > 0.0)
             radiance += sunColor * (_ShadeLight.y * (1.0 - hSky) * (1.0 - hSky));
@@ -486,7 +506,7 @@ float3 CloudRadiance(float3 p, float lod, RayLight r)
     }
     else if (detail)
     {
-        float tau = SunDepth(p, lod);
+        float tau = SunDepth(p, lod, far);
         float b = _DetailLight.y;
         float octave1T = exp(-tau * b);
         float octave2T = exp(-tau * b * b);
@@ -621,6 +641,7 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
 
     float transmittance = 1.0;
     float3 light = 0;
+    float3 radiance = 0;
 
 #ifndef VC_LITE
     // Skip the empty sky (1.5.0, CloudMedia EmptyAhead): the ray in the map's fine cells per
@@ -638,7 +659,7 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
     [loop]
     for (int s = 0; s < 192; s++)
     {
-        if ((float)s >= steps || transmittance < 0.02 || t > tStop)
+        if ((float)s >= steps || transmittance < MARCH_STOP || t > tStop)
             break;
 
         float3 p = origin + dir * t;
@@ -674,7 +695,14 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
 
         if (d > 0.001)
         {
-            float3 radiance = CloudRadiance(p, lod, rayLight);
+#ifndef VC_LITE
+            // Deep in a cloud the step before's light will do (a ray is only under DEEP_LIGHT after a lit step).
+            [branch]
+            if (transmittance >= DEEP_LIGHT)
+                radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT);
+#else
+            radiance = CloudRadiance(p, lod, rayLight, false);
+#endif
 
             float stepT = exp(-d * stepLen * _Absorption);
             // Energy-conserving integration across the step.
@@ -685,9 +713,9 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
         t += stepLen;
     }
 
-    // The march stops at 2% transmittance, and 2% of an HDR star is still a star.
+    // The march stops at MARCH_STOP, and 5% of an HDR star is still a star.
     // Stretch what is left so that "stopped early" means opaque.
-    transmittance = saturate((transmittance - 0.02) / 0.98);
+    transmittance = saturate((transmittance - MARCH_STOP) / (1.0 - MARCH_STOP));
 
     return float4(light, transmittance);
 }
@@ -1275,8 +1303,14 @@ float4 frag(v2f i) : SV_Target
     #ifdef VC_FUNNELS
     float funnelEnd = min(min(sceneDist, boltStop), _FunnelParams.y);
     int funnelFirst = 0;
-    float tFunnel = drawAir && _FunnelCount > 0.5 ? FunnelsEntry(origin, dir, funnelEnd, funnelFirst) : 1e9;
-    float3 funnelBase = tFunnel < 1e9 ? FunnelBaseLight(funnelFirst, tFunnel, cosTheta) : float3(0, 0, 0);
+    float tFunnel = 1e9;
+    float3 funnelBase = float3(0, 0, 0);
+    [branch]
+    if (drawAir && _FunnelCount > 0.5)
+        tFunnel = FunnelsEntry(origin, dir, funnelEnd, funnelFirst);
+    [branch]
+    if (tFunnel < 1e9)
+        funnelBase = FunnelBaseLight(funnelFirst, tFunnel, cosTheta);
     #else
     float tFunnel = 1e9;
     #endif
@@ -1301,9 +1335,13 @@ float4 frag(v2f i) : SV_Target
         if (temporalCamera && tExit > tEnter && sceneDist >= tExitClear && boltStop >= 1e9)
             raw = TemporalClouds(dir);
 
-        clouds = raw.a >= 0.0
-            ? FinishClouds(raw, tEnter, dir, sceneDist >= 1e9)
-            : MarchClouds(origin, dir, tEnter, tExit, boltStop, jitter, cosTheta, sceneDist >= 1e9);
+        // A real branch: HLSL's ?: runs both sides, and until 2026-11-07 every pixel marched here at full
+        // size and threw it away (horizon, 4K: 71 ms a frame, 18 with this).
+        [branch]
+        if (raw.a >= 0.0)
+            clouds = FinishClouds(raw, tEnter, dir, sceneDist >= 1e9);
+        else
+            clouds = MarchClouds(origin, dir, tEnter, tExit, boltStop, jitter, cosTheta, sceneDist >= 1e9);
     }
 
 #endif

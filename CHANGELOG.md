@@ -16,7 +16,16 @@ below; the mods list shows it after the mod's name, and the first line of
   Under *Simpler clouds* Auto is drawn Classic, as Soft and Mixed are. `VolumetricClouds.xml` gains no
   lines: `CloudStyle` takes the new value 4.
 
+### Fixed
+
+- *Smoother clouds* was much slower than it should have been: every pixel was also marched at full
+  size and the result thrown away. With it on, frames take about a quarter of the time in a sky full of
+  cloud, in every cloud style, and the picture is the same.
+
 ### Changed
+
+- The clouds cost about 15-20% less to draw, with *Smoother clouds* on or off: far clouds and the depths of
+  a cloud use a little less of their light. The picture is very nearly the same.
 
 - *Mixed* now has all three kinds of cloud at once: a third of the sky leans to Cumulus's heaps, beside
   the stretches of Soft's puffs and of the Classic layer, each lit at its own level. The heaps go at the
