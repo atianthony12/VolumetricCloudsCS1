@@ -4,31 +4,30 @@ using System.Globalization;
 namespace VolumetricClouds.Sky
 {
     /// <summary>
-    /// THE AUTO STYLE (<see cref="CloudStyle.Auto"/>): the style follows the cover. Fair weather is the Soft
-    /// style, a heavy sky the Cumulus style, and between them, as the cover rises, the sky changes from one
-    /// to the other. The player can still pick any style by hand; this is one more choice on the same row.
+    /// THE AUTO STYLE (<see cref="CloudStyle.Auto"/>): the Mixed style's sky (<see cref="CloudMix"/>: a type
+    /// pattern gives each stretch of sky to the layer, the puffs or the heaps) with its proportions following
+    /// the cover. Fair weather is mostly Soft's puffs with a few stretches of heaps, the heaps spread as the
+    /// cover rises and from <see cref="PuffsTo"/> the sky IS the Cumulus style. The player can still pick
+    /// any style by hand; this is one more choice on the same row.
     /// </summary>
     /// <remarks>
     /// <list type="bullet">
     /// <item>There is no timer and no state: everything here is a function of the cover, which the weather
-    /// already moves slowly, so the hand-over takes as long as the sky takes to close up.</item>
-    /// <item>It is not a cross-fade of two pictures. The heaps come in as the Cumulus style's do when its
-    /// intensity rises, first where the map is highest, and the puffs leave as Soft's do when its intensity
-    /// falls, first where the map is lowest: clouds form and clouds go. In between the shader draws the
-    /// denser of puffs, heaps and layer, the same max the styles already use.</item>
-    /// <item>The puffs go LATER than the heaps come (<see cref="PuffsFrom"/>): together, over 68-85%, the sky
-    /// emptied half way through, 14% of it cloud at 70% and 10% at 75% (render-detail.ps1 -Set auto-measure,
-    /// at the default rows; 20% and 13% at the author's). With these numbers the amount of cloud rises
-    /// all the way from Soft's to Cumulus's, on the default rows and on his.</item>
-    /// <item>Up to <see cref="HeapsFrom"/> this IS Soft and from <see cref="PuffsTo"/> it IS Cumulus: the
-    /// same uniforms and the same shader branch (CloudShaderParams.ApplyStyle), nothing of the other read.
-    /// tools/test-auto.ps1 holds it to that.</item>
+    /// already moves slowly, so the sky changes as slowly as it closes up.</item>
+    /// <item>It is not a cross-fade of two pictures. The heaps' stretches grow (<see cref="HeapSky"/>) and
+    /// the puffs leave as Soft's do when its intensity falls, first where the map is lowest: clouds form and
+    /// clouds go. Each place draws the denser of puffs, heaps and layer, the same max the styles already use.</item>
+    /// <item>The puffs go LATER than the heaps come (<see cref="PuffsFrom"/>): together, the sky emptied half
+    /// way through (render-detail.ps1 -Set auto-measure, 2026-11-06).</item>
+    /// <item>From <see cref="PuffsTo"/> it IS Cumulus: the same uniforms and the same shader branch
+    /// (CloudShaderParams.ApplyStyle), nothing of the rest read. tools/test-auto.ps1 holds it to that.
+    /// (Until 2026-11-06, the author's call, it was exactly Soft up to 60% too.)</item>
     /// </list>
-    /// Pure, and in C# 5 like CloudSoft: tools/test-auto.ps1 compiles the two sources.
+    /// Pure, and in C# 5 like CloudSoft: tools/test-auto.ps1 compiles the sources.
     /// </remarks>
     public static class CloudAuto
     {
-        /// <summary>The cover the heaps start to come in at, and the cover they are all there at.</summary>
+        /// <summary>The cover the layer starts to go to Cumulus's at, and the cover it has at.</summary>
         public const float HeapsFrom = 0.60f, HeapsTo = 0.90f;
 
         /// <summary>The cover the puffs start to go at, and the cover the last of them are gone at.</summary>
@@ -37,10 +36,25 @@ namespace VolumetricClouds.Sky
         /// <summary>The cover the light starts to rise from the puffs' level at, and the cover it is the heaps' at.</summary>
         public const float LightFrom = 0.72f, LightTo = 0.86f;
 
-        /// <summary>How far the heaps have come, 0..1: also the share of the way the layer has gone to Cumulus's.</summary>
+        /// <summary>The share of a fair sky that leans to heaps, and the cover that share starts to grow from, to all of it at <see cref="HeapsTo"/>.</summary>
+        public const float FairHeapSky = 0.1f, SkyFrom = 0.3f;
+
+        /// <summary>
+        /// The intensity the puffs are cut as at where the type leans to layer, as a share of the cover
+        /// (elsewhere the cover itself): more than Mixed's, so a fair sky is about as cloudy as Soft's.
+        /// </summary>
+        public const float PuffsInLayerArea = 0.7f;
+
+        /// <summary>How far the layer has gone to Cumulus's, 0..1.</summary>
         public static float HeapShare(float cover)
         {
             return SmoothStep(HeapsFrom, HeapsTo, cover);
+        }
+
+        /// <summary>The share of the sky that leans to heaps at this cover: a few stretches in fair weather, all of it from <see cref="HeapsTo"/>.</summary>
+        public static float HeapSky(float cover)
+        {
+            return FairHeapSky + (1f - FairHeapSky) * SmoothStep(SkyFrom, HeapsTo, cover);
         }
 
         /// <summary>How far the puffs have gone, 0..1.</summary>
@@ -49,63 +63,61 @@ namespace VolumetricClouds.Sky
             return SmoothStep(PuffsFrom, PuffsTo, cover);
         }
 
-        /// <summary>Any puffs left at this cover.</summary>
+        /// <summary>Any puffs left at this cover: below it the type is read, from it the sky is Cumulus.</summary>
         public static bool PuffsAt(float cover)
         {
             return cover < PuffsTo;
         }
 
-        /// <summary>Any heaps at this cover.</summary>
-        public static bool HeapsAt(float cover)
+        /// <summary>
+        /// The intensity Soft's puffs are cut as at (CloudSoft.PuffCoverage) where the type leans to layer
+        /// (<paramref name="area"/> 0), neither way (1) or to puffs (2): the cover itself there, so a stretch
+        /// of puffs is Soft's own sky, going as the cover closes up.
+        /// </summary>
+        public static float PuffIntensity(float cover, int area)
         {
-            return cover > HeapsFrom;
-        }
-
-        /// <summary>The intensity Soft's puffs are cut as at (CloudSoft.PuffCoverage): the cover itself up to <see cref="PuffsFrom"/>.</summary>
-        public static float PuffIntensity(float cover)
-        {
-            return Clamp01(cover) * (1f - PuffFade(cover));
+            return Clamp01(cover) * (area == 0 ? PuffsInLayerArea : 1f) * (1f - PuffFade(cover));
         }
 
         /// <summary>
-        /// The intensity the heaps are cut at (CloudStyle.HeapEdge): what Cumulus would use at this cover
-        /// (<paramref name="heapCoverage"/>, CloudStyle's, with the Cumulus amount row in it), times how far they have come.
+        /// The cover the Classic layer is cut at where the type leans to layer (<paramref name="area"/> 0),
+        /// neither way (1) or to puffs (2, Soft's own): Mixed's and Soft's going to Cumulus's (the cover times
+        /// the "Classic layer" row, <paramref name="amount"/>) with <see cref="HeapShare"/>.
         /// </summary>
-        public static float HeapIntensity(float cover, float heapCoverage)
-        {
-            return heapCoverage * HeapShare(cover);
-        }
-
-        /// <summary>
-        /// The cover the Classic layer is cut at: Soft's going to Cumulus's (the cover times the "Classic
-        /// layer" row, <paramref name="amount"/>) as the heaps come.
-        /// </summary>
-        public static float LayerCover(CloudSoft.Look look, float cover, float amount)
+        public static float LayerCover(CloudSoft.Look look, float cover, float amount, int area)
         {
             float c = Clamp01(cover);
-            return Mix(CloudSoft.LayerCover(look, c, amount), c * Clamp01(amount), HeapShare(c));
+            float own = area == 0 ? CloudMix.LayerCoverInLayerArea(c) : area == 1 ? CloudMix.LayerCover(c) : CloudSoft.LayerCover(look, c, 1f);
+            return Mix(own, c, HeapShare(c)) * Clamp01(amount);
         }
 
         /// <summary>
         /// The cover the rain, lightning's cloud test and the rainbow's are cut at (invariant 2: it falls from
-        /// drawn cloud): as CloudSoft.DrawnCoverage, the larger of the puffs' and the layer's, never more than
-        /// the cover -- and rising to the cover itself as the heaps come, as under Cumulus. Soft's up to
-        /// <see cref="HeapsFrom"/>, the cover from <see cref="HeapsTo"/>.
+        /// drawn cloud): the least any stretch of the sky draws, each drawing the larger of its puffs' and its
+        /// layer's, never more than the cover -- and rising to the cover itself as the layer goes to Cumulus's.
         /// </summary>
         public static float DrawnCoverage(CloudSoft.Look look, float cover, float amount)
         {
             float c = Clamp01(cover);
-            float puffs = CloudSoft.PuffCoverage(look, PuffIntensity(c));
-            float layer = LayerCover(look, c, amount);
-            return Math.Min(c, Math.Max(Math.Max(puffs, layer), c * HeapShare(c)));
+            float least = 1f;
+            float puffsL = CloudSoft.PuffCoverage(look, PuffIntensity(c, 0)), puffsM = CloudSoft.PuffCoverage(look, PuffIntensity(c, 1));
+            float puffsP = CloudSoft.PuffCoverage(look, PuffIntensity(c, 2));
+            float layerL = LayerCover(look, c, amount, 0), layerM = LayerCover(look, c, amount, 1), layerP = LayerCover(look, c, amount, 2);
+            for (int i = 0; i <= 8; i++)
+            {
+                float t = i / 8f;
+                least = Math.Min(least, Math.Max(Between(puffsL, puffsM, puffsP, t), Between(layerL, layerM, layerP, t)));
+            }
+
+            return Math.Min(c, Math.Max(least, c * HeapShare(c)));
         }
 
         /// <summary>
-        /// The clouds' light level (CloudStyle.CloudLightScale): Soft's up to <see cref="LightFrom"/>, 1
-        /// (Cumulus's) from <see cref="LightTo"/>. One level for the whole march. Measured against Cumulus's
+        /// The clouds' light level where the sky does not lean to heaps (CloudStyle.CloudLightScale): Soft's up
+        /// to <see cref="LightFrom"/>, 1 (Cumulus's) from <see cref="LightTo"/>. Measured against Cumulus's
         /// brightness at the same Cloud brightness (render-detail.ps1 -Set auto-light on his rows, -default on
-        /// the default ones, the same answer on both): x0.6 at 76%, x0.8 at 80%, x0.95 at 84%, x1 by 88%.
-        /// Following the puffs' going instead left the sky 8% too dark half way.
+        /// the default ones, the same answer on both): x0.6 at 76%, x0.8 at 80%, x0.95 at 84%, x1 by 88%. The
+        /// heaps' stretches are at 1 all along (CloudMix.LightBoost).
         /// </summary>
         public static float LightScale(CloudSoft.Look look, float cover, float amount)
         {
@@ -134,16 +146,22 @@ namespace VolumetricClouds.Sky
         public static string Describe()
         {
             CultureInfo c = CultureInfo.InvariantCulture;
-            return "the Soft style up to " + (HeapsFrom * 100f).ToString("F0", c) + "% cover, the Cumulus style from " +
-                   (PuffsTo * 100f).ToString("F0", c) + "%; between them heaps come in (all there at " + (HeapsTo * 100f).ToString("F0", c) +
-                   "%) and puffs go (from " + (PuffsFrom * 100f).ToString("F0", c) + "%)";
+            return "Mixed's sky, its heaps' share following the cover: " + (FairHeapSky * 100f).ToString("F0", c) + "% of the sky up to " +
+                   (SkyFrom * 100f).ToString("F0", c) + "% cover, all of it at " + (HeapsTo * 100f).ToString("F0", c) +
+                   "%; puffs go from " + (PuffsFrom * 100f).ToString("F0", c) + "%; the Cumulus style from " + (PuffsTo * 100f).ToString("F0", c) + "%";
         }
 
-        /// <summary>Where the hand-over is at this cover, for the log.</summary>
+        /// <summary>Where it is at this cover, for the log.</summary>
         public static string DescribeAt(float cover)
         {
             CultureInfo c = CultureInfo.InvariantCulture;
-            return "heaps " + (HeapShare(cover) * 100f).ToString("F0", c) + "%, puffs gone " + (PuffFade(cover) * 100f).ToString("F0", c) + "%";
+            return "heaps in " + (HeapSky(cover) * 100f).ToString("F0", c) + "% of the sky, puffs gone " + (PuffFade(cover) * 100f).ToString("F0", c) + "%";
+        }
+
+        // As the shader's MixThresholdAt.
+        private static float Between(float a, float b, float c, float t)
+        {
+            return t < 0.5f ? a + (b - a) * t * 2f : b + (c - b) * (t * 2f - 1f);
         }
 
         private static float SmoothStep(float a, float b, float x)

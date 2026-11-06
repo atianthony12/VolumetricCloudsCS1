@@ -25,6 +25,13 @@ namespace VolumetricClouds.Sky
     /// CloudMixMap) tips each stretch of sky towards the layer (it comes in earlier, the puffs are cut
     /// as at <see cref="PuffsInLayerArea"/> x the intensity) or towards puffs (the layer later, the puffs
     /// as at <see cref="PuffsInCumulusArea"/> x); it drifts with the clouds and fades out by 100%.</item>
+    /// <item>THE HEAPS (2026-11-06, the author: "a combination of all four"): a second pattern
+    /// (<see cref="HeapAt"/>, made even by rank, so a share of it is that share of the sky in every city)
+    /// gives <see cref="HeapSky"/> of the sky to the Cumulus style's heaps. Such a stretch leans to layer as
+    /// well (<see cref="Lean"/>: the type times 1 - lean), so the sky's three corners are the three styles:
+    /// the layer alone, puffs, heaps with the layer. They go with the type's strength: 100% is what it was.
+    /// Each stretch has its own light: the heaps' level is 1, the sky's the puffs' (<see cref="LightBoost"/>).
+    /// </item>
     /// </list>
     /// Rain, lightning's cloud test and the rainbow's use the SMALLEST layer cover
     /// (<see cref="LayerCoverInCumulusArea"/>), so rain always falls from drawn cloud (invariant 2).
@@ -36,9 +43,45 @@ namespace VolumetricClouds.Sky
     {
         /// <summary>
         /// What these numbers, the hash and the type map are. Bump it with any change to what a seed draws.
-        /// 2 (2026-10-17): the separate clouds became Soft's puffs.
+        /// 2 (2026-10-17): the separate clouds became Soft's puffs. 3 (2026-11-06): the heaps' pattern; the
+        /// type's pattern is the same for a seed.
         /// </summary>
-        public const int Generator = 2;
+        public const int Generator = 3;
+
+        // ---- the heaps ---------------------------------------------------------------------------
+
+        /// <summary>The share of Mixed's sky that leans to the Cumulus style's heaps, at every cover.</summary>
+        public const float HeapSky = 1f / 3f;
+
+        /// <summary>How wide a stretch of heaps' edge is, as a share of the pattern's (so of the sky).</summary>
+        public const float LeanWidth = 0.12f;
+
+        /// <summary>
+        /// The heaps' coverage line's edge (CloudStyle.Line) where the sky does not lean to them: under the
+        /// Cumulus table's lowest, so where it does is always the higher end.
+        /// </summary>
+        public const float NoHeapEdge = -0.4f;
+
+        /// <summary>The value of the heaps' pattern (even, 0..1) a stretch starts to lean to heaps at, for this share of the sky.</summary>
+        public static float LeanStart(float share)
+        {
+            return (1f - Clamp01(share)) * (1f + LeanWidth) - LeanWidth;
+        }
+
+        /// <summary>How far a place leans to heaps, 0..1, where the pattern reads <paramref name="k"/>. All of the sky at a share of 1, none at 0.</summary>
+        public static float Lean(float k, float share)
+        {
+            return Clamp01((k - LeanStart(share)) / LeanWidth);
+        }
+
+        /// <summary>
+        /// What the clouds' light is times, less 1, where the sky leans all the way to heaps, for the
+        /// light level the rest of it has: the heaps' own is 1. Times the type's strength: at 100% one deck, one light.
+        /// </summary>
+        public static float LightBoost(float level, float strength)
+        {
+            return (1f / Math.Max(level, 1e-3f) - 1f) * Clamp01(strength);
+        }
 
         // ---- the layer and the type ------------------------------------------------------------
 
@@ -165,6 +208,63 @@ namespace VolumetricClouds.Sky
             return t * t * (3f - 2f * t);
         }
 
+        /// <summary>
+        /// The heaps' pattern at (u, v) of the weather map's repeat, before it is made even: as the type's,
+        /// from numbers of its own, so where the heaps are says nothing of where the layer is.
+        /// </summary>
+        public static float HeapAt(float u, float v, float seedX, float seedZ, int scale)
+        {
+            int periodA = TypePeriodA * scale, periodB = TypePeriodB * scale;
+            float a = ValueNoise(u * periodA, v * periodA, periodA, 42f, seedX, seedZ);
+            float b = ValueNoise(u * periodB, v * periodB, periodB, 43f, seedX, seedZ);
+            return a * TypeWeightA + b * TypeWeightB;
+        }
+
+        /// <summary>
+        /// The heaps' pattern as the map's red holds it: each texel's RANK in the map, 0..255, so a share of
+        /// the values is that share of the sky, in every city (one repeat holds only a few lattice points,
+        /// and its plain values lean a different way each time).
+        /// </summary>
+        public static byte[] BakeHeaps(int size, float seedX, float seedZ, int scale)
+        {
+            float[] values = new float[size * size];
+            if (scale > 1)
+                ParallelRows.Run(size, "VolumetricClouds mixed heaps", (first, end) => BakeHeapRows(values, size, seedX, seedZ, scale, first, end));
+            else
+                BakeHeapRows(values, size, seedX, seedZ, scale, 0, size);
+
+            const int Bins = 4096;
+            int[] count = new int[Bins];
+            for (int i = 0; i < values.Length; i++)
+                count[Bin(values[i], Bins)]++;
+
+            // Each bin's rank: everything under it, and half of itself.
+            byte[] rank = new byte[Bins];
+            long under = 0;
+            for (int b = 0; b < Bins; b++)
+            {
+                rank[b] = ToByte((float)((under + count[b] * 0.5) / values.Length));
+                under += count[b];
+            }
+
+            byte[] bytes = new byte[values.Length];
+            for (int i = 0; i < values.Length; i++)
+                bytes[i] = rank[Bin(values[i], Bins)];
+            return bytes;
+        }
+
+        private static int Bin(float value, int bins)
+        {
+            return Math.Max(0, Math.Min(bins - 1, (int)(value * bins)));
+        }
+
+        private static void BakeHeapRows(float[] values, int size, float seedX, float seedZ, int scale, int first, int end)
+        {
+            for (int j = first; j < end; j++)
+                for (int i = 0; i < size; i++)
+                    values[j * size + i] = HeapAt((i + 0.5f) / size, (j + 0.5f) / size, seedX, seedZ, scale);
+        }
+
         // ---- the map ---------------------------------------------------------------------------
 
         /// <summary>Texels per side of the type map, over one weather repeat (26 m at 13.5 km).</summary>
@@ -248,7 +348,8 @@ namespace VolumetricClouds.Sky
             return "the Soft style's puffs (up to " + CloudSoft.Tallest(look, thickness).ToString("F0", c) + " m tall, cut as Soft's at a share of the intensity: 47% -> " +
                    (CloudSoft.PuffCoverage(look, PuffIntensity(0.47f, 1)) * 100f).ToString("F0", c) + "%), the Classic layer from ~25% up, " +
                    "Classic's own cover from 85%; a type pattern tips the sky towards layer or puffs (puffs as at " +
-                   PuffsInLayerArea.ToString("F1", c) + "x / " + PuffsInCumulusArea.ToString("F1", c) + "x the intensity), baked into a " +
+                   PuffsInLayerArea.ToString("F1", c) + "x / " + PuffsInCumulusArea.ToString("F1", c) + "x the intensity), and " +
+                   (HeapSky * 100f).ToString("F0", c) + "% of the sky leans to the Cumulus style's heaps, baked into a " +
                    MapSizeFor(scale) + "^2 map (generator " + Generator + ")";
         }
 

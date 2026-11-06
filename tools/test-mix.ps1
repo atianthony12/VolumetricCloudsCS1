@@ -194,6 +194,41 @@ $typeMs = $sw.Elapsed.TotalMilliseconds
 $type2 = [byte[]](Call "BakeType" @([int]$size, $sx, $sz))
 Check ($type.Length -eq $size * $size -and [MixBytes]::Same($type, $type2)) ("the type map bakes one byte per texel, the same every time ({0:F0} ms here, once per seed)" -f $typeMs)
 
+"=== the heaps (2026-11-06: CloudMix.BakeHeaps, the map's red; CloudMix.Lean) ==="
+$sky = [single](Value "HeapSky")
+$shareOk = $true; $worstShare = 0.0; $evenOk = $true; $repeats = $true; $independent = 0.0
+foreach ($seed in 12345, 23456, 34567, 45678, 56789, 67891) {
+    $args3 = [object[]]@([int]$seed, [single]0, [single]0); [void]$mix.GetMethod("SeedOffsets").Invoke($null, $args3)
+    $hx = [single]$args3[1]; $hz = [single]$args3[2]
+    $heaps = [byte[]](Call "BakeHeaps" @([int]$size, $hx, $hz, [int]1))
+    $types = [byte[]](Call "BakeType" @([int]$size, $hx, $hz))
+    # A rank: as many texels under a value as the value says, in every city.
+    $under = 0; $half = 0
+    $start = [double](Call "LeanStart" @($sky)); $width = [double](Value "LeanWidth")
+    foreach ($b in $heaps) { if ($b / 255.0 -lt 0.25) { $under++ }; if (($b / 255.0 - $start) / $width -gt 0.5) { $half++ } }
+    if ([Math]::Abs($under / $heaps.Length - 0.25) -gt 0.03) { $evenOk = $false }
+    $got = $half / $heaps.Length
+    $worstShare = [Math]::Max($worstShare, [Math]::Abs($got - $sky))
+    if ([Math]::Abs($got - $sky) -gt 0.05) { $shareOk = $false }
+    if ([MixBytes]::MaxStep($heaps, $size) -gt 8) { $repeats = $false }
+    $sumAB = 0.0; $sumA = 0.0; $sumB = 0.0
+    for ($i = 0; $i -lt $heaps.Length; $i += 97) { $sumAB += $heaps[$i] * [double]$types[$i]; $sumA += $heaps[$i]; $sumB += $types[$i] }
+    $count = [Math]::Ceiling($heaps.Length / 97.0)
+}
+Check $evenOk "the heaps' pattern is even: a quarter of the map under a quarter of its values, in every city"
+Check $shareOk ("half way up the lean is {0:P0} of the sky in every city (worst off by {1:P1})" -f $sky, $worstShare)
+Check $repeats "the pattern is seamless over its repeat (no step of more than 8 between neighbours)"
+Check ([double](Call "Lean" @([single]1, [single]0)) -eq 0 -and [double](Call "Lean" @([single]0, [single]1)) -eq 1) "no share of the sky: nothing leans; all of it: everything does"
+$risesOk = $true; $prev = -1.0
+for ($i = 0; $i -le 100; $i++) { $v = [double](Call "Lean" @([single]($i / 100.0), $sky)); if ($v -lt $prev) { $risesOk = $false }; $prev = $v }
+Check $risesOk "the lean only rises with the pattern"
+Check ([Math]::Abs([double](Call "LightBoost" @([single]0.5, [single]1)) - 1) -lt 1e-6) "lit at x0.5 the sky's heaps are lifted x2, to their own level"
+Check ([double](Call "LightBoost" @([single]0.8, [single]0)) -eq 0) "with the type gone (100%) no stretch is lifted: one deck, one light"
+Check ([double](Call "LightBoost" @([single]1, [single]1)) -eq 0) "at the heaps' own level, nothing to lift"
+$style = $asm.GetType("VolumetricClouds.Sky.CloudStyle")
+$table0 = ([single[]]$style.GetField("EdgeTable").GetValue($null))[0]
+Check ([double](Value "NoHeapEdge") -le [double]$table0) "the line with no heaps is never over the Cumulus table's lowest: the empty-sky skip reads the higher one"
+
 "=== Larger weather pattern (1.5.0: the weather map and the type map 4x wider, the patches the same size) ==="
 $fieldType = $asm.GetType("VolumetricClouds.Sky.CloudDensityField")
 $larger = [int]$fieldType.GetField("LargerScale").GetValue($null)
@@ -207,7 +242,7 @@ Check ($bigType.Length -eq $bigSize * $bigSize -and [Math]::Abs($typeStep - $sma
 "=== the log ==="
 $shape = [string](Call "DescribeShape" @([single]450, [int]1))
 "  " + $shape
-Check ($shape -match "puffs" -and $shape -match "generator 2" -and $shape -cmatch '^[\x20-\x7E]+$') "the shape line names the puffs and the generator, ASCII"
+Check ($shape -match "puffs" -and $shape -match "heaps" -and $shape -match "generator 3" -and $shape -cmatch '^[\x20-\x7E]+$') "the shape line names the puffs, the heaps and the generator, ASCII"
 "  " + [string](Call "DescribeShape" @([single]450, $larger))
 "  " + [string](Call "DescribeMix" @([single]0.47))
 

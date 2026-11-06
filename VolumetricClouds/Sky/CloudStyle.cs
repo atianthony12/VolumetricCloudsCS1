@@ -46,7 +46,10 @@ namespace VolumetricClouds.Sky
         public const int Classic = 0;
         public const int Cumulus = 1;
 
-        /// <summary>1.5.0: the Soft style's puffs with the Classic layer coming in as the intensity rises, tipped by a type pattern (<see cref="CloudMix"/>).</summary>
+        /// <summary>
+        /// 1.5.0: the Soft style's puffs with the Classic layer coming in as the intensity rises, tipped by a
+        /// type pattern, and (2026-11-06) the Cumulus style's heaps in a third of the sky (<see cref="CloudMix"/>).
+        /// </summary>
         public const int Mixed = 2;
 
         /// <summary>
@@ -58,9 +61,10 @@ namespace VolumetricClouds.Sky
         public const int Soft = 3;
 
         /// <summary>
-        /// The style follows the cover: Soft in fair weather, Cumulus under a heavy sky, one becoming the other
-        /// between them (<see cref="CloudAuto"/>). Both are carved from the Cumulus noise, so drawn Classic the
-        /// few seconds it takes to make, and under Simpler clouds, which has no puffs.
+        /// The style follows the cover: Mixed's sky, mostly puffs in fair weather, the heaps spreading as the
+        /// cover rises, Cumulus under a heavy sky (<see cref="CloudAuto"/>). Carved from the Cumulus noise and
+        /// tipped by Mixed's type map, so drawn Classic the few seconds those take to make, and under Simpler
+        /// clouds, which has neither.
         /// </summary>
         public const int Auto = 4;
 
@@ -93,44 +97,58 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>
-        /// The Auto style is drawn: chosen AND the noise there, never under Simpler clouds. Then
-        /// <see cref="SoftDrawn"/> and <see cref="HeapsDrawn"/> say what the cover asks for now, both of them
-        /// in the hand-over: everything that keys on those two works as it does for the style alone.
+        /// The Auto style is drawn: chosen, the noise up and Mixed's type map baked, never under Simpler
+        /// clouds. Then <see cref="TypeDrawn"/> says if the cover still asks for its mix (below it, the Cumulus
+        /// style itself), and <see cref="HeapsDrawn"/> is true: what keys on those works as for the style alone.
         /// </summary>
         public static bool AutoDrawn
         {
-            get { return IsAuto && Texture != null && !CloudShaders.Lite; }
-        }
-
-        /// <summary>How far Auto's heaps have come, 0..1, while it is drawn; 0 otherwise.</summary>
-        public static float AutoHeapShare
-        {
-            get { return AutoDrawn ? CloudAuto.HeapShare(CloudWeather.Coverage) : 0f; }
+            get { return IsAuto && MixedWanted && CloudMixMap.Ready; }
         }
 
         /// <summary>
-        /// Soft's puffs are drawn: Soft chosen, or Auto at a cover that has them, AND the Cumulus noise they
-        /// are carved from is there. Until then, Classic. Never under Simpler clouds (CloudShaders.Lite: its
-        /// shaders have no puffs): Classic there.
+        /// The sky is a mix of the three kinds, the type map saying which each stretch leans to: Mixed, or Auto
+        /// below the cover it becomes Cumulus at. _CloudStyle 2.
         /// </summary>
-        public static bool SoftDrawn
+        public static bool TypeDrawn
+        {
+            get { return MixedDrawn || (AutoDrawn && CloudAuto.PuffsAt(CloudWeather.Coverage)); }
+        }
+
+        /// <summary>The share of the sky that leans to the heaps while the type is drawn; 0 otherwise.</summary>
+        public static float HeapSkyNow
         {
             get
             {
-                if (AutoDrawn)
-                    return CloudAuto.PuffsAt(CloudWeather.Coverage);
-                return IsSoft && Texture != null && !CloudShaders.Lite;
+                if (!TypeDrawn)
+                    return 0f;
+                return AutoDrawn ? CloudAuto.HeapSky(CloudWeather.Coverage) : CloudMix.HeapSky;
             }
         }
 
+        /// <summary>How strongly the type tips the sky: Mixed's fades at the top; Auto's is gone by being all heaps.</summary>
+        public static float TypeStrengthNow
+        {
+            get { return AutoDrawn ? 1f : CloudMix.TypeStrength(CloudWeather.Coverage); }
+        }
+
         /// <summary>
-        /// The Soft style's puffs are drawn: Soft, or Mixed (its map up). Everything the two share keys on
-        /// this -- SoftDensity's uniforms, the noise's repeat and mip level, the slab, the Classic layer
-        /// beside the puffs.
+        /// The Soft style is drawn: chosen AND the Cumulus noise its puffs are carved from is there. Until
+        /// then, Classic. Never under Simpler clouds (CloudShaders.Lite: its shaders have no puffs): Classic there.
+        /// </summary>
+        public static bool SoftDrawn
+        {
+            get { return IsSoft && Texture != null && !CloudShaders.Lite; }
+        }
+
+        /// <summary>
+        /// The Soft style's puffs are drawn: Soft, Mixed or Auto below its Cumulus end. Everything they
+        /// share keys on this -- SoftDensity's uniforms, the noise's repeat and mip level, the slab, the
+        /// Classic layer beside the puffs.
         /// </summary>
         public static bool PuffsDrawn
         {
-            get { return SoftDrawn || MixedDrawn; }
+            get { return SoftDrawn || TypeDrawn; }
         }
 
         /// <summary>
@@ -158,89 +176,94 @@ namespace VolumetricClouds.Sky
         public static bool Failed { get; set; }
 
         /// <summary>
-        /// The Cumulus style's heaps are drawn: Cumulus chosen, or Auto at a cover that has them, AND the
-        /// noise there. Until then, Classic. The heaps' own uniforms, the layer's thickness following the
-        /// map beside them.
+        /// The Cumulus style's heaps are drawn: Cumulus, Mixed or Auto, AND the noise there (and for the last
+        /// two the type map). Until then, Classic. The heaps' own uniforms, the layer's thickness following
+        /// the map beside them.
         /// </summary>
         public static bool HeapsDrawn
         {
-            get
-            {
-                if (AutoDrawn)
-                    return CloudAuto.HeapsAt(CloudWeather.Coverage);
-                return IsCumulus && Texture != null;
-            }
+            get { return (IsCumulus && Texture != null) || MixedDrawn || AutoDrawn; }
         }
 
-        /// <summary>The march's steps, times the Quality setting's: <see cref="StepFactor"/> under Cumulus, rising to it over Auto's hand-over.</summary>
-        public static float StepScale
+        /// <summary>
+        /// How much the march's steps are the heaps': their hard edges need <see cref="StepFactor"/>. All of them
+        /// under Cumulus and from a third of the sky up, less under Auto's few fair-weather stretches, none
+        /// as Mixed's heaps go at the top. Its cost is why the puffs alone march the Quality's own steps.
+        /// </summary>
+        private static float HeapSteps
         {
             get
             {
-                if (AutoDrawn)
-                    return CloudAuto.Mix(1f, StepFactor, AutoHeapShare);
-                return HeapsDrawn ? StepFactor : 1f;
+                if (!PuffsDrawn)
+                    return HeapsDrawn ? 1f : 0f;
+                return Math.Min(1f, HeapSkyNow / CloudMix.HeapSky) * TypeStrengthNow;
             }
+        }
+
+        /// <summary>The march's steps, times the Quality setting's: <see cref="StepFactor"/> under the heaps (<see cref="HeapSteps"/>).</summary>
+        public static float StepScale
+        {
+            get { return CloudAuto.Mix(1f, StepFactor, HeapSteps); }
         }
 
         /// <summary>
         /// The repeat, metres, the Cumulus noise's mip levels are worked out for: the heaps' (Cumulus size), the
-        /// puffs', or between them over Auto's hand-over (they read one `lod`; Cumulus size only moves it a level
-        /// at most). Each lookup keeps its own repeat.
+        /// puffs', or by their shares of the sky under the type (they read one `lod`; Cumulus size only moves it
+        /// a level at most). Each lookup keeps its own repeat.
         /// </summary>
         public static float NoiseLodTile
         {
             get
             {
                 if (PuffsDrawn && HeapsDrawn)
-                    return CloudAuto.Mix(SoftLook.NoiseTile, NoiseTileNow, AutoHeapShare);
+                    return CloudAuto.Mix(SoftLook.NoiseTile, NoiseTileNow, HeapSkyNow);
                 return HeapsDrawn ? NoiseTileNow : SoftLook.NoiseTile;
             }
         }
 
         /// <summary>
         /// The height the Cumulus light measures its sky light and its sun's looks over: the puffs' tallest, the
-        /// heaps' curve's span, or between them over Auto's hand-over.
+        /// heaps' curve's span, or by their shares of the sky under the type.
         /// </summary>
         public static float LightSpan
         {
             get
             {
                 if (PuffsDrawn && HeapsDrawn)
-                    return CloudAuto.Mix(SoftTallestNow, SpanNow, AutoHeapShare);
+                    return CloudAuto.Mix(SoftTallestNow, SpanNow, HeapSkyNow);
                 return PuffsDrawn ? SoftTallestNow : SpanNow;
             }
         }
 
         /// <summary>
-        /// Metres above the base the march must reach for the heaps while Auto hands over: as far as the tallest
-        /// heap gets at the heaps' coverage now (<see cref="HeapTopAt"/>), rising to <see cref="TallestNow"/>
+        /// Metres above the base the march must reach for the heaps under the type: as far as the tallest heap
+        /// gets at the heaps' coverage now (<see cref="HeapTopAt"/>), under Auto rising to <see cref="TallestNow"/>
         /// as the puffs go, so the slab does not jump when the style becomes Cumulus. Never clips a heap.
         /// </summary>
-        public static float HandOverTop
+        public static float TypedHeapTop
         {
             get
             {
                 float cover = CloudWeather.Coverage;
                 float a, b;
                 Line(HeapEdge(HeapCoverage(cover)), out a, out b);
-                return CloudAuto.Mix(HeapTopAt(a + b) * SizeFactor * HeightFactor, TallestNow, CloudAuto.PuffFade(cover));
+                return CloudAuto.Mix(HeapTopAt(a + b) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f);
             }
         }
 
         /// <summary>The Mixed style is drawn: chosen, the noise up and its type map baked (CloudMixMap).</summary>
         public static bool MixedDrawn
         {
-            get { return MixedWanted && CloudMixMap.Ready; }
+            get { return IsMixed && MixedWanted && CloudMixMap.Ready; }
         }
 
         /// <summary>
-        /// The Mixed style is chosen and its noise is up: its type map should be baked. Never under Simpler
+        /// Mixed or Auto is chosen and the noise is up: the type map should be baked. Never under Simpler
         /// clouds (CloudShaders.Lite): no map, Classic drawn.
         /// </summary>
         public static bool MixedWanted
         {
-            get { return IsMixed && Texture != null && !CloudMixMap.Failed && !CloudShaders.Lite; }
+            get { return (IsMixed || IsAuto) && Texture != null && !CloudMixMap.Failed && !CloudShaders.Lite; }
         }
 
         /// <summary>
@@ -248,8 +271,8 @@ namespace VolumetricClouds.Sky
         /// rain always falls from drawn cloud (invariant 2): under Mixed the SMALLEST cover its layer is
         /// drawn at anywhere; under Soft the larger of its puffs' and its layer's cover, never more than
         /// the cover in effect (CloudSoft.DrawnCoverage: the cover itself with the Classic layer row at
-        /// 100%); under Auto CloudAuto.DrawnCoverage, Soft's becoming Cumulus's. Classic and Cumulus: the
-        /// cover in effect.
+        /// 100%); under Auto CloudAuto.DrawnCoverage, the least any stretch of its sky draws. Classic and
+        /// Cumulus: the cover in effect.
         /// </summary>
         public static float CloudTestCoverage(float coverage)
         {
@@ -329,12 +352,13 @@ namespace VolumetricClouds.Sky
 
         /// <summary>
         /// The intensity the heaps are cut at: the cover in effect times Cumulus amount (0: none; 2: as
-        /// many as twice the intensity would give, up to <see cref="HeapCap"/>'s).
+        /// many as twice the intensity would give, up to <see cref="HeapCap"/>'s). Under Mixed in the
+        /// stretches that lean to them, going with the type at the top: its 100% is the deck it always was.
         /// </summary>
         public static float HeapCoverage(float coverage)
         {
             float heaps = Math.Min(1f, coverage * AmountFactor);
-            return AutoDrawn ? CloudAuto.HeapIntensity(coverage, heaps) : heaps;
+            return MixedDrawn ? heaps * CloudMix.TypeStrength(coverage) : heaps;
         }
 
         private static float Clamp(float v, float lo, float hi)
@@ -348,6 +372,15 @@ namespace VolumetricClouds.Sky
         public static CloudSoft.Look SoftLook
         {
             get { return CloudSoft.Default; }
+        }
+
+        /// <summary>
+        /// What the clouds' light is times, less 1, where the sky leans all the way to the heaps (the shader's
+        /// _MixHeaps.w): their level is 1, the rest of the sky's <see cref="CloudLightScale"/>. Only under the type.
+        /// </summary>
+        public static float HeapLightBoost
+        {
+            get { return TypeDrawn ? CloudMix.LightBoost(CloudLightScale, TypeStrengthNow) : 0f; }
         }
 
         /// <summary>
@@ -365,7 +398,8 @@ namespace VolumetricClouds.Sky
         /// <summary>
         /// The clouds' own light level (their sun and sky light, CloudVolume.ApplyLighting): while the
         /// puffs are drawn, theirs where they carry the sky and the layer's where it does
-        /// (CloudSoft.LightScaleAt), under Auto its own (CloudAuto.LightScale), 1 for every other style. What
+        /// (CloudSoft.LightScaleAt), under Auto its own (CloudAuto.LightScale), 1 for every other style.
+        /// The heaps' stretches under the type are lifted from it to 1 (<see cref="HeapLightBoost"/>). What
         /// reads those two lights back for something else (the distant clouds, SkyLayer) divides it out again.
         /// </summary>
         public static float CloudLightScale
@@ -765,7 +799,10 @@ namespace VolumetricClouds.Sky
             if (Current == Cumulus)
                 return Name(Current) + layer + "size " + (SizeFactor * 100f).ToString("F0", c) + "%, height " +
                        (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%)";
-            if (Current == Mixed || Current == Soft)
+            if (Current == Mixed)
+                return Name(Current) + layer + "puffs up to " + SoftTallestNow.ToString("F0", c) + " m tall, cumulus size " + (SizeFactor * 100f).ToString("F0", c) +
+                       "%, height " + (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%)";
+            if (Current == Soft)
                 return Name(Current) + layer + "up to " + SoftTallestNow.ToString("F0", c) + " m tall)";
             return Name(Current);
         }

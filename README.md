@@ -22,8 +22,9 @@ their own rain, snow, lightning, rainbows and fog with them.
     Classic layer, with sliders for their size, height and amount.
   - *Soft*: fair-weather clouds made of many puffs, with wispy, cotton-candy edges. As the
     weather gets heavier the Classic layer comes in among them.
-  - *Mixed*: one style for every kind of weather. Soft puffs in a light sky grow and
-    gather into the Classic layer toward overcast, and the balance changes across the sky.
+  - *Mixed*: every kind at once. Stretches of Soft puffs, Cumulus heaps and the Classic layer
+    share the sky, gathering into the Classic layer toward overcast.
+  - *Auto*: the style follows the sky, from mostly puffs in fair weather to Cumulus under a heavy one.
 - **Cloud detail and fragments**: crisp edges and billows, and small shreds of cloud around and
   between the big ones.
 - **Light inside the clouds**: thin cloud glows with the sun behind it, shaded sides are softer,

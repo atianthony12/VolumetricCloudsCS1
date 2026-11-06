@@ -479,6 +479,10 @@ float3 CloudRadiance(float3 p, float lod, RayLight r)
         radiance = sunColor * sunLit + ShadeSky(hSky) * exp(-above * _Absorption * _DetailLight2.x);
         if (_ShadeLight.y > 0.0)
             radiance += sunColor * (_ShadeLight.y * (1.0 - hSky) * (1.0 - hSky));
+#ifndef VC_LITE
+        // Mixed and Auto: puffs and heaps side by side, each at its own light level.
+        radiance *= MixLight(p);
+#endif
     }
     else if (detail)
     {

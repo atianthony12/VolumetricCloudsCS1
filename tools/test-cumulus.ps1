@@ -359,7 +359,7 @@ $cachedLine = [single[]](Value "LayerLineCached")
 $freshLine = [single[]](Call "LayerLine" @())
 Check (($cachedLine[0] -eq $freshLine[0]) -and ($cachedLine[1] -eq $freshLine[1])) "the cached layer line the shader parameters use is LayerLine's"
 
-# Auto's hand-over: the slab reaches the tallest heap at the heaps' coverage now (CloudStyle.HandOverTop).
+# Under the type (Mixed, Auto): the slab reaches the tallest heap at the heaps' coverage now (CloudStyle.TypedHeapTop).
 $tallestHeap = [single](Value "Tallest")
 $covMax = [single](Value "CoverageMax")
 Check ([single](Call "HeapTopAt" @($covMax)) -eq $tallestHeap) "a heap at the most coverage ends at Tallest"

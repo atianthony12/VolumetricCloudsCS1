@@ -233,14 +233,15 @@ float4 _EmptySky;          // x = 1: skip (0 with fragments, or at a full cover)
 // No cloud at all in a cell with these most-weather and most-score: the layer is cut at _Threshold
 // (SampleDensityLod, LayerDensity), and under Cumulus the heaps' coverage line (CumulusDensity) is
 // at or under 0 at its highest score -- it only rises with the score, which the C# side checks
-// is so (_CumulusShape.y >= 0). Under Soft and Mixed the puffs and the layer are both cuts of the map
-// (SoftDensity, LayerDensity), none under _EmptySky.w. Over Auto's hand-over the heaps' line must hold too.
+// is so (_CumulusShape.y >= 0). Under Soft, Mixed and Auto the puffs and the layer are both cuts of the map
+// (SoftDensity, LayerDensity), none under _EmptySky.w. Under Mixed and Auto the heaps' line must hold too:
+// _CumulusShape.x is the highest it gets, where the sky leans all the way to them.
 bool CellEmpty(float weather, float score)
 {
     if (weather > (_CloudStyle > 1.5 ? _EmptySky.w : _Threshold))
         return false;
 
-    if (_CloudStyle > 1.5 && _CloudStyle < 3.5)
+    if (_CloudStyle > 2.5)
         return true;
 
     if (_CloudStyle > 0.5)

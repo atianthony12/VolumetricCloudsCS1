@@ -9,14 +9,20 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ### Added
 
-- *Cloud style* has a new choice, **Auto**: the style follows the sky. It is Soft up to 60% cloud cover and
-  Cumulus from 92%, and in between the sky changes from one to the other as the cover rises, Cumulus's
-  heaps forming while Soft's puffs thin out, with no jump. *Classic layer* and the Cumulus rows apply. The
-  other styles work as before and stay yours to pick, and nobody's style changes. Under *Simpler clouds*
-  Auto is drawn Classic, as Soft and Mixed are. `VolumetricClouds.xml` gains no lines: `CloudStyle` takes
-  the new value 4.
+- *Cloud style* has a new choice, **Auto**: the style follows the sky. It is the Mixed sky with its
+  proportions following the cover: mostly Soft's puffs in fair weather with a few stretches of Cumulus
+  heaps, the heaps spreading as the cover rises, and exactly Cumulus from 92%, with no jump. *Classic
+  layer* and the Cumulus rows apply. The other styles stay yours to pick, and nobody's style changes.
+  Under *Simpler clouds* Auto is drawn Classic, as Soft and Mixed are. `VolumetricClouds.xml` gains no
+  lines: `CloudStyle` takes the new value 4.
 
 ### Changed
+
+- *Mixed* now has all three kinds of cloud at once: a third of the sky leans to Cumulus's heaps, beside
+  the stretches of Soft's puffs and of the Classic layer, each lit at its own level. The heaps go at the
+  top, so a full overcast is what it was. *Cumulus size*, *height* and *amount* now show under Mixed.
+  **Anyone already on Mixed sees heaps appear** after this update, and Mixed costs more to draw. Their
+  files and saves are untouched; rain falls as it did.
 
 - *Curved clouds*: the noise that carves the clouds no longer repeats across the far sky. Past 20 km from
   the map's centre it is read in cells about 2.5 km wide, each from its own place, so its grid stops

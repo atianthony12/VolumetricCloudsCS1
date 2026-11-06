@@ -5,10 +5,11 @@ using UnityEngine;
 namespace VolumetricClouds.Sky
 {
     /// <summary>
-    /// The Mixed style's TYPE MAP on the GPU (<see cref="CloudMix.BakeType"/>, in its alpha): which way
-    /// each stretch of sky leans, towards the layer or the puffs. Baked on a worker thread once per city's
-    /// seed and weather map size (Larger weather pattern), uploaded on the main thread. Until it is up the
-    /// style is drawn Classic (CloudStyle.MixedDrawn), as while its noise is being made.
+    /// The TYPE MAP of the Mixed and Auto styles on the GPU: which way each stretch of sky leans, in its
+    /// alpha towards the layer or the puffs (<see cref="CloudMix.BakeType"/>), in its red to the heaps
+    /// (<see cref="CloudMix.BakeHeaps"/>). Baked on a worker thread once per city's seed and weather map
+    /// size (Larger weather pattern), uploaded on the main thread. Until it is up the style is drawn
+    /// Classic (CloudStyle.MixedDrawn, AutoDrawn), as while its noise is being made.
     /// </summary>
     /// <remarks>
     /// Until 2026-10-17 the map also held Mixed's separate clouds, baked again whenever the intensity
@@ -32,6 +33,7 @@ namespace VolumetricClouds.Sky
             public int Seed;
             public int Scale;        // the field's (Larger weather pattern): the map is MapSizeFor it
             public byte[] Type;
+            public byte[] Heaps;
             public int Milliseconds;
             public string Error;
         }
@@ -111,6 +113,7 @@ namespace VolumetricClouds.Sky
                 float seedX, seedZ;
                 CloudMix.SeedOffsets(job.Seed, out seedX, out seedZ);
                 job.Type = CloudMix.BakeType(CloudMix.MapSizeFor(job.Scale), seedX, seedZ, job.Scale);
+                job.Heaps = CloudMix.BakeHeaps(CloudMix.MapSizeFor(job.Scale), seedX, seedZ, job.Scale);
             }
             catch (Exception e)
             {
@@ -161,7 +164,7 @@ namespace VolumetricClouds.Sky
 
                 var colours = new Color32[size * size];
                 for (int i = 0; i < colours.Length; i++)
-                    colours[i] = new Color32(0, 0, 0, job.Type[i]);
+                    colours[i] = new Color32(job.Heaps[i], 0, 0, job.Type[i]);
                 Map.SetPixels32(colours);
                 Map.Apply(false);
             }

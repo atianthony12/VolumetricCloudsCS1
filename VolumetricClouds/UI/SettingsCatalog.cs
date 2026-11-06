@@ -1156,10 +1156,10 @@ namespace VolumetricClouds.UI
             return Settings.HaloEnabled != null && Settings.HaloEnabled.value;
         }
 
-        /// <summary>The Cumulus style is picked, or Auto, which turns into it: the rows that shape its heaps.</summary>
+        /// <summary>A style with the Cumulus style's heaps is picked (Cumulus, Mixed, Auto): the rows that shape them.</summary>
         private static bool CumulusPicked()
         {
-            return CloudStyle.IsCumulus || (CloudStyle.IsAuto && !CloudShaders.Lite);
+            return CloudStyle.IsCumulus || ((CloudStyle.IsAuto || CloudStyle.IsMixed) && !CloudShaders.Lite);
         }
 
         /// <summary>
@@ -1670,8 +1670,8 @@ namespace VolumetricClouds.UI
             });
 
             // The cumulus rows (1.5.0): Cumulus's heaps. 100% = the heaps as they were, the defaults.
-            // Shown while Cumulus is picked. (They shaped Mixed's separate clouds too until those became
-            // Soft's puffs, 2026-10-17.)
+            // Shown while a style with heaps is picked: Cumulus, Mixed, Auto. (They shaped Mixed's separate
+            // clouds too until those became Soft's puffs, 2026-10-17; its heaps came 2026-11-06.)
             Add(new Row
             {
                 Kind = RowKind.Percent,

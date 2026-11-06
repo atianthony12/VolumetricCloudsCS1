@@ -323,8 +323,8 @@ float3 _DetailTexPhase;  // the wind's drift over one repeat of it (CloudWind.No
 // and a heaped top) -- with the CLASSIC LAYER among and under them (the author's idea: "combine the
 // classic and cumulus clouds"), its thickness following the map. _CloudStyle == 0 is Classic: the
 // layer alone, computed exactly as it always was.
-float _CloudStyle;          // 0 Classic, 1 Cumulus, 2 Mixed, 3 Soft (below), 4 Auto's hand-over from Soft to
-                            // Cumulus (Sky/CloudAuto.cs: both); above 0.5 the Cumulus light
+float _CloudStyle;          // 0 Classic, 1 Cumulus, 2 Mixed and Auto (the type: puffs, heaps, layer), 3 Soft
+                            // (below); above 0.5 the Cumulus light
 float4 _LayerShape;         // the layer under the Cumulus style: x = Layer thickness in metres; its
                             // factor on that is a line in the map's score, y + z * score (thick where
                             // the map is high), within w .. _LayerShapeMax
@@ -365,10 +365,17 @@ float4 _CumulusCurveKeys;   // x, y, z = the keys' heights (fractions of the spa
 // between three thresholds by it, and it fades out by 100%. _CloudStyle == 2; nothing of it is read
 // otherwise. (Until 2026-10-17 its puffs were separate clouds baked into the map per intensity -- "ugly
 // in low intensity", similar-sized cut-outs with hard edges.)
+// THE HEAPS (2026-11-06): a second pattern gives a share of the sky to the Cumulus style's heaps. Where the
+// sky leans to them it leans to the layer too (the type x 1 - lean), so its three corners are the three
+// styles. Auto draws this same sky, the share following the cover, until it is Cumulus (_CloudStyle 1).
 UNITY_DECLARE_TEX2D_NOSAMPLER(_MixMap); // bilinear, LINEAR, through the score texture's sampler: a = the
-                        // type (0 tips towards layer, 1 towards puffs); r, g, b unused
+                        // type (0 tips towards layer, 1 towards puffs); r = the heaps' pattern, even (a
+                        // share of its values is that share of the sky); g, b unused
 float4 _MixThreshold;   // the layer's threshold: x in a layer area, y between, z in a puff area;
                         // w = the type's strength (0 at 100%)
+float4 _MixHeaps;       // x = the heaps' coverage line where the sky does not lean to them (where it does
+                        // all the way: _CumulusShape.x); y = where the lean starts on the pattern, z = 1 / its
+                        // width (CloudMix.Lean); w = the light's lift where it leans all the way
 
 #ifdef VC_LITE
 
@@ -380,10 +387,23 @@ float FarScore(FarLook f, float2 uv)
 
 #else
 
-// The type at the map's uv, its strength applied: 0 tips towards layer, 1 towards puffs, 0.5 neither.
-float MixType(float2 uvWeather)
+// The map at the weather's uv: x = the type as baked, y = the heaps' pattern.
+float2 MixRead(float2 uvWeather)
 {
-    return 0.5 + (VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, uvWeather).a - 0.5) * _MixThreshold.w;
+    return VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, uvWeather).ar;
+}
+
+// How far the sky leans to heaps, 0..1, where their pattern reads k. CloudMix.Lean is its twin.
+float MixLean(float k)
+{
+    return saturate((k - _MixHeaps.y) * _MixHeaps.z);
+}
+
+// The type where the sky leans so far to heaps, its strength applied: 0 tips towards layer, 1 towards
+// puffs, 0.5 neither.
+float MixType(float type, float lean)
+{
+    return 0.5 + (type * (1.0 - lean) - 0.5) * _MixThreshold.w;
 }
 
 // The map's normal score at p (Cumulus's heaps, the layer's thickness), blended as FarWeather.
@@ -407,24 +427,38 @@ float FarScore(FarLook f, float2 uv)
     return score;
 }
 
-// Mixed's type at p: a slow control, so a plain weighted mean of the lookups (no front: the fronts move
-// the cover, not the kind of cloud).
-float FarMixType(FarLook f, float2 uv)
+// The type map at p (MixRead): a slow control, so a plain weighted mean of the lookups (no front: the
+// fronts move the cover, not the kind of cloud).
+float2 FarMixRead(FarLook f, float2 uv)
 {
-    float t = 0.0;
+    float2 t = float2(0.0, 0.0);
     [branch]
     if (f.w.x >= 1.0)
     {
-        t = MixType(uv);
+        t = MixRead(uv);
     }
     else
     {
-        [branch] if (f.w.x > 0.0) t += f.w.x * MixType(uv);
-        [branch] if (f.w.y > 0.0) t += f.w.y * MixType(f.uv1);
-        [branch] if (f.w.z > 0.0) t += f.w.z * MixType(f.uv2);
-        [branch] if (f.w.w > 0.0) t += f.w.w * MixType(f.uv3);
+        [branch] if (f.w.x > 0.0) t += f.w.x * MixRead(uv);
+        [branch] if (f.w.y > 0.0) t += f.w.y * MixRead(f.uv1);
+        [branch] if (f.w.z > 0.0) t += f.w.z * MixRead(f.uv2);
+        [branch] if (f.w.w > 0.0) t += f.w.w * MixRead(f.uv3);
     }
     return t;
+}
+
+// What the clouds' light is times at p: under the type the heaps' stretches are lifted from the sky's
+// level to their own (CloudStyle.HeapLightBoost); 1 otherwise, the map not read. Once per lit step.
+float MixLight(float3 p)
+{
+    float light = 1.0;
+    [branch]
+    if (_CloudStyle > 1.5 && _CloudStyle < 2.5 && _MixHeaps.w > 0.0)
+    {
+        FarLook look = FarLookAt(p.xz);
+        light += _MixHeaps.w * MixLean(FarMixRead(look, p.xz / _WeatherTile - _WeatherPhase).y);
+    }
+    return light;
 }
 
 // A threshold where the type is t: between its value in a layer area (x), between (y) and in a puff
@@ -455,10 +489,11 @@ float CumulusCurve(float h)
 
 // EVE V5: cg = saturate(coverage + curve(h) - 1); the noise carves erosion-depth deep into it,
 // and the edge hardness gives what is left a surface. CloudStyle.Density is its C# twin.
-// `score`: the map's normal score here (the same lookup as the weather map's: repeat and drift).
-float CumulusDensity(float3 p, float lod, float score)
+// `score`: the map's normal score here (the same lookup as the weather map's: repeat and drift). `heapLine`:
+// the coverage line's start, _CumulusShape.x (under the type, by how far the sky leans to heaps).
+float CumulusDensity(float3 p, float lod, float score, float heapLine)
 {
-    float coverage = clamp(_CumulusShape.x + _CumulusShape.y * score, 0.0, _CumulusShape.z);
+    float coverage = clamp(heapLine + _CumulusShape.y * score, 0.0, _CumulusShape.z);
     if (coverage <= 0.0)
         return 0.0;
 
@@ -687,12 +722,13 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     // One copy each of the puffs, the heaps and the layer, the style choosing which run: this function is
     // inlined at every look along a ray, and with a copy of the layer per style CloudRaymarch took 19 of
     // the 20 minutes Unity gives a shader compile (2026-11-06; over it, the build fails).
-    // Classic: the layer alone. Cumulus: the heaps and the layer. Soft and Mixed: the puffs and the layer.
-    // Auto's hand-over (4): all three. Where several are, the denser wins.
+    // Classic: the layer alone. Cumulus: the heaps and the layer. Soft: the puffs and the layer. Mixed and
+    // Auto (2): all three, the type saying which each stretch of sky leans to. Where several are, the denser wins.
     float weather = FarWeather(look, uvWeather);
     float threshold = _Threshold;
     float clouds = 0.0;
-    bool heaps = _CloudStyle > 0.5 && (_CloudStyle < 1.5 || _CloudStyle > 3.5);
+    bool heaps = _CloudStyle > 0.5 && _CloudStyle < 2.5;
+    float heapLine = _CumulusShape.x;
     bool layer = true;
     float hLayer = h;
     float lodLayer = lod;
@@ -704,15 +740,20 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     [branch]
     if (_CloudStyle > 1.5)
     {
-        // The puffs. Under Mixed the type tips both cuts. The layer only where the map passes its cut (none
-        // at Soft's low intensities: the score is not even read there).
+        // The puffs. Under the type it tips both cuts and says where the heaps are (nothing of them is read
+        // where it does not lean to them). The layer only where the map passes its cut (none at Soft's low
+        // intensities: the score is not even read there).
         float puffThreshold = _SoftThreshold.y;
         [branch]
         if (_CloudStyle < 2.5)
         {
-            float t = FarMixType(look, uvWeather);
+            float2 kinds = FarMixRead(look, uvWeather);
+            float lean = MixLean(kinds.y);
+            float t = MixType(kinds.x, lean);
             threshold = MixThresholdAt(_MixThreshold, t);
             puffThreshold = MixThresholdAt(_SoftThreshold, t);
+            heaps = lean > 0.0;
+            heapLine = lerp(_MixHeaps.x, _CumulusShape.x, lean);
         }
 
         clouds = SoftDensity(p, detailed, lod, weather, puffThreshold);
@@ -726,7 +767,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
         float score = FarScore(look, uvWeather);
         [branch]
         if (heaps)
-            clouds = max(clouds, CumulusDensity(p, max(lod, 0.0), score));
+            clouds = max(clouds, CumulusDensity(p, max(lod, 0.0), score, heapLine));
 
         // Beside its own clouds the layer is thick where the map is high and thin where it is low: variety
         // over kilometres, so a full sky is not one even carpet of the same puffs.
