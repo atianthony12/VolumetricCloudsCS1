@@ -1,0 +1,21 @@
+[h1]Version 1.5.3[/h1]
+[b]New[/b]
+[list]
+[*][b]Auto cloud style[/b]: the clouds follow the weather, from Soft's puffs in fair weather to Cumulus heaps that spread as the sky closes up (Clouds tab, Cloud style).
+[/list]
+[b]Fixed[/b]
+[list]
+[*][i]Smoother clouds[/i] was much slower than it should have been. With it on, a cloudy sky now takes about a quarter of the time to draw, and looks the same.
+[/list]
+[b]Changed[/b]
+[list]
+[*][i]Smoother clouds[/i] is now on for everyone, because it is now the faster way to draw the clouds. If you notice smearing when the camera moves, untick it in the mod's options.
+[*]The clouds take about 15-20% less time to draw, and look nearly the same.
+[*][i]Mixed[/i] now has all three kinds of cloud at once: the Classic layer, Soft's puffs and Cumulus heaps. If you use Mixed, you will see heaps appear.
+[*][i]Curved clouds[/i] can now be set separately for day, sunset and night, and for clear and overcast skies.
+[*][i]Curved clouds[/i] no longer show a repeating texture toward the horizon.
+[/list]
+[b]Removed[/b]
+[list]
+[*][i]Clouds to the horizon[/i]: [i]Curved clouds[/i] replaces it, and can now be set for overcast skies only.
+[/list]

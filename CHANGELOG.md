@@ -5,7 +5,15 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## 1.5.3 — unreleased
+## 1.5.3 — 2026-11-07
+
+A new cloud style, Auto, that follows the sky; *Smoother clouds* much faster and now on for everyone;
+all three kinds of cloud in Mixed; *Curved clouds* by the hour and the weather. `VolumetricClouds.xml`
+gains six lines and loses two: `SmootherClouds` (on), and `CurvedCloudsSunset`, `CurvedCloudsNight`,
+`CurvedCloudsOvercast`, `CurvedCloudsSunsetOvercast` and `CurvedCloudsNightOvercast` (each the value
+`CurvedClouds` had); `CloudTemporal` and `CloudsToHorizon` leave it. What existing players see change:
+*Smoother clouds* turns on once, Mixed gets heaps, and *Clouds to the horizon*'s band is gone. Profiles
+saved before read the new rows the same way. Nothing in saved cities changes.
 
 ### Added
 
