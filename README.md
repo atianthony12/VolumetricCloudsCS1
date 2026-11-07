@@ -422,19 +422,15 @@ tested offline by `tools/test-*.ps1`, and the rest is checked in the game throug
 
 ## Credits
 
-<sub>
-
-Volumetric Weather is written from scratch, but it builds on published techniques, all credited in
+<sub>Volumetric Weather is written from scratch, but it builds on published techniques, all credited in
 the notes below (no code from them is included). The distant clouds' photographed skies are from
 [Poly Haven](https://polyhaven.com) (CC0). The panel's icons are based on
 [Lucide](https://lucide.dev)'s (ISC). Includes UnifiedUILib by kianzarrin and CitiesHarmony.API by
 boformer, thanks to both. Other mods were read to stay compatible with them, without using any of
-their code. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+their code. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
 
-This mod was made with substantial help from AI. I set the goals, made the design decisions, and
-did all of the in-game testing and tuning.
-
-</sub>
+<sub>This mod was made with substantial help from AI. I set the goals, made the design decisions,
+and did all of the in-game testing and tuning.</sub>
 
 ## License
 
@@ -445,14 +441,10 @@ shader, and the parts of the tree shaders (`Trees*.shader`, `TreesDefault.cginc`
 `TreesGroup.cginc`) rebuilt from the game's own tree shaders. Those are the work of Colossal Order
 Ltd., see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-<sub>
-
-Cities: Skylines is © Colossal Order Ltd., published by Paradox Interactive AB. Unity is a
+<sub>Cities: Skylines is © Colossal Order Ltd., published by Paradox Interactive AB. Unity is a
 trademark of Unity Technologies. This is an unofficial fan-made mod, not affiliated with or
 endorsed by either. Apart from the ported shader code, this repository holds no game code or
-assets: the game's DLLs are referenced from your own installation and never copied.
-
-</sub>
+assets: the game's DLLs are referenced from your own installation and never copied.</sub>
 
 [^schneider]: **The clouds.** A. Schneider (Guerrilla Games), *The Real-Time Volumetric Cloudscapes of Horizon Zero Dawn* (SIGGRAPH 2015): Perlin-Worley noise, remap-based shaping and erosion, and a weather map controlling the coverage.
 [^eve]: **Cloud detail, Cumulus and the lighting.** EVE-Redux, blackrack's volumetric clouds for Kerbal Space Program ([LGhassen/EnvironmentalVisualEnhancements](https://github.com/LGhassen/EnvironmentalVisualEnhancements), MIT): its "spherical" Worley noise and that noise's default octaves, its coverage, erosion and edge-hardness model, the four phase lobes of its lighting, and the cumulus coverage curve of an Earth-like configuration (Promised Worlds' Gurdamma). Read from its public C# code, wiki and configurations; EVE-Redux's shaders are not public and were not used.
