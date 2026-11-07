@@ -1,5 +1,5 @@
-[h1]Version 1.5.2[/h1]
-Trees that move in the wind, experimental and off by default on the Weather tab (needs advanced settings on). Curved clouds to the horizon, glare around near lamps, simpler clouds for older graphics cards, and a fix for clouds not showing on older Macs. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
+[h1]Version 1.5.3[/h1]
+Smoother clouds now on by default with improved performance (if you notice smearing when moving the camera, uncheck the option in the Pause Menu > Options > Volumetric Weather). New cloud style "Auto" that follows the weather. Curved clouds can change with the time of day and the weather. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
@@ -18,7 +18,7 @@ To see more tabs in the in-game UI like the screenshots above, go to the mod's o
 [h3]Clouds[/h3]
 [list]
 [*]Volumetric 3D clouds with real shadows
-[*]4 cloud styles: Classic, Cumulus, Soft and Mixed
+[*]5 cloud styles: Classic, Cumulus, Soft, Mixed and Auto (new in v1.5.3)
 [*]Distant clouds: HDRI skies from [url=https://polyhaven.com]Poly Haven[/url]
 [*]Curved clouds to the horizon (new in v1.5.2)
 [/list]
