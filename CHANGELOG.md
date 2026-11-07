@@ -5,7 +5,7 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## Unreleased
+## 1.5.3 — unreleased
 
 ### Added
 
@@ -26,6 +26,11 @@ below; the mods list shows it after the mod's name, and the first line of
 
 - The clouds cost about 15-20% less to draw, with *Smoother clouds* on or off: far clouds and the depths of
   a cloud use a little less of their light. The picture is very nearly the same.
+
+- *Smoother clouds* is now on, as it is now the faster way to draw the clouds. **It is on for everyone after
+  this update, including players who had it off**: the setting is saved under a new name
+  (`SmootherClouds`; the old `CloudTemporal` line is read no more and leaves the file). To get the old
+  clouds back, untick *Smoother clouds* on the mod's options page; it then stays off.
 
 - *Mixed* now has all three kinds of cloud at once: a third of the sky leans to Cumulus's heaps, beside
   the stretches of Soft's puffs and of the Classic layer, each lit at its own level. The heaps go at the

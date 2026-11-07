@@ -910,11 +910,14 @@ namespace VolumetricClouds
         /// the first seven, one of the clock's days the rest; the first save leaves them out.
         /// 1.5.2: "ShowInUnifiedUI", the switch IconPlace replaced. 2026-11-06: "CloudsToHorizon", the far
         /// deck, taken out (Curved clouds at high overcast does its work; nothing to carry over).
+        /// 2026-11-07: "CloudTemporal", Smoother clouds' old name; now "SmootherClouds", on for everyone once
+        /// (the author's call: it became the faster way to draw the clouds). Its old value is NOT carried over.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "ShowInUnifiedUI",
             "CloudsToHorizon",
+            "CloudTemporal",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",
             "CloudNightColors", "CloudMoonlitColor", "CloudNightShadeColor",
             "CloudBrightnessAuto",

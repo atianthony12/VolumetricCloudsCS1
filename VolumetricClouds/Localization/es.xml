@@ -359,7 +359,7 @@
 
   <String key="CloudDepthOcclusion.Label">Edificios y terreno ocultan nubes detrás</String>
 
-  <String key="CloudTemporal.Label">Nubes más suaves (mezcla varios fotogramas: menos grano)</String>
+  <String key="SmootherClouds.Label">Nubes más suaves (mezcla varios fotogramas: menos grano)</String>
 
   <String key="SimplerClouds.Label">Nubes más simples para tarjetas gráficas antiguas (a partir de la próxima ciudad que cargues)</String>
 

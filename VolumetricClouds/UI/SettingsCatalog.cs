@@ -2752,7 +2752,8 @@ namespace VolumetricClouds.UI
             });
 
             // Smoother clouds (1.5.0, Sky/CloudTemporal): the machine's choice like the rows above, so
-            // never in a profile; off by default, and outside the quality preset.
+            // never in a profile; outside the quality preset. On by default since 2026-11-07, under the new name
+            // SmootherClouds so it reaches every existing file once (Settings.Defaults.Temporal).
             Add(new Row
             {
                 Kind = RowKind.Toggle,

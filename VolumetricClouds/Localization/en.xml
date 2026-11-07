@@ -403,7 +403,7 @@
 
   <String key="CloudDepthOcclusion.Label">Buildings and terrain hide clouds behind them</String>
 
-  <String key="CloudTemporal.Label">Smoother clouds (blends frames together: less grain)</String>
+  <String key="SmootherClouds.Label">Smoother clouds (blends frames together: less grain)</String>
 
   <String key="SimplerClouds.Label">Simpler clouds for older graphics cards (starts with the next city you load)</String>
 

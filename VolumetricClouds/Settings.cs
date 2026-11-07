@@ -689,7 +689,7 @@ namespace VolumetricClouds
 
         /// <summary>
         /// Smoother clouds (1.5.0, Sky/CloudTemporal): the clouds marched at half size and blended over the
-        /// frames for the main camera. Off by default: nothing changes until a player turns it on.
+        /// frames for the main camera. On by default since 2026-11-07 (see Defaults.Temporal).
         /// </summary>
         public static BoolSetting CloudTemporal { get; private set; }
 
@@ -1040,8 +1040,13 @@ namespace VolumetricClouds
             // ---- rendering (the machine, never a shared preset) ----
             public const bool DepthOcclusion = true;
 
-            /// <summary>Smoother clouds: off, so a new row changes nothing for anyone (invariant 15).</summary>
-            public const bool Temporal = false;
+            /// <summary>
+            /// Smoother clouds: ON since 2026-11-07 (the author's call), once its double march was fixed and it
+            /// became the faster way to draw the clouds (Auto at the horizon, 4K: 14 ms against 44 off). Off when
+            /// it came in (1.5.0). To reach EVERY player, not just new installs, it is stored under a new name,
+            /// SmootherClouds: no existing file has it, so all of them read as on once (invariant 15).
+            /// </summary>
+            public const bool Temporal = true;
 
             /// <summary>Simpler clouds: off, so the new row changes nothing for anyone (invariant 15).</summary>
             public const bool SimplerClouds = false;
@@ -1386,7 +1391,9 @@ namespace VolumetricClouds
                 CloudLightNightOvercast = new FloatSetting("CloudLightNightOvercast", Defaults.LightNightOvercast);
                 CloudQuality = new FloatSetting("CloudQuality", Defaults.Quality);
                 CloudDepthOcclusion = new BoolSetting("CloudDepthOcclusion", Defaults.DepthOcclusion);
-                CloudTemporal = new BoolSetting("CloudTemporal", Defaults.Temporal);
+                // Stored as "SmootherClouds" since 2026-11-07: a new name so every existing file reads as on once
+                // (its old "CloudTemporal" is retired, SettingsXml.Retired); a player who turns it off stays off.
+                CloudTemporal = new BoolSetting("SmootherClouds", Defaults.Temporal);
                 SimplerClouds = new BoolSetting("SimplerClouds", Defaults.SimplerClouds);
                 MinIllumination = new FloatSetting("MinIllumination", Defaults.MinIllumination);
 
