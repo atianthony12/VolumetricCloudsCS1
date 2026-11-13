@@ -78,8 +78,15 @@ namespace VolumetricClouds.UI
         /// <summary>Non-null starts a new group here. Its title is "Group.&lt;Group&gt;" in the language files.</summary>
         public string Group;
 
-        /// <summary>A line of text under the row ("&lt;Name&gt;.Note"), for a warning the label cannot hold (rows have no tooltips).</summary>
+        /// <summary>A line of text under the row ("&lt;Name&gt;.Note"), for a warning the label cannot hold.</summary>
         public bool HasNote;
+
+        /// <summary>
+        /// A tooltip on the row ("&lt;Name&gt;.Tooltip"). Rows have none by default: every row's tooltip
+        /// went 2026-10-05 (they repeated the labels). Only for what the label cannot say (2026-11-13,
+        /// the author, on TreeWindEverywhere).
+        /// </summary>
+        public bool HasTooltip;
 
         /// <summary>
         /// On the game's options page: shown there only while this says so (1.3.0: the three rows
@@ -266,6 +273,12 @@ namespace VolumetricClouds.UI
             get { return HasNote ? Localization.Get(Name + ".Note") : null; }
         }
 
+        /// <summary>Null when the row has none.</summary>
+        public string Tooltip
+        {
+            get { return HasTooltip ? Localization.Get(Name + ".Tooltip") : null; }
+        }
+
         /// <summary>Null unless a group starts here.</summary>
         public string GroupTitle
         {
@@ -325,6 +338,9 @@ namespace VolumetricClouds.UI
 
             if (HasNote)
                 yield return Name + ".Note";
+
+            if (HasTooltip)
+                yield return Name + ".Tooltip";
 
             if (Group != null)
                 yield return "Group." + Group;
@@ -2433,6 +2449,19 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.TreeWindStrength,
                 Min = 0f, Max = 300f, Step = 5f,
                 Enabled = TreeWindOn,
+            });
+
+            // 2026-11-13 (the author): every tree takes the whole wind, not the game's share by height
+            // (trees in hollows and among tall buildings stood still). Off = before.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Bool = Settings.TreeWindEverywhere,
+                DefaultBool = Settings.Defaults.TreeWindEverywhere,
+                Enabled = TreeWindOn,
+                AfterChange = State("wind covers the whole map", OnOff(Settings.TreeWindEverywhere)),
             });
 
             Add(new Row

@@ -216,6 +216,7 @@ namespace VolumetricClouds.Sky
             public float DirX, DirZ, Clock;                 // _VWTreeWindDir.xz, w
             public float GustX, GustZ, InvCell, SwayShare;  // _VWTreeGust
             public float Period, Across, Branch;            // _VWTreeClock.xyz
+            public float Everywhere;                        // _VWTreeClock.w: 1 = the same wind for every tree (speed 1)
         }
 
         public static Globals GlobalsOf(Wind w, Motion m, float dirX, float dirZ)
@@ -343,6 +344,8 @@ namespace VolumetricClouds.Sky
                                    float height, float speed, float flutter, float nx, float ny, float nz,
                                    out float ox, out float oy, out float oz)
         {
+            if (g.Everywhere > 0.5f)
+                speed = 1f;
             float H = Math.Max(height, 1f);
             float k = Math.Min(2f, Math.Max(0f, speed)) * SizeShare(H);
             float gust = GustAt(g, placeX, placeZ);

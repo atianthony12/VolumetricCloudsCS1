@@ -310,6 +310,9 @@
 
   <String key="TreeWindStrength.Label">Wind strength on trees</String>
 
+  <String key="TreeWindEverywhere.Label">Wind covers the whole map</String>
+  <String key="TreeWindEverywhere.Tooltip">With this off, wind covers only parts of the map</String>
+
   <String key="TreeGusts.Label">Gusts</String>
 
   <String key="TreeFlutter.Label">Leaves and branches move</String>

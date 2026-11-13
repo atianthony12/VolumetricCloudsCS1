@@ -7,6 +7,14 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.5.4 — unreleased
 
+### Added
+
+- *Wind covers the whole map* (Weather tab, Trees, off): with *Trees move in the wind* on, every tree on the
+  map sways with the full wind wherever it stands. Off, as before, each tree gets the game's share by its
+  height, so trees in hollows and among tall buildings barely move or stand still. On, Tree Control's sway
+  factors no longer change our wind; gusts still roll across the map and small trees still move less.
+  `VolumetricClouds.xml` gains one line, `TreeWindEverywhere` (off): nobody's trees change.
+
 ### Changed
 
 - *Glow and softer shade* (Light tab), a trial above 100%: from 100% to 200% the slider now lets the sun's light

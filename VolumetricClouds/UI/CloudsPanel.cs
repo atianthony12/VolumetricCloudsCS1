@@ -1734,6 +1734,17 @@ namespace VolumetricClouds.UI
 
             Control control = BuildControl(page, row, y, label ?? row.Label, targets);
 
+            // A row's tooltip (the few that have one): on its name and its control alike.
+            string tooltip = row.Tooltip;
+            if (tooltip != null)
+            {
+                foreach (UIComponent part in control.Parts)
+                {
+                    if (part != null)
+                        part.tooltip = tooltip;
+                }
+            }
+
             // The row's reset button. A colour row has its own (it logs the pick its own way). On a
             // line standing for several values it puts them all back (1.5.0).
             if (row.CanReset && row.Kind != RowKind.Colour && row.Kind != RowKind.Status &&

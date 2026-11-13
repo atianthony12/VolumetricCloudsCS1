@@ -267,6 +267,9 @@
 
   <String key="TreeWindStrength.Label">Force du vent sur les arbres</String>
 
+  <String key="TreeWindEverywhere.Label">Le vent couvre toute la carte</String>
+  <String key="TreeWindEverywhere.Tooltip">Désactivé, le vent ne couvre que certaines parties de la carte</String>
+
   <String key="TreeGusts.Label">Rafales</String>
 
   <String key="TreeFlutter.Label">Feuilles et branches bougent</String>

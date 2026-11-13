@@ -261,6 +261,15 @@ namespace VolumetricClouds
         /// <summary>The wind's strength on the trees, 1 = a breezy fair day as designed (0..3).</summary>
         public static FloatSetting TreeWindStrength { get; private set; }
 
+        /// <summary>
+        /// "Same wind for every tree" (2026-11-13, the author): every tree on the map takes the whole wind,
+        /// wherever it stands. Off (default) = each tree's own share from the game (WeatherManager.GetWindSpeed:
+        /// 1 + 2% per metre above the wind grid's height there, 0..2), so trees in hollows and among tall
+        /// buildings stand still. On replaces that share with 1 (open ground) in the shaders, Tree Control's
+        /// sway factors with it; the gusts and the trees' sizes still vary the motion.
+        /// </summary>
+        public static BoolSetting TreeWindEverywhere { get; private set; }
+
         /// <summary>How much the gusts swing the trees' lean (0..2).</summary>
         public static FloatSetting TreeGusts { get; private set; }
 
@@ -1103,6 +1112,7 @@ namespace VolumetricClouds
             // Off for everyone until the author has judged it in-game; the rest at the design's 100%.
             public const bool TreeWind = false;
             public const float TreeWindStrength = 1f;
+            public const bool TreeWindEverywhere = false;
             public const float TreeGusts = 1f;
             public const float TreeFlutter = 1f;
             public const float TreeStorms = 1f;
@@ -1264,6 +1274,7 @@ namespace VolumetricClouds
 
                 TreeWind = new BoolSetting("TreeWind", Defaults.TreeWind);
                 TreeWindStrength = new FloatSetting("TreeWindStrength", Defaults.TreeWindStrength);
+                TreeWindEverywhere = new BoolSetting("TreeWindEverywhere", Defaults.TreeWindEverywhere);
                 TreeGusts = new FloatSetting("TreeGusts", Defaults.TreeGusts);
                 TreeFlutter = new FloatSetting("TreeFlutter", Defaults.TreeFlutter);
                 TreeStorms = new FloatSetting("TreeStorms", Defaults.TreeStorms);

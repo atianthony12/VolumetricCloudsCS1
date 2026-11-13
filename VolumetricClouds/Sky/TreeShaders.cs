@@ -259,7 +259,13 @@ namespace VolumetricClouds.Sky
             Shader.SetGlobalVector(IdWind, new Vector4(1f, g.Lean, g.Gusts, g.Flutter));
             Shader.SetGlobalVector(IdWindDir, new Vector4(g.DirX, 0f, g.DirZ, g.Clock));
             Shader.SetGlobalVector(IdGust, new Vector4(g.GustX, g.GustZ, g.InvCell, g.SwayShare));
-            Shader.SetGlobalVector(IdClock, new Vector4(g.Period, g.Across, g.Branch, 0f));
+            Shader.SetGlobalVector(IdClock, new Vector4(g.Period, g.Across, g.Branch, Everywhere ? 1f : 0f));
+        }
+
+        /// <summary>"Same wind for every tree": the game's share by height (0..2) replaced with open ground's 1.</summary>
+        private static bool Everywhere
+        {
+            get { return Settings.TreeWindEverywhere != null && Settings.TreeWindEverywhere.value; }
         }
 
         private void Report()
@@ -272,7 +278,8 @@ namespace VolumetricClouds.Sky
                 _logged = true;
                 _lastLine = kind;
                 Vector4 game = Shader.GetGlobalVector(IdGameWind);
-                Log.Msg("trees: wind " + line + " (the game's own sway strength " + game.w.ToString("F2") + ", not used while ours is on)");
+                Log.Msg("trees: wind " + line + " (the game's own sway strength " + game.w.ToString("F2") + ", not used while ours is on); " +
+                        (Everywhere ? "wind covers the whole map (every tree the same)" : "each tree's share by its height from the game"));
             }
             else if (Log.Detailed && Time.time >= _nextLog)
             {

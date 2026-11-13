@@ -262,6 +262,8 @@ namespace VolumetricClouds.UI
                     if (box == null)
                         return null;
 
+                    if (row.Tooltip != null)
+                        box.tooltip = row.Tooltip;
                     control.Check = box;
                     control.Grey = box;
                     break;

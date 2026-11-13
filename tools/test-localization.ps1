@@ -62,6 +62,7 @@ for ($i = 1; $i -lt $parts.Count; $i += 2) {
         [void]$needed.Add("$name.Label")
     }
     if ($b -match 'HasNote = true') { [void]$needed.Add("$name.Note") }
+    if ($b -match 'HasTooltip = true') { [void]$needed.Add("$name.Tooltip") }
     if ($b -match 'Group = "(\w+)"') { [void]$needed.Add("Group." + $Matches[1]) }
     if ($b -match 'ChoiceKeys = new\[\] \{([^}]*)\}') {
         foreach ($k in [regex]::Matches($Matches[1], '"([^"]+)"')) { [void]$needed.Add($k.Groups[1].Value) }

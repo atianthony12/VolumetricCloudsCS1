@@ -38,7 +38,7 @@ float4 _WindDirection;
 float4 _VWTreeWind;    // x 1 = VW's wind, y the lean (radians, before the tree's own wind and the gusts), z the gust strength, w the flutter (m)
 float4 _VWTreeWindDir; // xyz the way the wind blows (world, level, unit), w the clock: 0..1 over _VWTreeClock.x seconds
 float4 _VWTreeGust;    // xy the gust field's drift (m, wrapped to its tile), z 1 / its cell (m), w the sway's share of the lean
-float4 _VWTreeClock;   // x the clock's period (s), y the share across the wind, z the branches' swing (share of the tree's size), w unused
+float4 _VWTreeClock;   // x the clock's period (s), y the share across the wind, z the branches' swing (share of the tree's size), w 1 = the same wind for every tree
 
 // The gust field's tile, in cells of its first octave (the second is 2.5 x finer, 320 cells): the
 // drift is wrapped to it in C# (TreeWind.GustTileCells).
@@ -134,6 +134,9 @@ float VWSinTurns(float turns)
 // billboards); n: its normal.
 float3 VWWindPoint(float3 p, float3 b, float2 place, float height, float speed, float flutter, float3 n)
 {
+	// "Same wind for every tree": open ground's 1 in place of the game's share by height (0 in a hollow
+	// or among tall buildings).
+	speed = _VWTreeClock.w > 0.5 ? 1.0 : speed;
 	float H = max(height, 1.0);
 	// Small trees and bushes are stiffer and sheltered: everything x (H / 12 m)^0.75, 0.3 to 1
 	// (a 3 m bush 35%, a 6 m tree 59%, 12 m and up 100%).

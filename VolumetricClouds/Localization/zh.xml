@@ -281,6 +281,9 @@
 
   <String key="TreeWindStrength.Label">树上的风力</String>
 
+  <String key="TreeWindEverywhere.Label">风覆盖整张地图</String>
+  <String key="TreeWindEverywhere.Tooltip">关闭时，风只覆盖地图的部分区域</String>
+
   <String key="TreeGusts.Label">阵风</String>
 
   <String key="TreeFlutter.Label">树叶和树枝摆动</String>
