@@ -1337,9 +1337,9 @@ namespace VolumetricClouds.Sky
                 CloudShade.GroundFor(CloudShade.GroundSetting, coverage, sunDir.normalized.y), 0f, 0f));
 
             // Rain curtains hang from the clouds and are drawn in the same pass, so they keep
-            // the CLOUD's two colours: one picture, one light. (A cloud override at 20% with
+            // the CLOUD's sun (its sunset light included). (A cloud override at 20% with
             // another mod's rain at full is the one corner where that reads bright.) The cloud's
-            // light, NOT its grading: rain shafts under pink clouds would read as a bug. Its
+            // light, NOT its grading nor its brightness (below): rain shafts under pink clouds would read as a bug. Its
             // ambient is the AIR's, though (the same as the cloud's unless Real Light holds the
             // game's apart): lit by the game's while the city behind is lit ~20x brighter, the
             // curtains disappeared (2026-10-09).
@@ -1353,14 +1353,19 @@ namespace VolumetricClouds.Sky
             _material.SetFloat(IdRainFloor, 0f);
             _material.SetFloat(IdRainFall, -CloudRain.FallOffset.y);
             _material.SetFloat(IdRainCurtainScale, CloudRain.CurtainScale);
-            Color rainAmbient = WithFloor(airLightAmbient * brightness);
+            // NOT Cloud brightness (2026-11-13): that knob is how bright the clouds' tops read -- at night
+            // players raise it so the moon shows on them (215% Night Overcast), and the curtains under
+            // them, seen against a dark city, lit up like day. They stand at the level the curtains were
+            // tuned at, the row's default: a player who never moved it gets exactly the light as before.
+            const float rainLevel = Settings.Defaults.Light;
+            Color rainAmbient = WithFloor(airLightAmbient * rainLevel);
             _material.SetVector(IdRainAmbient, AsVector(rainAmbient) * (snow ? 1f : 0.6f));
             // Its sun is the cloud's WITHOUT Real Light's sky multiplier (1.5.2): that lifts the clouds
             // to the sky drawn behind them, but the curtains are seen against the city, which is no
             // brighter for it -- with it they glowed x3-4 brighter than tuned (x3.87 at dusk, 2026-10-30),
             // as the funnels did (2026-10-19). Without Real Light it is 1: the same light. The shader
             // then lets through only the sun the cloud above leaves it (SunShaft).
-            Color rainSun = cloudLightSun * brightness;
+            Color rainSun = cloudLightSun * rainLevel;
             _material.SetVector(IdRainSun, AsVector(rainSun) * (snow ? 0.3f : 0.12f));
 
             // The funnels (1.5.0, FunnelShape.cginc): low down in the air's light as the FOG has it (its

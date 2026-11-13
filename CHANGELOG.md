@@ -24,6 +24,13 @@ below; the mods list shows it after the mod's name, and the first line of
   everyone by default, nothing changes. A value over 100% in a settings file or profile now gets this light,
   with the glow and the shade at their 100% look. Not under *Simpler clouds* or the Classic style.
 
+### Fixed
+
+- Rain curtains no longer follow *Cloud brightness*. Raised at night to show the moon on the clouds' tops, it
+  lit the rain under them up like day. The curtains now stay at the light they have at that row's default
+  (150%), at every time of day and weather. Players who never moved *Cloud brightness* see no change; with it
+  above 150% the curtains are dimmer than before, below it brighter. No settings file changes.
+
 ## 1.5.3 — 2026-11-07
 
 A new cloud style, Auto, that follows the sky; *Smoother clouds* much faster and now on for everyone;
