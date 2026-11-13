@@ -19,6 +19,11 @@
 // shader leaves out; with those parts off it computes the same numbers either way.
 
 #include "UnityCG.cginc"
+// Light through clouds (Sky/DeepLight.cs): CloudCommon keeps how deep in its cloud each density read was, in
+// the whole cloud pass only (not the light shader; nothing else that includes CloudCommon defines it).
+#ifndef VC_LITE
+#define VC_DEEP 1
+#endif
 #include "CloudCommon.cginc"
 // The distance fade, the rain curtains, the fog and the jitter (CloudMedia.cginc).
 #include "CloudMedia.cginc"
@@ -208,6 +213,21 @@ float Soak(float transmittance, float tau)
     float tail = 1.0 / (1.0 + _LightThrough.y * tau);
     return transmittance + _LightThrough.x * (max(transmittance, tail * tail) - transmittance);
 }
+
+#ifndef VC_LITE
+// LIGHT THROUGH CLOUDS (Sky/DeepLight.cs; only while _DeepLight.x > 0; never in the light shader). Against a
+// path tracer through these same clouds the light above stops in a thin shell: the body of a cloud is about four
+// times too dark and a cloud with the sun behind it stays grey. Three things, none of which reads a texture:
+// a slow light that builds up a couple of optical depths in and then falls off as 1 / (1 + k tau) (the light a
+// real cloud is full of), never under the light above; the scattered light dimmed towards a cloud's edge (bounced
+// light needs cloud around it: CloudCommon's body), which shades a cloud like a lit ball -- so the outer skin of
+// a lit face IS dimmer than before; and a middle lobe towards the sun for thin and middling cloud, which adds
+// nothing side-on.
+float4 _DeepLight;      // x = the slow light's share (0: off, nothing of this runs), y = its k, z = 1 / the optical
+                        // depth it builds up over, w = the scattered light at a cloud's very edge (1: not dimmed)
+float4 _DeepLight2;     // the middle lobe: x = its weight, y = its g, z = how fast it dies (x tau), w = its value
+                        // side-on, taken off (only what it adds towards the sun)
+#endif
 
 // THE LIGHT IN THE SHADE (Sky/CloudShade.cs), on the same two lights: the sky light at the
 // base as a share of the top's (0.45 before), and the sunlit ground's light on the
@@ -422,6 +442,7 @@ struct RayLight
     float phase;
     float3 octaves;
     float2 lobes;
+    float mid;      // Light through clouds: the middle lobe, what it adds towards the sun
 };
 
 RayLight LightAlong(float cosTheta)
@@ -455,11 +476,24 @@ RayLight LightAlong(float cosTheta)
         r.lobes = float2(min(single, _CumulusLight.z), multiple) * _CumulusLight.y;
     }
 
+    // Light through clouds: the middle lobe, less its value side-on, through the lobes' gain.
+    r.mid = 0;
+#ifndef VC_LITE
+    if (_DeepLight2.x > 0.0)
+        r.mid = max(HenyeyGreenstein(cosTheta, _DeepLight2.y) - _DeepLight2.w, 0.0) * _CumulusLight.y;
+#endif
+
     return r;
 }
 
-// The light a cloud at p sends along the ray (before its density). `far`: p is past FAR_LIGHT.
+// The light a cloud at p sends along the ray (before its density). `far`: p is past FAR_LIGHT. With VC_DEEP,
+// `bodyLit`: how deep in its cloud p is (SampleDensityLod's bodyOut there; the overload below without it, for
+// the funnels' base, takes 1).
+#ifdef VC_DEEP
+float3 CloudRadiance(float3 p, float lod, RayLight r, bool far, float bodyLit)
+#else
 float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
+#endif
 {
     bool detail = _DetailAmount > 0.0;
     bool cumulus = _CloudStyle > 0.5;
@@ -488,6 +522,18 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
         if (soak)
             multipleT = Soak(multipleT, tau);
         float sunLit = r.lobes.x * exp(-tau) + r.lobes.y * multipleT;
+#ifndef VC_LITE
+        // Light through clouds (see _DeepLight).
+        [branch]
+        if (_DeepLight.x > 0.0)
+        {
+            float slow = _DeepLight.x * (1.0 - exp(-tau * _DeepLight.z)) / (1.0 + _DeepLight.y * tau);
+            float scattered = max(multipleT, exp(-tau * _CumulusLight.x) + slow);
+            sunLit = r.lobes.x * exp(-tau)
+                   + r.lobes.y * scattered * lerp(_DeepLight.w, 1.0, bodyLit)
+                   + _DeepLight2.x * r.mid * (1.0 - exp(-tau)) * exp(-_DeepLight2.z * tau);
+        }
+#endif
 
         // The sky light is blocked by the cloud above: two looks straight up (one, for both, when far).
         float above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 60.0;
@@ -542,6 +588,13 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
 
     return radiance;
 }
+
+#ifdef VC_DEEP
+float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
+{
+    return CloudRadiance(p, lod, r, far, 1.0);
+}
+#endif
 
 // The waterspouts' funnels (1.5.0): marched in the air with the rain and the fog,
 // and lit where they meet the base by the clouds' own light there (CloudRadiance, above).
@@ -691,7 +744,13 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
 #else
         float lod = CloudLod(t);
 #endif
+#ifdef VC_DEEP
+        // How deep in its cloud p is, for Light through clouds (CloudRadiance).
+        float bodyHere;
+        float d = SampleDensityLod(p, true, lod, bodyHere);
+#else
         float d = SampleDensityLod(p, true, lod);
+#endif
 
         if (d > 0.001)
         {
@@ -699,7 +758,7 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
             // Deep in a cloud the step before's light will do (a ray is only under DEEP_LIGHT after a lit step).
             [branch]
             if (transmittance >= DEEP_LIGHT)
-                radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT);
+                radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT, bodyHere);
 #else
             radiance = CloudRadiance(p, lod, rayLight, false);
 #endif

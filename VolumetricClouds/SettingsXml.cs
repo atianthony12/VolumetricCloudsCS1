@@ -912,12 +912,16 @@ namespace VolumetricClouds
         /// deck, taken out (Curved clouds at high overcast does its work; nothing to carry over).
         /// 2026-11-07: "CloudTemporal", Smoother clouds' old name; now "SmootherClouds", on for everyone once
         /// (the author's call: it became the faster way to draw the clouds). Its old value is NOT carried over.
+        /// 2026-11-11: "LightThroughClouds" and its five (Sunset, Night, Overcast, SunsetOvercast, NightOvercast),
+        /// a trial row never released (only dev builds wrote them), now the top half of "LightInsideClouds".
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "ShowInUnifiedUI",
             "CloudsToHorizon",
             "CloudTemporal",
+            "LightThroughClouds", "LightThroughCloudsSunset", "LightThroughCloudsNight",
+            "LightThroughCloudsOvercast", "LightThroughCloudsSunsetOvercast", "LightThroughCloudsNightOvercast",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",
             "CloudNightColors", "CloudMoonlitColor", "CloudNightShadeColor",
             "CloudBrightnessAuto",

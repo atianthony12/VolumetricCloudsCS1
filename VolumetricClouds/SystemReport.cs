@@ -71,7 +71,8 @@ namespace VolumetricClouds
                         " waterspoutChance=" + Percent(Settings.WaterspoutChance, Settings.Defaults.WaterspoutChance) +
                         " style=" + Sky.CloudStyle.Describe() +
                         " detail=" + Sky.CloudDetail.Describe() +
-                        " lightInside=" + (Sky.LightThrough.Setting * 100f).ToString("F0") + "%" +
+                        // The slider as set; over 100% it brings in the light through the clouds (2026-11).
+                        " lightInside=" + (Sky.LightThrough.Slider * 100f).ToString("F0") + "%" +
                         " sunsetLight=" + (Sky.SunsetLight.Setting * 100f).ToString("F0") + "%" +
                         // 1.5.0: changes what shows through the far clouds (by day; at sunset and night
                         // in the time-of-day part below when they differ).

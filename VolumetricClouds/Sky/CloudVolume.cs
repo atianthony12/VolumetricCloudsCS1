@@ -108,6 +108,10 @@ namespace VolumetricClouds.Sky
         private int _cloudLightOn = -1;
         private Vector3 _cloudLightLogged;
 
+        // What the log last said about Light through clouds (DeepLight): on or off (-1 = nothing said yet) and the value.
+        private int _deepLightOn = -1;
+        private float _deepLightLogged = -1f;
+
         // Sunset light (SunsetLight): the setting the log last named (-1 = none yet), and what it is
         // doing right now for the per-second sun line (null while the clouds have the game's sun).
         private float _sunsetLogged = -1f;
@@ -242,6 +246,9 @@ namespace VolumetricClouds.Sky
         private static readonly int IdCumulusLight = Shader.PropertyToID("_CumulusLight");
         private static readonly int IdLightThrough = Shader.PropertyToID("_LightThrough");
         private static readonly int IdShadeLight = Shader.PropertyToID("_ShadeLight");
+        private static readonly int IdDeepLight = Shader.PropertyToID("_DeepLight");
+        private static readonly int IdDeepLight2 = Shader.PropertyToID("_DeepLight2");
+        private static readonly int IdDeepBody = Shader.PropertyToID("_DeepBody");
         private static readonly int IdSunsetEdge = Shader.PropertyToID("_SunsetEdge");
         private static readonly int IdCumulusLobes = Shader.PropertyToID("_CumulusLobes");
         private static readonly int IdCumulusLobeG = Shader.PropertyToID("_CumulusLobeG");
@@ -1106,16 +1113,31 @@ namespace VolumetricClouds.Sky
 
             if (cumulus)
             {
+                // Light through clouds (DeepLight): 0 = off, the shader's branch never taken, the cap as it was.
+                float deep = DeepLight.Setting;
                 _material.SetVector(IdCumulusLight, new Vector4(
-                    CloudStyle.MultipleExtinction, CloudStyle.LightGain, CloudStyle.SingleCap, 1f / span));
+                    CloudStyle.MultipleExtinction, CloudStyle.LightGain, CloudStyle.SingleCap * DeepLight.CapFactor(deep), 1f / span));
                 _material.SetVector(IdCumulusLobes, new Vector4(
                     CloudStyle.SingleW1, CloudStyle.SingleW2, CloudStyle.MultipleW1, CloudStyle.MultipleW2));
                 _material.SetVector(IdCumulusLobeG, new Vector4(
                     CloudStyle.SingleG1, CloudStyle.SingleG2, CloudStyle.MultipleG1, CloudStyle.MultipleG2));
+                bool deepOn = deep > 0f;
+                _material.SetVector(IdDeepLight, deepOn
+                    ? new Vector4(DeepLight.FillFor(deep), DeepLight.K, 1f / Mathf.Max(0.01f, DeepLight.BuildUp), DeepLight.EdgeFor(deep))
+                    : Vector4.zero);
+                _material.SetVector(IdDeepLight2, deepOn
+                    ? new Vector4(DeepLight.MidFor(deep), DeepLight.MidG, DeepLight.MidReach, DeepLight.MidSide)
+                    : Vector4.zero);
+                _material.SetVector(IdDeepBody, deepOn
+                    ? new Vector4(DeepLight.BodyHeap, DeepLight.BodyPuff, DeepLight.BodyLayer, 0f)
+                    : Vector4.zero);
             }
             else
             {
                 _material.SetVector(IdDetailLight, new Vector4(CloudDetail.OctaveA, CloudDetail.OctaveB, CloudDetail.OctaveC, CloudDetail.LightGain));
+                _material.SetVector(IdDeepLight, Vector4.zero);
+                _material.SetVector(IdDeepLight2, Vector4.zero);
+                _material.SetVector(IdDeepBody, Vector4.zero);
             }
 
             // Sunlight through the clouds (LightThrough), on both lights above; 0 = off, the shader's
@@ -1139,6 +1161,26 @@ namespace VolumetricClouds.Sky
 
                 _cloudLightOn = on;
                 _cloudLightLogged = new Vector3(setting, sky, ground);
+            }
+
+            // Light through clouds (trial; the light inside the clouds over 100%): on the log at the start and
+            // whenever it is switched on or off; other changes of a point or more on the detailed log (the clock
+            // and the cover move it all the time).
+            float through = cumulus ? DeepLight.Setting : 0f;
+            int throughOn = through > 0f ? 1 : 0;
+            if (throughOn != _deepLightOn || Mathf.Abs(through - _deepLightLogged) >= 0.01f)
+            {
+                string line = "light through clouds (the light inside the clouds at " +
+                              (LightThrough.Slider * 100f).ToString("F0", System.Globalization.CultureInfo.InvariantCulture) +
+                              "%): " + DeepLight.Describe(through) +
+                              (CloudShaders.Lite ? " (Simpler clouds draw none of it)" : "");
+                if (throughOn != _deepLightOn)
+                    Log.Msg(line);
+                else if (Log.Detailed)
+                    Log.Detail(line);
+
+                _deepLightOn = throughOn;
+                _deepLightLogged = through;
             }
         }
 

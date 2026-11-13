@@ -257,6 +257,22 @@ float Remap(float v, float a, float b, float c, float d)
     return c + (v - a) / max(b - a, 1e-4) * (d - c);
 }
 
+// HOW DEEP IN ITS CLOUD a density read was (Sky/DeepLight.cs, "Light through clouds"): 0 at the cloud's edge,
+// 1 well inside. Each kind of cloud already works out a value that is 0 at its surface and grows inwards, then
+// loses it when it squeezes it into a density; this keeps it, times the kind's _DeepBody, in an out parameter
+// (DEEP_OUT; the read's is that of the kind that won). The density itself is computed exactly as before. All 0
+// while the row is off (_DeepBody is 0). Only in the whole cloud pass (CloudRaymarchPass defines VC_DEEP): not
+// in the light shader, the shadow map or the rain streaks, whose programs stay as they were (even an unused
+// uniform moves the others in a D3D11 program); there DEEP_OUT and DEEP_ARG are nothing.
+#ifdef VC_DEEP
+float4 _DeepBody;       // what each kind's inside value is times: x = heaps, y = puffs, z = layer
+#define DEEP_OUT , out float bodyOut
+#define DEEP_ARG(x) , x
+#else
+#define DEEP_OUT
+#define DEEP_ARG(x)
+#endif
+
 // Rounded base, tapering top: what makes a slab read as cumulus rather than fog.
 float HeightShape(float h)
 {
@@ -491,8 +507,11 @@ float CumulusCurve(float h)
 // and the edge hardness gives what is left a surface. CloudStyle.Density is its C# twin.
 // `score`: the map's normal score here (the same lookup as the weather map's: repeat and drift). `heapLine`:
 // the coverage line's start, _CumulusShape.x (under the type, by how far the sky leans to heaps).
-float CumulusDensity(float3 p, float lod, float score, float heapLine)
+float CumulusDensity(float3 p, float lod, float score, float heapLine DEEP_OUT)
 {
+#ifdef VC_DEEP
+    bodyOut = 0.0;
+#endif
     float coverage = clamp(heapLine + _CumulusShape.y * score, 0.0, _CumulusShape.z);
     if (coverage <= 0.0)
         return 0.0;
@@ -503,15 +522,22 @@ float CumulusDensity(float3 p, float lod, float score, float heapLine)
 
     float3 uv = p * _CumulusNoise.x - _CumulusPhase;
     float noise = tex3Dlod(_CumulusTex, float4(uv, lod)).a;
-    return saturate((cg - (1.0 - noise) * _CumulusNoise.y) * _CumulusNoise.z) * _CumulusNoise.w;
+    float inside = cg - (1.0 - noise) * _CumulusNoise.y;
+#ifdef VC_DEEP
+    bodyOut = saturate(inside * _DeepBody.x);
+#endif
+    return saturate(inside * _CumulusNoise.z) * _CumulusNoise.w;
 }
 
 // THE CLASSIC LAYER at p: `h` its height through the layer (0 at the base, 1 at the top), `weather`
 // the map there, `lod` cloud detail's mip level, `threshold` the map value it starts at (_Threshold,
 // except under Mixed, whose type varies it across the sky). The layer the mod has always drawn; the
 // Cumulus, Mixed and Soft styles draw it too, beside their own clouds.
-float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, float threshold)
+float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, float threshold DEEP_OUT)
 {
+#ifdef VC_DEEP
+    bodyOut = 0.0;
+#endif
     float coverage = saturate((weather - threshold) / _Softness);
 
     // The big clouds' shape. (Zero exactly when coverage is, so with fragments off this returns
@@ -542,6 +568,10 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
     float base = tex3Dlod(_NoiseTex, float4(uvNoise, 0)).r;
 
     float d = saturate(Remap(base, 1.0 - shaped, 1.0, 0.0, 1.0)) * shaped;
+#ifdef VC_DEEP
+    // How deep in the layer (the shape before any break-up; the detail's branch below refines it).
+    bodyOut = saturate(d * _DeepBody.z);
+#endif
 
     if (_DetailAmount > 0.0)
     {
@@ -587,6 +617,9 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
 
         // Edge hardness: full density a short way in, so a cloud has a surface rather than an
         // inside made of noise. Then the density curve: denser tops, softer bases.
+#ifdef VC_DEEP
+        bodyOut = saturate(d * _DeepBody.z);
+#endif
         d = saturate(d / _DetailParams.y);
         d *= 1.0 - _DetailParams.z * (1.0 - h);
     }
@@ -648,8 +681,11 @@ float SoftStretch(float n)
 // `lod`: the Cumulus noise's mip level at Soft's repeat (CloudShaderParams.NoiseTexel; negative near).
 // The fine read's is _SoftWisp.z more and fades out above 0, where it would only shimmer. Not `detailed`
 // (the light's looks): a level blurrier, no fine read. `weather`: the map at p; `threshold`: the puffs' cut.
-float SoftDensity(float3 p, bool detailed, float lod, float weather, float threshold)
+float SoftDensity(float3 p, bool detailed, float lod, float weather, float threshold DEEP_OUT)
 {
+#ifdef VC_DEEP
+    bodyOut = 0.0;
+#endif
     float excess = weather - threshold;
     if (excess <= 0.0)
         return 0.0;
@@ -691,6 +727,9 @@ float SoftDensity(float3 p, bool detailed, float lod, float weather, float thres
     }
 
     float d = saturate(v * _SoftCarve.x);
+#ifdef VC_DEEP
+    bodyOut = saturate(v * _DeepBody.y);
+#endif
 
     // The fringe: a faint, see-through edge of strands round every puff.
     if (wisps > 0.0 && _SoftFringe.x > 0.0)
@@ -704,8 +743,14 @@ float SoftDensity(float3 p, bool detailed, float lod, float weather, float thres
 // Cumulus noise, the detail's being _DetailLodShift more; Soft and Mixed: the Cumulus noise at the
 // puffs' repeat, the detail's _DetailLodShift more): distant detail averages away instead of aliasing
 // (the raymarch works it out from the pixel's footprint, the shadow map from its texel).
-float SampleDensityLod(float3 p, bool detailed, float lod)
+// With VC_DEEP, `bodyOut`: how deep in its cloud p is (see _DeepBody); the overload below without it is
+// what every other read calls.
+float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
 {
+#ifdef VC_DEEP
+    bodyOut = 0.0;
+#endif
+
     // Curved clouds: everything below measures heights over the curved Earth (the noise rides the curve
     // too). Off, this adds 0.
     p.y = CurveHeight(p);
@@ -727,6 +772,10 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
     float weather = FarWeather(look, uvWeather);
     float threshold = _Threshold;
     float clouds = 0.0;
+#ifdef VC_DEEP
+    float body = 0.0;
+    float kindBody = 0.0;
+#endif
     bool heaps = _CloudStyle > 0.5 && _CloudStyle < 2.5;
     float heapLine = _CumulusShape.x;
     bool layer = true;
@@ -756,7 +805,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
             heapLine = lerp(_MixHeaps.x, _CumulusShape.x, lean);
         }
 
-        clouds = SoftDensity(p, detailed, lod, weather, puffThreshold);
+        clouds = SoftDensity(p, detailed, lod, weather, puffThreshold DEEP_ARG(body));
         layer = weather > threshold || _FragAmount > 0.0;
     }
 #endif
@@ -767,7 +816,13 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
         float score = FarScore(look, uvWeather);
         [branch]
         if (heaps)
-            clouds = max(clouds, CumulusDensity(p, max(lod, 0.0), score, heapLine));
+        {
+            float heap = CumulusDensity(p, max(lod, 0.0), score, heapLine DEEP_ARG(kindBody));
+#ifdef VC_DEEP
+            body = heap > clouds ? kindBody : body;
+#endif
+            clouds = max(clouds, heap);
+        }
 
         // Beside its own clouds the layer is thick where the map is high and thin where it is low: variety
         // over kilometres, so a full sky is not one even carpet of the same puffs.
@@ -778,10 +833,27 @@ float SampleDensityLod(float3 p, bool detailed, float lod)
 
     [branch]
     if (layer && hLayer < 1.0)
-        clouds = max(clouds, LayerDensity(p, detailed, lodLayer, hLayer, weather, threshold));
+    {
+        float deck = LayerDensity(p, detailed, lodLayer, hLayer, weather, threshold DEEP_ARG(kindBody));
+#ifdef VC_DEEP
+        body = deck > clouds ? kindBody : body;
+#endif
+        clouds = max(clouds, deck);
+    }
 
+#ifdef VC_DEEP
+    bodyOut = body;
+#endif
     return clouds;
 }
+
+#ifdef VC_DEEP
+float SampleDensityLod(float3 p, bool detailed, float lod)
+{
+    float body;
+    return SampleDensityLod(p, detailed, lod, body);
+}
+#endif
 
 float SampleDensity(float3 p, bool detailed)
 {

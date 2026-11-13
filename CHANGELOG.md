@@ -5,6 +5,17 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
+## 1.5.4 — unreleased
+
+### Changed
+
+- *Glow and softer shade* (Light tab), a trial above 100%: from 100% to 200% the slider now lets the sun's light
+  soak into the clouds the way it does in real ones, instead of making the glow and the shade stronger still.
+  The clouds' bodies get brighter and softer, they shade like lit balls instead of bright shells (so their
+  sunlit tops are a little dimmer), and thin cloud glows with the sun behind it. Up to 100%, where it is for
+  everyone by default, nothing changes. A value over 100% in a settings file or profile now gets this light,
+  with the glow and the shade at their 100% look. Not under *Simpler clouds* or the Classic style.
+
 ## 1.5.3 — 2026-11-07
 
 A new cloud style, Auto, that follows the sky; *Smoother clouds* much faster and now on for everyone;

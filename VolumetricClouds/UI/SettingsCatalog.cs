@@ -2607,9 +2607,11 @@ namespace VolumetricClouds.UI
             // The light inside the clouds: two rows, each 0% = the light from before, exactly, 100% =
             // the look chosen. The first is three parts on one slider (it was three rows until they
             // were merged before release -- the author: "merge them"): Sky/LightThrough, thin and
-            // middling cloud glows with the sun behind it (200%: light twice as deep), and
-            // Sky/CloudShade, the sky light in the shade (200%: the base as lit as the top) and the
-            // sunlit ground's light on the undersides (200%: twice the albedo).
+            // middling cloud glows with the sun behind it, and Sky/CloudShade, the sky light in the shade and the sunlit ground's light on the undersides.
+            // Those three reach their full look at 100% and hold there; from 100% to 200% the slider
+            // brings in Sky/DeepLight, the light through the clouds (2026-11, the author's call: one
+            // slider, not two; it was a row of its own, never released). Up to 100% -- every player's
+            // value at the default -- nothing changed. Before, 200% was the three at twice their look.
             Row inside = new Row
             {
                 Kind = RowKind.Percent,

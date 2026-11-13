@@ -222,7 +222,7 @@ $soakLight = $style.GetMethod("SunLight", [Type[]]@([single], [single], [single]
 function Soaked([double]$cos, [double]$tau, [double]$amount, [double]$k) { return [single]$soakLight.Invoke($null, [object[]]@([single]$cos, [single]$tau, [single]$amount, [single]$k)) }
 $k100 = [single](Through "KFor" @([single]1.0))
 Check (([single](Through "AmountFor" @([single]0.0)) -eq 0) -and ([single](Through "AmountFor" @([single]1.0)) -eq 1) -and ([single](Through "AmountFor" @([single]2.0)) -eq 1)) "the slider: 0% off, all of the tail from 100% up"
-Check (([Math]::Abs($k100 - 0.15) -lt 1e-6) -and ([Math]::Abs([single](Through "KFor" @([single]2.0)) - 0.075) -lt 1e-6)) "k: 0.15 at 100% (the look chosen), half at 200% (light twice as deep)"
+Check (([Math]::Abs($k100 - 0.15) -lt 1e-6) -and ([Math]::Abs([single](Through "KFor" @([single]2.0)) - 0.075) -lt 1e-6)) "k: 0.15 at 100% (the look chosen), half at 200% (the function: since 2026-11 the slider holds this part at 100%)"
 $offSame = $true; $neverDarker = $true
 foreach ($tau in 0, 0.5, 2, 5, 10, 20, 40, 80) {
     foreach ($cos in -0.8, 0.0, 0.7, 1.0) {
@@ -246,13 +246,47 @@ $shade = $asm.GetType("VolumetricClouds.Sky.CloudShade")
 function Shade([string]$name, [object[]]$arguments) { return [single]$shade.GetMethod($name).Invoke($null, $arguments) }
 Check (((Shade "SkyFloorFor" @([single]0)) -eq [single]0.45) -and ((Shade "OcclusionScaleFor" @([single]0)) -eq 1) -and ((Shade "GroundFor" @([single]0, [single]0.64, [single]0.85)) -eq 0)) "0%: the sky light at the base 45% of the top's, the occlusion as it was, no ground light -- the light from before"
 Check (([Math]::Abs((Shade "SkyFloorFor" @([single]1)) - 0.75) -lt 1e-6) -and ([Math]::Abs((Shade "OcclusionScaleFor" @([single]1)) - 0.5) -lt 1e-6)) "100%: the base 75% of the top's, half the occlusion (the look chosen)"
-Check (((Shade "SkyFloorFor" @([single]2)) -eq 1) -and ((Shade "OcclusionScaleFor" @([single]2)) -eq 0)) "200%: the base as lit as the top, no occlusion -- never more"
+Check (((Shade "SkyFloorFor" @([single]2)) -eq 1) -and ((Shade "OcclusionScaleFor" @([single]2)) -eq 0)) "200%: the base as lit as the top, no occlusion -- never more (the function: since 2026-11 the slider holds this part at 100%)"
 $noon = Shade "GroundFor" @([single]1, [single]0.64, [single]0.855)
 $low = Shade "GroundFor" @([single]1, [single]1.0, [single]0.139)
 "  the ground's light on the base at 100%, as a share of the sun: noon at 64% $($noon.ToString('F3')), an 8 deg sun at 100% $($low.ToString('F3'))"
 Check ([Math]::Abs($noon - 0.25 * (1 - 0.6 * 0.64) * 0.855) -lt 1e-5) "the ground's light: albedo 0.25 x the ground in sun x the sun's height"
 Check ($low -lt 0.02) "at a low sun under a full sky next to none: the backlit deck at sunset is left alone"
 Check ((Shade "GroundFor" @([single]1, [single]0.5, [single]-0.1)) -eq 0) "none once the sun is down"
+
+""
+"=== DeepLight: light through clouds ==="
+$deepType = $asm.GetType("VolumetricClouds.Sky.DeepLight")
+function Deep([string]$name, [object[]]$arguments) { return [single]$deepType.GetMethod($name).Invoke($null, $arguments) }
+function DeepValue([string]$name) { return [single]$deepType.GetField($name).GetValue($null) }
+$split = @(0, 0.5, 1, 1.5, 2, 2.5) | ForEach-Object { Deep "ForSlider" @([single]$_) }
+Check (($split[0] -eq 0) -and ($split[1] -eq 0) -and ($split[2] -eq 0) -and ([Math]::Abs($split[3] - 0.5) -lt 1e-6) -and ($split[4] -eq 1) -and ($split[5] -eq 1)) "on the Light inside the clouds slider: none up to 100% (every player's value at the default), half at 150%, all at 200%"
+$taus = 0, 0.5, 2, 5, 10, 40
+$offOk = $true; $faceOk = $true; $underOk = $true
+foreach ($tau in $taus) {
+    $before = [single][Math]::Exp(-$tau / 2)
+    if ((Deep "Scattered" @([single]$tau, $before, [single]0)) -ne $before) { $offOk = $false }
+    if ((Deep "Scattered" @([single]$tau, $before, [single]1)) -lt $before) { $underOk = $false }
+}
+foreach ($s in 0.5, 1, 2) { if ([Math]::Abs((Deep "Scattered" @([single]0, [single]1, [single]$s)) - 1) -gt 1e-6) { $faceOk = $false } }
+Check $offOk "0%: the scattered light is the light from before, exactly"
+Check $faceOk "the scattered light at tau 0 is unchanged, before the edge"
+Check $underOk "the scattered light is never under the light before, before the edge"
+$half = Deep "Scattered" @([single]5, [single]0, [single]0.5)
+$full = Deep "Scattered" @([single]5, [single]0, [single]1)
+$double = Deep "Scattered" @([single]5, [single]0, [single]2)
+Check (($half -le $full) -and ($full -le $double)) "it grows with the setting: 50% <= 100% <= 200% at tau 5 ($($half.ToString('F3')), $($full.ToString('F3')), $($double.ToString('F3')))"
+$at10 = Deep "Scattered" @([single]10, [single]0, [single]1)
+$at60 = Deep "Scattered" @([single]60, [single]0, [single]1)
+"  at 100%: tau 10 $($at10.ToString('F3')) (before $([Math]::Exp(-5).ToString('F4'))), tau 60 $($at60.ToString('F3'))"
+Check ($at10 -gt 0.4) "at 100%, ten optical depths in, over 0.4 of the scattered sun (the reference: about half)"
+Check ($at60 -lt 0.2) "at 100%, sixty in, under 0.2 (a thick deck's far side stays dim)"
+$floor = DeepValue "EdgeFloor"; $beamCap = DeepValue "BeamCap"
+Check (((Deep "EdgeFor" @([single]0)) -eq 1) -and ([Math]::Abs((Deep "EdgeFor" @([single]1)) - $floor) -lt 1e-6) -and ([Math]::Abs((Deep "EdgeFor" @([single]2)) - $floor) -lt 1e-6)) "the edge: 1 at 0%, EdgeFloor ($floor) from 100% on"
+Check (((Deep "CapFactor" @([single]0)) -eq 1) -and ([Math]::Abs((Deep "CapFactor" @([single]1)) - $beamCap) -lt 1e-6)) "the direct beam's cap: x1 at 0%, x BeamCap ($beamCap) at 100%"
+Check (([Math]::Abs((Deep "MidLobe" @([single]0))) -lt 1e-6) -and ((Deep "MidLobe" @([single]-1)) -eq 0) -and ((Deep "MidLobe" @([single]1)) -gt 0)) "the middle lobe: nothing side-on or away from the sun, something towards it"
+Check ((Deep "MidDepth" @([single]0)) -eq 0) "the middle lobe: none at a cloud's face (tau 0)"
+Check (((Deep "FillFor" @([single]0)) -eq 0) -and ((Deep "MidFor" @([single]0)) -eq 0)) "0%: the slow light and the middle lobe are off (the shader's branches not taken)"
 
 ""
 "=== SunsetLight: the clouds keep the setting sun ==="

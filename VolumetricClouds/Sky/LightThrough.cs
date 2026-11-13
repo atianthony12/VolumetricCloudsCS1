@@ -26,10 +26,11 @@ namespace VolumetricClouds.Sky
         public const float K = 0.15f;
 
         /// <summary>
-        /// The setting, 0..2 (the slider's 0%..200%); its default when there is none. "Light inside
-        /// the clouds": one slider for this and both of CloudShade's parts.
+        /// The "Light inside the clouds" slider ("Glow and softer shade"), 0..2 (0%..200%); its default
+        /// when there is none. Its lower half drives this and both of CloudShade's parts
+        /// (<see cref="Setting"/>), its upper half the light through the clouds (DeepLight.Row).
         /// </summary>
-        public static float Setting
+        public static float Slider
         {
             get
             {
@@ -40,6 +41,16 @@ namespace VolumetricClouds.Sky
                     Settings.LightInsideCloudsNightOvercast, Settings.Defaults.LightInsideClouds);
                 return Math.Max(0f, Math.Min(2f, now));
             }
+        }
+
+        /// <summary>
+        /// The glow and the softer shade, 0..1: the slider up to 100% -- exactly as before -- and held
+        /// there above it (2026-11, the author's call: one slider for the light inside; above 100% it
+        /// now brings in the light through the clouds instead of more of these three).
+        /// </summary>
+        public static float Setting
+        {
+            get { return Math.Min(1f, Slider); }
         }
 
         /// <summary>
