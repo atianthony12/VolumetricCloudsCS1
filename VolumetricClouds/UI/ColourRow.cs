@@ -379,9 +379,8 @@ namespace VolumetricClouds.UI
         /// <summary>What could not be read stays on show in red for a moment, then goes back.</summary>
         private void ShowInvalid(string text)
         {
-            string shown = text.Trim();
-            if (shown.Length > 40)
-                shown = shown.Substring(0, 40);
+            // Never half a character: it would stop the game drawing any new text (TextCut).
+            string shown = TextCut.First(TextCut.Whole(text.Trim()), 40);
 
             _text.text = shown;
             _text.textColor = _ui.Theme.Invalid;

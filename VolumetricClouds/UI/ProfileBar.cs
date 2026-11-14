@@ -394,9 +394,14 @@ namespace VolumetricClouds.UI
             return -1;
         }
 
+        /// <summary>
+        /// Never half a character: a cut through an emoji, or a lone half in a name, would stop the
+        /// game drawing any new text (<see cref="TextCut"/>).
+        /// </summary>
         private static string Shorten(string name)
         {
-            return name.Length <= ShownCharacters ? name : name.Substring(0, ShownCharacters - 3) + "...";
+            string whole = TextCut.Whole(name);
+            return whole.Length <= ShownCharacters ? whole : TextCut.First(whole, ShownCharacters - 3) + "...";
         }
 
         /// <summary>An entry was picked in the list.</summary>

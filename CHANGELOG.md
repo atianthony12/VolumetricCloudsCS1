@@ -30,6 +30,9 @@ below; the mods list shows it after the mod's name, and the first line of
   lit the rain under them up like day. The curtains now stay at the light they have at that row's default
   (150%), at every time of day and weather. Players who never moved *Cloud brightness* see no change; with it
   above 150% the curtains are dimmer than before, below it brighter. No settings file changes.
+- A long profile name with an emoji in it could stop the game from drawing any new text until a restart (the
+  profile list cut it short in the middle of the emoji); names are now never cut through one. A profile file
+  whose name holds a broken emoji is no longer listed: the log says so, rename the file.
 
 ## 1.5.3 — 2026-11-07
 

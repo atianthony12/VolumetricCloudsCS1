@@ -11,7 +11,8 @@ namespace VolumetricClouds
     /// </summary>
     /// <remarks>
     /// Windows' rules on every system, so a profile made on a Mac can be sent to a Windows
-    /// player: none of &lt; &gt; : " / \ | ? *, no control characters, no dot at either end, and
+    /// player: none of &lt; &gt; : " / \ | ? *, no control characters, no half of a character
+    /// (an emoji is two UTF-16 units: one alone cannot be drawn), no dot at either end, and
     /// not a name Windows keeps for a device (CON, NUL, COM1... with any extension, too).
     /// Names are compared without regard to case: Windows and the Mac's file system would call
     /// "Storm" and "storm" the same file, and Linux follows the rule rather than its file system.
@@ -66,6 +67,11 @@ namespace VolumetricClouds
                 if (char.IsControl(c) || Forbidden.IndexOf(c) >= 0)
                     return "Profiles.Invalid.Character";
             }
+
+            // Half of a character (an emoji's first half alone): the game's font cannot draw it,
+            // and one such label stops every new text from drawing (TextCut).
+            if (TextCut.HasLoneSurrogate(name))
+                return "Profiles.Invalid.Character";
 
             if (name[0] == '.' || name[name.Length - 1] == '.')
                 return "Profiles.Invalid.Dot";
@@ -150,11 +156,13 @@ namespace VolumetricClouds
         /// takes, with no space at either end -- the pick is kept trimmed, so " Storm" would come
         /// back as "Storm" and miss its file -- and no control character: the pick is written
         /// into VolumetricClouds.xml, where most of them make the whole file unreadable (Linux
-        /// and the Mac allow them in file names). Anything else goes: this is for READING.
+        /// and the Mac allow them in file names) -- and no half of a character, which Windows allows
+        /// in a file name and the game's font cannot draw (<see cref="TextCut"/>). Anything else
+        /// goes: this is for READING.
         /// </summary>
         public static bool IsListable(string name)
         {
-            if (!IsFileName(name) || name != name.Trim())
+            if (!IsFileName(name) || name != name.Trim() || TextCut.HasLoneSurrogate(name))
                 return false;
 
             foreach (char c in name)

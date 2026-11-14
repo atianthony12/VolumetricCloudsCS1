@@ -6,7 +6,9 @@
 # ProfileName: the rules for a new profile's name, which IS its file's name -- Windows' rules on
 # every system (a profile made on a Mac must open on Windows), names the same without regard to
 # case, a ".xml" typed at the end dropped, and the first free "Profile N". IsFileName: a name
-# from a hand edit of <Profile> can never reach outside the profiles folder.
+# from a hand edit of <Profile> can never reach outside the profiles folder. TextCut: a name cut for
+# the bar, or a pasted colour, never keeps half of a character (an emoji is two UTF-16 units), which
+# the game's font cannot draw; a name with half of one is not a name, and a file so named not listed.
 # The file: a profile is written by the same SettingsXmlFormat as VolumetricClouds.xml, so a
 # profile's text round-trips, and a broken or foreign one is refused as a FormatException, never
 # anything else (Profiles catches exactly that and keeps the sky running).
@@ -56,6 +58,8 @@ $asm = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes($Dll))
 $names = $asm.GetType('VolumetricClouds.ProfileName', $true)
 $fmt = $asm.GetType('VolumetricClouds.SettingsXmlFormat', $true)
 $entryType = $asm.GetType('VolumetricClouds.SettingsXmlFormat+Entry', $true)
+# Internal: called through reflection, which reaches it where PowerShell's type syntax may not.
+$cutType = $asm.GetType('VolumetricClouds.TextCut', $true)
 $failed = 0
 
 function Check([string]$name, $actual, $expected) {
@@ -142,6 +146,61 @@ Check "not listable: a trailing space" ($names::IsListable("Storm ")) "False"
 Check "not listable: a control character (Linux allows it in a file name)" ($names::IsListable("Storm" + [char]1)) "False"
 Check "not listable: a tab"         ($names::IsListable("a`tb")) "False"
 Check "not listable: up and out"    ($names::IsListable("..\VolumetricClouds")) "False"
+
+# ---- never half a character ---------------------------------------------------------------------
+# An emoji is two UTF-16 units; a label holding one of them alone makes the game's font throw, and
+# then no new text draws until a restart. Built from character codes (the script is read as ANSI);
+# compared by length and by yes / no, so no lone half is ever printed.
+
+$high = [char]0xD83C
+$low = [char]0xDF05
+$emoji = [string]$high + $low
+function CutFirst($text, [int]$count) { return $cutType.GetMethod('First').Invoke($null, @($text, $count)) }
+function CutLone($text) { return $cutType.GetMethod('HasLoneSurrogate').Invoke($null, @(, $text)) }
+function CutWhole($text) { return $cutType.GetMethod('Whole').Invoke($null, @(, $text)) }
+function EndsHigh([string]$s) { return $s.Length -gt 0 -and [char]::IsHighSurrogate($s[$s.Length - 1]) }
+
+Check "first: plain text"           (CutFirst "Thunderstorm" 7)  "Thunder"
+Check "first: shorter than the cut" (CutFirst "Storm" 40)        "Storm"
+Check "first: exactly the cut"      (CutFirst "Storm" 5)         "Storm"
+Check "first: null"                 ((CutFirst $null 5) -ceq "") "True"
+Check "first: a count of 0"         ((CutFirst "Storm" 0) -ceq "") "True"
+Check "first: a negative count"     ((CutFirst "Storm" -3) -ceq "") "True"
+$across = "abcd" + $emoji + "ef"
+$cut = CutFirst $across 5
+Check "first: a cut between an emoji's halves keeps neither" ("" + $cut.Length + "," + (EndsHigh $cut)) "4,False"
+$cut = CutFirst $across 6
+Check "first: a cut right after a whole emoji keeps it" ("" + $cut.Length + "," + ($cut -ceq ("abcd" + $emoji))) "6,True"
+$cut = CutFirst ($emoji + $emoji) 3
+Check "first: the second of two emoji cut in half" ("" + $cut.Length + "," + ($cut -ceq $emoji)) "2,True"
+
+Check "lone: plain text"            (CutLone "Storm")            "False"
+Check "lone: null"                  (CutLone $null) "False"
+Check "lone: empty"                 (CutLone "")                 "False"
+Check "lone: a whole emoji"         (CutLone ("a" + $emoji + "b")) "False"
+Check "lone: a first half alone"    (CutLone ("a" + $high + "b")) "True"
+Check "lone: a first half at the end" (CutLone ("ab" + $high)) "True"
+Check "lone: a second half alone"   (CutLone ("a" + $low + "b")) "True"
+Check "lone: a second half first"   (CutLone ([string]$low + "ab")) "True"
+Check "lone: the halves the wrong way round" (CutLone ([string]$low + $high)) "True"
+
+Check "whole: plain text"           (CutWhole "Storm")           "Storm"
+Check "whole: null"                 ((CutWhole $null) -ceq "") "True"
+$kept = "Sky " + $emoji
+Check "whole: a whole emoji is the same string" ([object]::ReferenceEquals((CutWhole $kept), $kept)) "True"
+Check "whole: a first half alone"   (CutWhole ("a" + $high + "b")) "a?b"
+Check "whole: a second half alone"  (CutWhole ("a" + $low + "b")) "a?b"
+Check "whole: the wrong way round"  (CutWhole ([string]$low + $high)) "??"
+$mixed = CutWhole ($emoji + $high)
+Check "whole: a whole emoji kept beside a lone half" ("" + $mixed.Length + "," + ($mixed -ceq ($emoji + "?"))) "3,True"
+
+# The name rules: half a character is not a name, and a file so named is not listed.
+Check "a name with half an emoji"   (Why ("Sky " + $high))       "Profiles.Invalid.Character"
+Check "a name with a second half alone" (Why ([string]$low + " sky")) "Profiles.Invalid.Character"
+Check "a name with a whole emoji"   (Why ("Sky " + $emoji))      "usable"
+Check "not listable: half an emoji" ($names::IsListable("Sky " + $high)) "False"
+Check "not listable: halves the wrong way round" ($names::IsListable("Sky " + $low + $high)) "False"
+Check "listable: a whole emoji"     ($names::IsListable("Sky " + $emoji)) "True"
 
 # ---- a profile's file -------------------------------------------------------------------------
 

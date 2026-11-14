@@ -242,9 +242,10 @@ namespace VolumetricClouds
                         if (!_loggedOddFile)
                         {
                             _loggedOddFile = true;
-                            Log.Msg("profiles: '" + Path.GetFileName(path) + "' in " + Folder + " is not listed: its name is " +
-                                    "empty, starts or ends with a space, or holds a control character, and could not be kept " +
-                                    "as the picked profile (rename the file)");
+                            // Whole: the name may hold half of a character; it leaves the mod with a '?' there instead.
+                            Log.Msg("profiles: '" + TextCut.Whole(Path.GetFileName(path)) + "' in " + Folder + " is not listed: its name is " +
+                                    "empty, starts or ends with a space, holds a control character or half of a character " +
+                                    "(a broken emoji, say), and could not be kept as the picked profile (rename the file)");
                         }
 
                         continue;
