@@ -7,7 +7,7 @@
 Real 3D clouds that cast shadows on your city, follow the game's weather, and bring their own
 rain, lightning, rainbows and fog. Works on Windows, Mac and Linux.
 
-<img src="Workshop/Screenshots/Sunrise%20Lightning.jpg" width="820" alt="Clouds lit by the rising sun over a city, with a lightning bolt">
+<img src="Workshop/Screenshots/SunriseLightning.jpg" width="820" alt="Clouds lit by the rising sun over a city, with a lightning bolt">
 
 [![Cities: Skylines](https://img.shields.io/badge/Cities%3A%20Skylines-mod-01ABF8)](https://store.steampowered.com/app/255710/Cities_Skylines/)
 [![Steam Workshop](https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507)
@@ -52,12 +52,12 @@ rain, lightning, rainbows and fog. Works on Windows, Mac and Linux.
 
 <table>
   <tr>
-    <td><img src="Workshop/Screenshots/Bird's%20Eye.jpg" alt="Clouds and their shadows over a city, seen from above"></td>
-    <td><img src="Workshop/Screenshots/Volumetric%20Fog.jpg" alt="Volumetric fog over a city"></td>
+    <td><img src="Workshop/Screenshots/BirdsEye.jpg" alt="Clouds and their shadows over a city, seen from above"></td>
+    <td><img src="Workshop/Screenshots/VolumetricFog.jpg" alt="Volumetric fog over a city"></td>
   </tr>
   <tr>
     <td><img src="Workshop/Screenshots/Halos.jpg" alt="Street light halos at night"></td>
-    <td><img src="Workshop/Screenshots/Trees%20Movement.jpg" alt="Trees moving in the wind"></td>
+    <td><img src="Workshop/Screenshots/TreesMovement.jpg" alt="Trees moving in the wind"></td>
   </tr>
 </table>
 
