@@ -44,6 +44,9 @@ public static class SkyLayerMaker
     /// <summary>How the cloud is measured: 0 blueness only, 1 the split into sky and cloud light, 2 the larger of the two.</summary>
     public static int Mode = 2;
 
+    /// <summary>How high (degrees) ground is looked for; 0 for a "pure sky" photo with none (2026-11-15: its low clouds were taken for hills).</summary>
+    public static float SkylineMax = 20f;
+
     // ---- reading ---------------------------------------------------------------------------------
 
     /// <summary>A Radiance .hdr (RGBE; RLE scanlines or flat), its upper half only.</summary>
@@ -267,7 +270,7 @@ public static class SkyLayerMaker
         float cloudS = 0.05f;
 
         // Where the ground stands over the horizon, per column (trees, hills, buildings).
-        float[] skyline = Skyline(sky, lums, w, h, 20f);
+        float[] skyline = Skyline(sky, lums, w, h, SkylineMax);
         float above = horizonCut + horizonFade;
 
         int eBins = (int)Math.Ceiling(90f / ElevBin);

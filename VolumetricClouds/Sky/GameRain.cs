@@ -318,7 +318,7 @@ namespace VolumetricClouds.Sky
             bool wanted = CloudRain.Active && CloudRain.IsSnow && _particles != null && _particles.Length > 0 && Copies() != null;
 
             if (wanted && _camera == null)
-                _camera = Camera.main;
+                _camera = GameCamera.Get();
 
             _scalingSnow = wanted && _camera != null;
             if (!_scalingSnow)

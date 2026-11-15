@@ -44,6 +44,29 @@ Shader "VolumetricClouds/RainDrops"
             #pragma target 3.5   // not 4.0: no Metal code at 4.0 in Unity 5.6 (see CloudRaymarch.shader)
             #include "UnityCG.cginc"
             #include "CloudCommon.cginc"
+            #include "RainGust.cginc"
+            #include "LampMap.cginc"
+            #include "RainCover.cginc"
+
+            // "Wind on the rain" (2026-11-15). x, z = the wind's push per metre of fall for a medium drop
+            // (wind speed / fall speed, x the row), y the gust push's length (m), w 1 = on. 0 (unset) =
+            // the streaks exactly as before: _FallDirection and _FallOffset alone.
+            float4 _RainWind;
+            // xz = how far the air has carried the rain so far (m, wrapped in C# to whole boxes), y the
+            // heavier bands' strength in gusts.
+            float4 _RainWindOffset;
+            // "Finer rain": x 1 = drop sizes (small, medium, large) and a few drops right at the lens; y = how much
+            // of the city's lamp light (LampMap.cginc) a drop catches (0 = none: by day, or Finer rain off).
+            float4 _RainDetail;
+
+            // Radians one pixel subtends, from the camera drawing now (see LightningRibbon.cginc).
+            #ifndef VC_PIXEL_ANGLE_HERE
+            #define VC_PIXEL_ANGLE_HERE
+            float PixelAngleHere()
+            {
+                return 2.0 / max(abs(unity_CameraProjection._m11) * _ScreenParams.y, 1e-3);
+            }
+            #endif
 
             float3 _BoxNear;          // size of the box the near layer wraps in, metres
             float3 _BoxFar;
@@ -71,6 +94,7 @@ Shader "VolumetricClouds/RainDrops"
                 float4 pos : SV_POSITION;
                 float2 corner : TEXCOORD0;
                 float alpha : TEXCOORD1;
+                float3 light : TEXCOORD2;   // the city's lamps at the drop (Finer rain; 0 otherwise)
             };
 
             v2f vert(appdata v)
@@ -82,10 +106,41 @@ Shader "VolumetricClouds/RainDrops"
                 float3 box = lerp(_BoxNear, _BoxFar, isFar);
                 float2 streak = lerp(_StreakNear.xy, _StreakFar.xy, isFar);
 
+                // Finer rain: a drop's size from its speed variation -- small ones thin and slow, large
+                // ones wide and fast (they fall faster, and lean less in the wind) -- and one near drop
+                // in seven falls in a small box right in front of the lens.
+                bool detail = _RainDetail.x > 0.5;
+                float size = detail ? (v.random.z < 0.45 ? 0.6 : (v.random.z > 0.88 ? 1.6 : 1.0)) : 1.0;
+                bool lens = detail && isFar < 0.5 && frac(v.random.x * 7.31) < 0.14;
+                box = lens ? float3(12.0, 9.0, 12.0) : box;
+                streak *= float2(detail ? lerp(0.85, 1.25, saturate(size - 0.6)) : 1.0, size);
+
                 // World-anchored: the seed plus the fall so far is a WORLD position; wrapping
                 // it relative to the camera keeps the drop in the box without tying it to it.
+                // With wind on the rain the air carries every drop the same way (_RainWindOffset).
+                bool windy = _RainWind.w > 0.5;
                 float3 fallen = _FallOffset * (0.85 + 0.3 * v.random.z);
+                fallen = windy ? float3(_RainWindOffset.x, fallen.y, _RainWindOffset.z) : fallen;
                 float3 rel = (frac(v.vertex.xyz + (fallen - _WorldSpaceCameraPos) / box + 0.5) - 0.5) * box;
+
+                // The gust where the drop is: it pushes the drop downwind a bounded way (so the wrap
+                // never drifts) and leans it further; the front rolls through with the field.
+                float3 fall = _FallDirection;
+                float gust = 0.5;
+                if (windy)
+                {
+                    float2 place = _WorldSpaceCameraPos.xz + rel.xz;
+                    gust = RainGustAt(place);
+                    float2 windUnit = _RainWind.xz / max(length(_RainWind.xz), 1e-4);
+                    // At most 15% of the box each way, so a pushed drop stays inside its own box.
+                    rel.xz += windUnit * (min(_RainWind.y, box.x * 0.3) * (gust - 0.5));
+                    float push = 1.0 + _RainGust.w * (2.0 * gust - 1.0);
+                    // A large drop falls faster and leans less; a small one more.
+                    float lean = push / lerp(0.8, 1.25, saturate((size - 0.6) / 1.0));
+                    fall = normalize(float3(_RainWind.x * lean, -1.0, _RainWind.z * lean));
+                    // A slanted streak is a longer path in the same moment.
+                    streak.x *= min(3.0, 1.0 / max(-fall.y, 0.2));
+                }
 
                 // A snowflake drifts from side to side as it falls, each on its own rhythm: an
                 // ellipse of its own shape and turn. Only whole multiples of the phase, which wraps
@@ -107,7 +162,7 @@ Shader "VolumetricClouds/RainDrops"
 
                 // Never thinner than a pixel: a 1 cm streak 60 m away would otherwise flicker
                 // in and out of existence. Widen it and thin its opacity to match.
-                float width = max(streak.y, dist * _PixelAngle);
+                float width = max(streak.y, dist * PixelAngleHere());
                 float widened = streak.y / width;
 
                 // A flake is as long as it is wide, a pixel at the least like its width.
@@ -116,7 +171,11 @@ Shader "VolumetricClouds/RainDrops"
 
                 // How hard it is raining where this drop is. Heavier rain shows MORE drops.
                 float local = SampleRain(head);
-                float shown = saturate((local * _DropDensity - v.random.x) * 8.0);
+                // In a gust the rain comes in heavier bands (0 = as before).
+                float bands = windy ? 1.0 + _RainWindOffset.y * (gust - 0.5) * 1.6 : 1.0;
+                float shown = saturate((local * _DropDensity * bands - v.random.x) * 8.0);
+                // Finer rain: none under a roof or a bridge (the cover map; off = 0 everywhere).
+                shown *= 1.0 - RainCovered(head, fall);
 
                 // Fade towards the box faces so wrapping never pops, and right at the lens so a
                 // drop never smears across the screen.
@@ -125,12 +184,14 @@ Shader "VolumetricClouds/RainDrops"
                 float lensFade = smoothstep(0.4, 2.0, dist);
 
                 o.alpha = shown * boxFade * lensFade * widened * _DropFade * _DropColor.a;
+                // Finer rain: the street lamps and headlights it falls through light it (0 by day / off).
+                o.light = CityLightAt(head) * _RainDetail.y;
 
-                float3 side = cross(_FallDirection, toCamera);
+                float3 side = cross(fall, toCamera);
                 side /= max(length(side), 1e-3);
 
                 float3 world = head
-                             - _FallDirection * streak.x * v.corner.y     // tail trails behind the head
+                             - fall * streak.x * v.corner.y     // tail trails behind the head
                              + side * width * 0.5 * v.corner.x;
 
                 // Hidden drops collapse outside clip space so they cost no fill.
@@ -152,7 +213,7 @@ Shader "VolumetricClouds/RainDrops"
                     along = 1.0;
                 }
 
-                return float4(_DropColor.rgb, i.alpha * across * along);
+                return float4(_DropColor.rgb + i.light, i.alpha * across * along);
             }
             ENDCG
         }

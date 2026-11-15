@@ -37,6 +37,10 @@ public static class BundleBuilder
         "Assets/VolumetricClouds/TreesDefault.shader",
         "Assets/VolumetricClouds/TreesGroup.shader",
         "Assets/VolumetricClouds/WindDebris.shader",
+        // 2026-11-15: wet ground and puddles (Sky/WetGround.cs), spray from wheels (Sky/WheelSpray.cs).
+        "Assets/VolumetricClouds/WetGround.shader",
+        "Assets/VolumetricClouds/WheelSpray.shader",
+        "Assets/VolumetricClouds/RainSplash.shader",
         // "Simpler clouds" (Sky/CloudShaders.cs): the two above compiled with VC_LITE, for a driver
         // that cannot run the whole of them.
         "Assets/VolumetricClouds/CloudRaymarchLite.shader",

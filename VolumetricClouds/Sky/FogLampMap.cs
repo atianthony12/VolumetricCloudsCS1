@@ -133,8 +133,11 @@ namespace VolumetricClouds.Sky
             if (_failed)
                 return;
 
-            // Off: nothing exists. Idle (daytime): the map is kept but neither drawn nor read.
-            string whyOff = !CloudFog.Active ? "our fog is off"
+            // Off: nothing exists. Idle (daytime): the map is kept but neither drawn nor read. Since
+            // 2026-11-15 the rain can want it too ("Finer rain": streaks and splashes lit by the lamps),
+            // with the fog off or its lamps switched off: then the map is drawn for the rain alone.
+            string whyOff = RainDrops.WantsLamps ? null
+                          : !CloudFog.Active ? "our fog is off"
                           : !Enabled ? "'Fog lit by the city's lights' is switched off"
                           : Strength <= 0f ? "Lit fog brightness is at 0%"
                           : null;
@@ -146,7 +149,7 @@ namespace VolumetricClouds.Sky
             }
 
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = GameCamera.Get();
 
             if (_camera == null || !Singleton<RenderManager>.exists)
                 return;
@@ -197,7 +200,7 @@ namespace VolumetricClouds.Sky
             }
 
             Log.Msg(state == State.On
-                ? "fog lamps: ON -- the city's lights light our fog. Map " + Resolution + "^2 over " + Size.ToString("F0") + " m (" +
+                ? "fog lamps: ON -- the city's lights light " + (CloudFog.Active && Enabled && Strength > 0f ? "our fog" + (RainDrops.WantsLamps ? " and the rain" : "") : "the rain (Finer rain; the fog is not lit)") + ". Map " + Resolution + "^2 over " + Size.ToString("F0") + " m (" +
                   (Size / Resolution).ToString("F1") + " m a texel), strength " + (Strength * 100f).ToString("F0") +
                   "%, lit radius " + Radius.ToString("F0") + " m"
                 : "fog lamps: " + (state == State.Idle ? "idle" : "off") + " (" + why + ")");
@@ -343,7 +346,10 @@ namespace VolumetricClouds.Sky
             // with last frame's position.
             Shader.SetGlobalTexture(IdVCLampMap, _map);
             Shader.SetGlobalVector(IdVCLampMapRect, rect);
-            Shader.SetGlobalVector(IdVCLampParams, new Vector4(Strength * LampScale, 3f / (radius * radius), 1f, Size * 0.75f));
+            // x is the FOG's strength: 0 when the map is drawn for the rain alone (the fog off, or its lamps
+            // switched off), so the fog never lights up because the rain asked. The rain uses z and its own scale.
+            bool forFog = CloudFog.Active && Enabled && Strength > 0f;
+            Shader.SetGlobalVector(IdVCLampParams, new Vector4(forFog ? Strength * LampScale : 0f, 3f / (radius * radius), 1f, Size * 0.75f));
 
             _collectArea = new Rect(minX - 100f, minZ - 100f, Size + 200f, Size + 200f);
             Collecting = true;

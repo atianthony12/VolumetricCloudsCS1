@@ -43,19 +43,22 @@ Shader "VolumetricClouds/LightningBolt"
             float4 _BoltColor;       // rgb, HDR
             float _BoltIntensity;    // this frame's flicker, 0..1
             float _PixelAngle;       // radians one pixel subtends
+            // (Lightning variety) x leader crawling, y its revealed share of the path, w the forks' fade.
+            // All 0 (unset) = the whole bolt as before (LightningRibbon.cginc RibbonShown).
+            float4 _BoltLeader;
 
             struct appdata
             {
                 float4 vertex : POSITION;
                 float3 tangent : NORMAL;
                 float2 shape : TEXCOORD0;
-                float2 branch : TEXCOORD1;
+                float3 branch : TEXCOORD1;     // x brightness, y along, z path position (0 on 1.5.3 meshes)
             };
 
             struct v2f
             {
                 float4 pos : SV_POSITION;
-                float2 across : TEXCOORD0;     // x = -1..1 across the ribbon, y = brightness
+                float3 across : TEXCOORD0;     // x = -1..1 across the ribbon, y = brightness, z = path position
             };
 
             v2f vert(appdata v)
@@ -63,10 +66,10 @@ Shader "VolumetricClouds/LightningBolt"
                 v2f o;
 
                 float3 world = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1.0)).xyz;
-                world = RibbonCorner(world, v.tangent, v.shape, _WorldSpaceCameraPos, _PixelAngle);
+                world = RibbonCorner(world, v.tangent, v.shape, _WorldSpaceCameraPos, PixelAngleHere());
 
                 o.pos = mul(UNITY_MATRIX_VP, float4(world, 1.0));
-                o.across = float2(v.shape.x, v.branch.x);
+                o.across = float3(v.shape.x, v.branch.x, v.branch.z);
                 return o;
             }
 
@@ -76,7 +79,11 @@ Shader "VolumetricClouds/LightningBolt"
                 float core = exp(-pow(x * GLOW_SCALE, 2.0) * 1.2);
                 float glow = exp(-x * 3.5) * 0.16;
 
-                float3 colour = _BoltColor.rgb * ((core + glow) * i.across.y * _BoltIntensity);
+                // Forks (dimmer than 0.6) fade after the first return stroke; w 0 = no fade.
+                float level = i.across.y * (i.across.y < 0.6 ? 1.0 - _BoltLeader.w : 1.0);
+                float shown = RibbonShown(i.across.z, _BoltLeader);
+
+                float3 colour = _BoltColor.rgb * ((core + glow) * level * shown * _BoltIntensity);
                 return float4(colour, 0.0);
             }
             ENDCG

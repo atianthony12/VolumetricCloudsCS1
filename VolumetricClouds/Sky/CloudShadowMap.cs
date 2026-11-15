@@ -71,6 +71,21 @@ namespace VolumetricClouds.Sky
         private RenderTexture _texture;
         private Texture2D _probeTexture;
         private float _nextUpdate;
+
+        // What the map was last drawn from, to skip a draw that would give the same map (a paused city).
+        private CloudDensityField _drawnField;
+        private double _drawnDriftX = double.NaN, _drawnDriftZ = double.NaN;
+        private float _drawnCoverage = -1f;
+        private float _forceRedraw;
+        private int _skipped;
+
+        /// <summary>Draws skipped because nothing had moved, since the last call (for the detailed log).</summary>
+        public int TakeSkipped()
+        {
+            int n = _skipped;
+            _skipped = 0;
+            return n;
+        }
         private float _nextProbe;
         private int _resolution;
         private Vector3 _drawnForward;
@@ -163,7 +178,24 @@ namespace VolumetricClouds.Sky
             if (Time.time < _nextUpdate && IsReady && !SunMovedShadows(t.forward))
                 return;
 
+            // (2026-11-15, performance) Nothing that moves the shadows has moved since the last draw --
+            // a paused city: the same drift, sun, cover and pattern -- so drawing again would give the
+            // same map: skip it, but still draw once a second, so a slider moved while paused shows.
+            double driftX = CloudWind.X + CloudWind.ShiftX, driftZ = CloudWind.Z + CloudWind.ShiftZ;
+            float coverage = CloudShaderParams.Coverage;
+            bool same = IsReady && field == _drawnField && driftX == _drawnDriftX && driftZ == _drawnDriftZ &&
+                        coverage == _drawnCoverage && t.forward == _drawnForward && Time.time < _forceRedraw;
             _nextUpdate = Time.time + UpdateInterval;
+            if (same)
+            {
+                _skipped++;
+                return;
+            }
+            _drawnField = field;
+            _drawnDriftX = driftX;
+            _drawnDriftZ = driftZ;
+            _drawnCoverage = coverage;
+            _forceRedraw = Time.time + 1f;
 
             if (!EnsureTexture())
                 return;
@@ -200,6 +232,9 @@ namespace VolumetricClouds.Sky
             {
                 _nextProbe = Time.time + ProbeInterval;
                 Probe();
+                int skipped = TakeSkipped();
+                if (skipped > 0)
+                    Log.Detail("cloud shadow map: " + skipped + " draws skipped since the last probe (nothing had moved: a paused city)");
             }
         }
 

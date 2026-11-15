@@ -95,7 +95,9 @@ namespace VolumetricClouds.Sky
             if (_failed || !Singleton<TerrainManager>.exists)
                 return;
 
-            if (!CloudFog.Enabled)
+            // The fog, and since 2026-11-15 the wet ground (which keeps the seabed under shallow water
+            // dry: the water is drawn after it). Neither: nothing exists.
+            if (!CloudFog.Enabled && !WetGround.WantsWaterMap)
             {
                 Release();
                 return;
@@ -153,7 +155,7 @@ namespace VolumetricClouds.Sky
             _row = 0;
             _nextPass = 0f;
             Ready = false;
-            Log.Msg("terrain map: building (volumetric fog is on)");
+            Log.Msg("terrain map: building (" + (CloudFog.Enabled ? "volumetric fog" : "wet ground, for the water") + " is on)");
         }
 
         /// <summary>Drops the map when the fog is switched off. Costing nothing is the point of it.</summary>

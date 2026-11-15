@@ -61,6 +61,14 @@ namespace VolumetricClouds.Sky
         private Material _dust;
         private Mesh _leafMesh;
         private Mesh _dustMesh;
+
+        // Storm mist (2026-11-15, the third part): low mist rolling on the wind in heavy rain.
+        private const int MistCount = 700;
+        private const float MistTile = 500f;
+        /// <summary>The city's wind (breezes) where mist begins and is all there: stormy (TreeWind.Describe's 2) and up.</summary>
+        private const float MistFrom = 1.3f, MistFull = 2.6f;
+        private Material _mist;
+        private Mesh _mistMesh;
         private Texture2D _map;
         private Color[] _pixels;
         private Camera _camera;
@@ -100,8 +108,11 @@ namespace VolumetricClouds.Sky
             _leaves.SetFloat(IdPart, 0f);
             _dust = new Material(shader) { name = "VolumetricCloudsWindDust", renderQueue = CloudVolume.AirQueue + 1 };
             _dust.SetFloat(IdPart, 1f);
+            _mist = new Material(shader) { name = "VolumetricCloudsStormMist", renderQueue = CloudVolume.AirQueue + 1 };
+            _mist.SetFloat(IdPart, 2f);
             _leafMesh = BuildSeeds(LeafCount, 20261030, "VolumetricCloudsWindLeaves");
             _dustMesh = BuildSeeds(DustCount, 20261031, "VolumetricCloudsWindDust");
+            _mistMesh = BuildSeeds(MistCount, 20261115, "VolumetricCloudsStormMist");
 
             TextureFormat format = SystemInfo.SupportsTextureFormat(TextureFormat.RGBAHalf) ? TextureFormat.RGBAHalf : TextureFormat.RGBAFloat;
             _map = new Texture2D(MapCells, MapCells, format, false, true)
@@ -113,6 +124,7 @@ namespace VolumetricClouds.Sky
             _pixels = new Color[MapCells * MapCells];
             _leaves.SetTexture(IdMap, _map);
             _dust.SetTexture(IdMap, _map);
+            _mist.SetTexture(IdMap, _map);
             _mapX0 = _mapZ0 = int.MinValue;
             _nextMap = 0f;
             Log.Msg("wind debris: made (" + LeafCount + " leaves, " + DustCount + " dust specks, a " + MapCells + "x" + MapCells + " map)");
@@ -134,21 +146,25 @@ namespace VolumetricClouds.Sky
 
         private void Draw()
         {
-            if (!TreeShaders.Active)
+            // Storm mist needs only the city's wind (it runs while the mist row is up and it rains); leaves
+            // and dust need the trees' wind, as before.
+            bool winter = GroundUnder.Winter;
+            float rain = CloudWeather.Rain;
+            float mist = MistAmount(winter, rain);
+            bool trees = TreeShaders.Active;
+            if (!trees && mist <= 0.005f)
             {
                 Stopped();
-                Release("the trees' wind is off");
+                Release("the trees' wind is off and there is no storm mist");
                 return;
             }
 
-            TreeWind.Wind wind = TreeShaders.Current;
-            bool winter = GroundUnder.Winter;
+            TreeWind.Wind wind = trees ? TreeShaders.Current : WeatherWind.Current;
             // Wet ground gives no dust (snow still blows); wet leaves fly less.
-            float rain = CloudWeather.Rain;
-            float leaves = Row(Settings.TreeLeaves, Settings.Defaults.TreeLeaves) * Ramp(LeavesFrom, LeavesFull, wind.Speed) * (1f - 0.5f * rain);
-            float dust = Row(Settings.TreeDust, Settings.Defaults.TreeDust) * Ramp(DustFrom, DustFull, wind.Speed) *
+            float leaves = !trees ? 0f : Row(Settings.TreeLeaves, Settings.Defaults.TreeLeaves) * Ramp(LeavesFrom, LeavesFull, wind.Speed) * (1f - 0.5f * rain);
+            float dust = !trees ? 0f : Row(Settings.TreeDust, Settings.Defaults.TreeDust) * Ramp(DustFrom, DustFull, wind.Speed) *
                          (winter ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.05f, 0.3f, rain)));
-            if (leaves <= 0.005f && dust <= 0.005f)
+            if (leaves <= 0.005f && dust <= 0.005f && mist <= 0.005f)
             {
                 Stopped();
                 return;
@@ -158,7 +174,7 @@ namespace VolumetricClouds.Sky
                 return;
 
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = GameCamera.Get();
             if (_camera == null)
                 return;
 
@@ -204,16 +220,39 @@ namespace VolumetricClouds.Sky
                 Graphics.DrawMesh(_dustMesh, Matrix4x4.identity, _dust, 0, null, 0);
             }
 
+            if (mist > 0.005f)
+            {
+                // Wet air: a pale grey lit like the air, thin, carried at the gusts' speed.
+                Set(_mist, focusVector, place, pixelAngle, ambient, sun);
+                _mist.SetVector(IdWind, new Vector4(dir.x, dir.z, wind.GustSpeed * 0.85f, Mathf.Clamp01(mist)));
+                _mist.SetVector(IdClock, new Vector4(clock.Phase, clock.Epoch, (float)TreeWind.ClockPeriod, MistTile));
+                _mist.SetVector(IdColor, new Vector4(0.78f, 0.80f, 0.84f, 0.075f * fog * Mathf.Min(1.5f, mist)));
+                _mist.SetVector(IdLook, new Vector4(1f, 2.4f, 0f, 0f));
+                Graphics.DrawMesh(_mistMesh, Matrix4x4.identity, _mist, 0, null, 0);
+            }
+
             if (!_drawing)
             {
                 _drawing = true;
-                Log.Msg("wind debris: " + Describe(wind, leaves, dust, winter));
+                Log.Msg("wind debris: " + Describe(wind, leaves, dust, winter) + ", storm mist " + (100f * mist).ToString("F0") + "%");
             }
             else if (Log.Detailed && Time.time >= _nextLog)
             {
                 _nextLog = Time.time + 5f;
-                Log.Detail("wind debris: " + Describe(wind, leaves, dust, winter));
+                Log.Detail("wind debris: " + Describe(wind, leaves, dust, winter) + ", storm mist " + (100f * mist).ToString("F0") + "%");
             }
+        }
+
+        /// <summary>
+        /// Storm mist, 0..1.5: the row, x heavy rain (from 45%, all of it at 90%), x a strong wind (the city's, stormy
+        /// and up). Not on a winter map (blowing snow is the dust's), not without the city's wind running.
+        /// </summary>
+        private static float MistAmount(bool winter, float rain)
+        {
+            float row = Settings.StormMist != null ? Mathf.Clamp(Settings.StormMist.value, 0f, 2f) : 0f;
+            if (row <= 0f || winter || !WeatherWind.Advanced || !CloudRain.Active || CloudRain.IsSnow)
+                return 0f;
+            return row * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 0.9f, rain)) * Ramp(MistFrom, MistFull, WeatherWind.Current.Speed);
         }
 
         private string Describe(TreeWind.Wind wind, float leaves, float dust, bool winter)
@@ -415,9 +454,11 @@ namespace VolumetricClouds.Sky
             Destroy(_dust);
             Destroy(_leafMesh);
             Destroy(_dustMesh);
+            Destroy(_mist);
+            Destroy(_mistMesh);
             Destroy(_map);
-            _leaves = _dust = null;
-            _leafMesh = _dustMesh = null;
+            _leaves = _dust = _mist = null;
+            _leafMesh = _dustMesh = _mistMesh = null;
             _map = null;
             _pixels = null;
             Log.Msg("wind debris: freed (" + why + ")");

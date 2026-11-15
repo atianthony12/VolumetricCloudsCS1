@@ -247,9 +247,26 @@
 
   <String key="RainFallSpeed.Label">Velocidad de caída</String>
 
+  <String key="RainWind.Label">Viento en la lluvia</String>
+  <String key="RainWind.Tooltip">El viento empuja la lluvia de lado, casi horizontal en un vendaval, y las ráfagas traen lluvia más fuerte. 0% = cae recta</String>
+
+  <String key="RainDetail.Label">Lluvia más fina</String>
+  <String key="RainDetail.Tooltip">Gotas pequeñas, medianas y grandes, algunas justo delante de la cámara, salpicaduras en el suelo y lluvia iluminada por farolas y faros de noche</String>
+
+  <String key="StormMist.Label">Neblina de tormenta</String>
+  <String key="StormMist.Tooltip">Con lluvia intensa y viento fuerte, la neblina avanza a ras de las calles con el viento. 0% = desactivado</String>
+
   <String key="Rainbows.Label">Arcoíris</String>
 
   <String key="RainLocalised.Label">Sonido, carreteras mojadas y nieve siguen las nubes</String>
+
+  <String key="Group.WetGround">Suelo mojado</String>
+
+  <String key="WetGround.Label">Carreteras mojadas y charcos</String>
+  <String key="WetGround.Tooltip">Durante y después de la lluvia, las carreteras y el suelo se oscurecen y brillan, reflejan la ciudad y el cielo, y se forman charcos en el suelo llano. 0% = desactivado</String>
+
+  <String key="WheelSpray.Label">Salpicaduras de las ruedas</String>
+  <String key="WheelSpray.Tooltip">Los coches levantan agua y neblina de las carreteras mojadas, más cuanto más rápido van. 0% = desactivado</String>
 
   <String key="Group.Lightning">Rayos</String>
 
@@ -260,6 +277,14 @@
   <String key="LightningBrightness.Label">Brillo de rayos</String>
 
   <String key="LightningStormScale.Label">Rayos en tormentas</String>
+
+  <String key="LightningVariety.Label">Variedad de rayos</String>
+  <String key="LightningVariety.Tooltip">Rayos de muchas formas y colores, descargas en ráfagas, chasquidos de cerca y retumbos a lo lejos. 0% = todos iguales</String>
+
+  <String key="StormMovement.Label">Tormentas</String>
+  <String key="StormMovement.Tooltip">Las tormentas viajeras llegan con el viento, pasan por donde miras y se alejan</String>
+  <String key="StormMovement.Around">Alrededor de la cámara</String>
+  <String key="StormMovement.Travelling">Tormentas viajeras</String>
 
   <String key="Group.Trees">Árboles (experimental)</String>
 
@@ -363,6 +388,8 @@
   <String key="CloudDepthOcclusion.Label">Edificios y terreno ocultan nubes detrás</String>
 
   <String key="SmootherClouds.Label">Nubes más suaves (mezcla varios fotogramas: menos grano)</String>
+  <String key="SmootherCloudsSharp.Label">Nubes más suaves sin estelas (prueba)</String>
+  <String key="SmootherCloudsSharp.Tooltip">Una nueva forma de mezclar los fotogramas: los bordes y cimas de las nubes ya no dejan estela al mover la cámara. Desactivado = la mezcla anterior</String>
 
   <String key="SimplerClouds.Label">Nubes más simples para tarjetas gráficas antiguas (a partir de la próxima ciudad que cargues)</String>
 

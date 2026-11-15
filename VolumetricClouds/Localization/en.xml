@@ -290,9 +290,26 @@
 
   <String key="RainFallSpeed.Label">Rain fall speed</String>
 
+  <String key="RainWind.Label">Wind on the rain</String>
+  <String key="RainWind.Tooltip">The wind blows the rain sideways, almost flat in a gale, and gusts sweep heavier rain past. 0% = straight down</String>
+
+  <String key="RainDetail.Label">Finer rain</String>
+  <String key="RainDetail.Tooltip">Small, medium and large drops, a few falling right in front of the camera, splashes on the ground, and rain lit by street lights and headlights at night</String>
+
+  <String key="StormMist.Label">Storm mist</String>
+  <String key="StormMist.Tooltip">In heavy rain and strong wind, mist rolls low along the streets with the wind. 0% = off</String>
+
   <String key="Rainbows.Label">Rainbows</String>
 
   <String key="RainLocalised.Label">Rain sound, wet roads and road snow follow the clouds</String>
+
+  <String key="Group.WetGround">Wet ground</String>
+
+  <String key="WetGround.Label">Wet roads and puddles</String>
+  <String key="WetGround.Tooltip">In and after rain, roads and ground get darker and shiny, mirror the city and the sky, and puddles form on flat ground. 0% = off</String>
+
+  <String key="WheelSpray.Label">Spray from wheels</String>
+  <String key="WheelSpray.Tooltip">Cars throw up spray and mist from wet roads, more the faster they go. 0% = off</String>
 
   <String key="Group.Lightning">Lightning</String>
 
@@ -303,6 +320,14 @@
   <String key="LightningBrightness.Label">Lightning brightness</String>
 
   <String key="LightningStormScale.Label">Lightning in storms</String>
+
+  <String key="LightningVariety.Label">Lightning variety</String>
+  <String key="LightningVariety.Tooltip">Bolts of many shapes and colors, strikes in bursts, cracks up close and rumbles far away. 0% = every strike alike</String>
+
+  <String key="StormMovement.Label">Storms</String>
+  <String key="StormMovement.Tooltip">Travelling storms come in from upwind, pass over where you look and move away</String>
+  <String key="StormMovement.Around">Around the camera</String>
+  <String key="StormMovement.Travelling">Travelling storms</String>
 
   <String key="Group.Trees">Trees (experimental)</String>
 
@@ -407,6 +432,8 @@
   <String key="CloudDepthOcclusion.Label">Buildings and terrain hide clouds behind them</String>
 
   <String key="SmootherClouds.Label">Smoother clouds (blends frames together: less grain)</String>
+  <String key="SmootherCloudsSharp.Label">Smoother clouds without smearing (test)</String>
+  <String key="SmootherCloudsSharp.Tooltip">A new way of blending the frames: cloud edges and tops no longer trail behind when the camera moves. Off = the blend before</String>
 
   <String key="SimplerClouds.Label">Simpler clouds for older graphics cards (starts with the next city you load)</String>
 

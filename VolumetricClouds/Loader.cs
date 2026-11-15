@@ -71,6 +71,7 @@ namespace VolumetricClouds
             Object.Destroy(_root);
             _root = null;
             CloudShaders.Clear();
+            Sky.GameCamera.Forget();
         }
 
         /// <summary>

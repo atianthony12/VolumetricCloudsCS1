@@ -58,6 +58,79 @@ namespace VolumetricClouds.Sky
 
             public Color Tint;
 
+            /// <summary>
+            /// (Lightning variety, 2026-11-15) Frames at the start of <see cref="Frames"/> in which a
+            /// faint leader crawls down before the channel flashes: 0 = none (every strike before).
+            /// </summary>
+            public uint LeaderFrames;
+
+            /// <summary>
+            /// (Lightning variety) One of ours with a <see cref="LightningBoltShape.Kind"/> (or -1 for
+            /// a sheet): the kind shapes its flash too -- a heavy stroke is brighter and short, a
+            /// staccato one has several strokes, a crawler is long and rolling -- with a leader in
+            /// front of most channels, and a wider palette. <paramref name="variety"/> 0..2.
+            /// </summary>
+            public static Profile Random(System.Random random, bool toGround, int kind, float variety)
+            {
+                Profile p = Random(random, toGround);
+                float v = Mathf.Clamp(variety, 0f, 2f);
+                if (v <= 0f)
+                    return p;
+
+                switch (kind)
+                {
+                    case (int)LightningBoltShape.Kind.Heavy:
+                        p.Strokes = 1;
+                        p.Frames = (uint)Mathf.Max(14, Mathf.Min((int)p.Frames, 40));
+                        p.Power = Mathf.Max(p.Power, 1.25f) * 1.15f;
+                        p.Reseed = 4u;
+                        break;
+                    case (int)LightningBoltShape.Kind.Staccato:
+                        p.Strokes = 3 + random.Next(0, 2);
+                        p.Frames = (uint)Mathf.Max((int)p.Frames, 50);
+                        p.Reseed = 2u;
+                        break;
+                    case (int)LightningBoltShape.Kind.Crawler:
+                        p.Frames = (uint)Mathf.Max((int)p.Frames, 60 + random.Next(0, 40));
+                        p.Strokes = Mathf.Max(p.Strokes, 2);
+                        p.Reach = Mathf.Max(p.Reach, 3500f);
+                        break;
+                    case (int)LightningBoltShape.Kind.AirDischarge:
+                        p.Power *= 0.8f;
+                        break;
+                }
+
+                // A leader for most channels (none for sheets): 6-18 frames, longer for long strokes.
+                if (kind >= 0 && random.NextDouble() < Mathf.Min(1f, 0.75f * v))
+                {
+                    uint leader = (uint)(6 + random.Next(0, 13));
+                    p.LeaderFrames = leader;
+                    p.Frames += leader;
+                }
+
+                p.Tint = VarietyTint(random, v, p.Tint);
+                return p;
+            }
+
+            /// <summary>
+            /// The wider palette (Lightning variety): blue-white 45%, white 15%, violet 15%, pink-violet
+            /// 8%, warm white 10%, a green-cyan cast 7% (seen through heavy rain); saturation stays
+            /// under 0.35. Below 100% it blends from the old tint.
+            /// </summary>
+            public static Color VarietyTint(System.Random random, float variety, Color old)
+            {
+                double roll = random.NextDouble();
+                float u = (float)random.NextDouble();
+                Color c;
+                if (roll < 0.45) c = new Color(Mathf.Lerp(0.7f, 0.82f, u), Mathf.Lerp(0.8f, 0.9f, u), 1f);
+                else if (roll < 0.6) c = new Color(Mathf.Lerp(0.95f, 1f, u), Mathf.Lerp(0.96f, 1f, u), 1f);
+                else if (roll < 0.75) c = new Color(Mathf.Lerp(0.74f, 0.84f, u), Mathf.Lerp(0.66f, 0.74f, u), 1f);
+                else if (roll < 0.83) c = new Color(Mathf.Lerp(0.92f, 1f, u), Mathf.Lerp(0.68f, 0.76f, u), Mathf.Lerp(0.9f, 1f, u));
+                else if (roll < 0.93) c = new Color(1f, Mathf.Lerp(0.88f, 0.95f, u), Mathf.Lerp(0.74f, 0.84f, u));
+                else c = new Color(Mathf.Lerp(0.68f, 0.76f, u), 1f, Mathf.Lerp(0.88f, 0.96f, u));
+                return Color.Lerp(old, c, Mathf.Clamp01(variety));
+            }
+
             /// <summary>The game's strike: its timing, our choice of everything it does not show.</summary>
             public static Profile ForGameStrike(System.Random random)
             {
@@ -126,6 +199,22 @@ namespace VolumetricClouds.Sky
             if (age >= profile.Frames)
                 return 0f;
 
+            // The leader: a faint glow in the cloud while it crawls down (the channel's own
+            // brightness is the shader's, LeaderReveal), then the strike as before over what is left.
+            if (profile.LeaderFrames > 0u)
+            {
+                if (age < profile.LeaderFrames)
+                {
+                    float crawl = new Randomizer(start ^ (frame / 2u)).Int32(0, 100) * 0.01f;
+                    return 0.06f + 0.06f * crawl;
+                }
+
+                age -= profile.LeaderFrames;
+                profile.Frames -= profile.LeaderFrames;
+                start += profile.LeaderFrames;
+                profile.LeaderFrames = 0u;
+            }
+
             float u = age / (float)profile.Frames;
 
             // Each return stroke is the game's own pulse shape, squeezed into its share of the
@@ -155,6 +244,43 @@ namespace VolumetricClouds.Sky
             float flickering = envelope * (0.45f + 0.55f * level);
 
             return Mathf.Clamp01(Mathf.Lerp(flickering, envelope, reduction));
+        }
+
+        /// <summary>
+        /// How far down the leader has crawled, 0..1 of the channel's path (LightningRibbon.cginc
+        /// RibbonShown), or -1 when there is no leader now (the whole channel shows). Stepped, as a
+        /// real stepped leader jumps: a new step every frame, a little uneven.
+        /// </summary>
+        public static float LeaderReveal(uint frame, uint start, Profile profile)
+        {
+            if (profile.LeaderFrames == 0u)
+                return -1f;
+
+            uint age = frame - start;
+            if (age >= profile.LeaderFrames)
+                return -1f;
+
+            float u = (age + 1f) / profile.LeaderFrames;
+            float wobble = (new Randomizer(start * 7u + age).Int32(0, 100) * 0.01f - 0.5f) * 0.5f / profile.LeaderFrames;
+            // Slow at first, then racing to the ground, as the leader's last steps are.
+            return Mathf.Clamp01(u * u * (1.6f - 0.6f * u) + wobble);
+        }
+
+        /// <summary>
+        /// 0..1: how much the forks have faded. They light with the first return stroke and the later
+        /// strokes run down the main channel alone. 0 for a strike without a leader (as before).
+        /// </summary>
+        public static float ForkFade(uint frame, uint start, Profile profile)
+        {
+            if (profile.LeaderFrames == 0u || profile.Strokes < 2)
+                return 0f;
+
+            uint age = frame - start;
+            if (age < profile.LeaderFrames)
+                return 0f;
+
+            float u = (age - profile.LeaderFrames) / (float)Mathf.Max(1, (int)(profile.Frames - profile.LeaderFrames));
+            return Mathf.Clamp01((u - 1f / profile.Strokes) * 3f) * 0.8f;
         }
 
         /// <summary>The game's formula, to the frame.</summary>

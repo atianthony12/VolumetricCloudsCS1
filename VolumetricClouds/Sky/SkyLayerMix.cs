@@ -31,15 +31,20 @@ namespace VolumetricClouds.Sky
         {
             "cirrus-1", "cirrus-2", "cirrus-3", "layers-1",
             "sheep-1", "sheep-2", "far-1", "far-2",
+            // 2026-11-15 (the author's four picks, for variety): a third texture.
+            "far-3", "sheep-3", "layers-2", "layers-3",
         };
 
         /// <summary>Each kind's pictures (indices into <see cref="Pictures"/>), thinnest first.</summary>
         private static readonly int[][] KindPictures =
         {
+            // 2026-11-15: each kind's new picture by its cloud cover (8K cut: sheep-1 19%, sheep-3 40%, sheep-2 47%;
+            // far-1 16%, far-3 33%, far-2 53%; layers-2 and -3 28%, layers-1 38%), the old last kept last so 100%
+            // ends where it did.
             new[] { 0, 1, 2 },
-            new[] { 4, 5 },
-            new[] { 6, 7 },
-            new[] { 3 },
+            new[] { 4, 9, 5 },
+            new[] { 6, 8, 7 },
+            new[] { 10, 11, 3 },
         };
 
         /// <summary>What the log calls each kind.</summary>

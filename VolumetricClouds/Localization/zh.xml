@@ -261,9 +261,26 @@
 
   <String key="RainFallSpeed.Label">雨雪下落速度</String>
 
+  <String key="RainWind.Label">风吹雨</String>
+  <String key="RainWind.Tooltip">风把雨吹斜，大风中几乎横飞，阵风带来更密的雨。0% = 垂直落下</String>
+
+  <String key="RainDetail.Label">更细致的雨</String>
+  <String key="RainDetail.Tooltip">大小不一的雨滴，一些就落在镜头前，地面溅起水花，夜里雨被路灯和车灯照亮</String>
+
+  <String key="StormMist.Label">风暴雾气</String>
+  <String key="StormMist.Tooltip">大雨强风时，雾气随风贴着街道翻滚。0% = 关闭</String>
+
   <String key="Rainbows.Label">彩虹</String>
 
   <String key="RainLocalised.Label">雨声、湿路和路面积雪跟随云层</String>
+
+  <String key="Group.WetGround">湿地面</String>
+
+  <String key="WetGround.Label">湿路面和水洼</String>
+  <String key="WetGround.Tooltip">雨中和雨后，道路和地面变暗发亮，映出城市和天空，平地上积起水洼。0% = 关闭</String>
+
+  <String key="WheelSpray.Label">车轮溅水</String>
+  <String key="WheelSpray.Tooltip">汽车在湿路上溅起水花和水雾，车速越快越多。0% = 关闭</String>
 
   <String key="Group.Lightning">闪电</String>
 
@@ -274,6 +291,14 @@
   <String key="LightningBrightness.Label">闪电亮度</String>
 
   <String key="LightningStormScale.Label">暴雨中的闪电</String>
+
+  <String key="LightningVariety.Label">闪电多样性</String>
+  <String key="LightningVariety.Tooltip">形状和颜色各异的闪电，成串落下，近处炸响、远处隆隆。0% = 每道闪电都一样</String>
+
+  <String key="StormMovement.Label">风暴</String>
+  <String key="StormMovement.Tooltip">移动的风暴随风而来，经过你所看的地方，然后远去</String>
+  <String key="StormMovement.Around">围绕镜头</String>
+  <String key="StormMovement.Travelling">移动的风暴</String>
 
   <String key="Group.Trees">树木（实验性）</String>
 
@@ -377,6 +402,8 @@
   <String key="CloudDepthOcclusion.Label">建筑和地形遮挡后方云层</String>
 
   <String key="SmootherClouds.Label">更平滑的云层（混合多帧画面：减少颗粒感）</String>
+  <String key="SmootherCloudsSharp.Label">更平滑的云层且无拖影（测试）</String>
+  <String key="SmootherCloudsSharp.Tooltip">新的帧混合方式：镜头移动时，云的边缘和顶部不再拖影。关闭 = 之前的混合</String>
 
   <String key="SimplerClouds.Label">适用于较旧显卡的简化云层（从下一次载入城市开始生效）</String>
 

@@ -42,6 +42,10 @@ namespace VolumetricClouds.Sky
         private const float LogInterval = 5f;
         private const float SpeedOfSound = 343f;
         private const float MaxThunderDelay = 6f;
+        /// <summary>With Lightning variety on: travelling storms reach further, and the delay tells the distance.</summary>
+        private const float MaxThunderDelayVariety = 10f;
+
+        private static readonly int IdBoltLeader = Shader.PropertyToID("_BoltLeader");
 
         private static readonly int IdFlashCount = Shader.PropertyToID("_FlashCount");
         private static readonly int IdFlashPos = Shader.PropertyToID("_FlashPos");
@@ -73,6 +77,10 @@ namespace VolumetricClouds.Sky
             public float RollIn = -1f;      // a second, lower roll of thunder, for some strikes
             public float Intensity;
             public bool Seen;
+            /// <summary>Its LightningBoltShape kind, -1 for a sheet or a 1.5.3 strike (variety 0).</summary>
+            public int Kind = -1;
+            /// <summary>Is a follow-up of a burst (never bursts again).</summary>
+            public bool FollowUp;
 
             /// <summary>Sheet lightning is seen through more cloud than a stroke to the ground.</summary>
             public float Power
@@ -115,6 +123,35 @@ namespace VolumetricClouds.Sky
         private int _ownInView;
         private int _ownSkippedNoCloud;
         private bool _loggedCamera;
+
+        // Travelling storms and bursts (2026-11-15).
+        private readonly StormCells _cells = new StormCells();
+        private readonly List<LightningBursts.FollowUp> _burst = new List<LightningBursts.FollowUp>();
+
+        private struct Pending
+        {
+            public float In;
+            public Vector3 Near;
+            public bool Twin;
+        }
+
+        private readonly List<Pending> _pending = new List<Pending>();
+        private int _ownFollowUps;
+        private int _ownInCell;
+        private int _loggedMovement = -1;
+        private System.Func<Vector3, float> _cloudAt;
+
+        /// <summary>"Lightning variety", 0..2 (1 = 100%).</summary>
+        private static float Variety
+        {
+            get { return Settings.LightningVariety != null ? Mathf.Clamp(Settings.LightningVariety.value, 0f, 2f) : Settings.Defaults.LightningVariety; }
+        }
+
+        /// <summary>"Storms" is Travelling storms.</summary>
+        private static bool Travelling
+        {
+            get { return Settings.StormMovement != null && Settings.StormMovement.value == 1; }
+        }
 
         /// <summary>
         /// Seconds between thunderclaps, whatever the strike rate. At 400% more than one strike
@@ -161,7 +198,7 @@ namespace VolumetricClouds.Sky
                 return;
 
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = GameCamera.Get();
             if (_camera == null)
                 return;
 
@@ -186,6 +223,8 @@ namespace VolumetricClouds.Sky
             if (!paused)
                 _ownClock += Time.deltaTime * 60.0;
             uint ownFrame = (uint)_ownClock;
+
+            AdvanceCells(paused, simulation);
 
             ReadGameStrikes(frame);
             SpawnOwnStrikes(ownFrame, paused);
@@ -217,6 +256,9 @@ namespace VolumetricClouds.Sky
                                " | last 5s: game strikes=" + _gameSeen + " own=" + _ownSpawned +
                                " ofWhichInView=" + _ownInView +
                                " skippedNoCloud=" + _ownSkippedNoCloud +
+                               " followUps=" + _ownFollowUps + " inCell=" + _ownInCell +
+                               " | variety " + (Variety * 100f).ToString("F0") + "%, storms " +
+                               (Travelling ? "travelling: " + _cells.Describe() + ", clouds drift " + _cells.DriftSpeed.ToString("F1") + " m/s" : "around the camera") +
                                " | active=" + _active.Count + " flashingReduction=" + _reduction.ToString("F2") +
                                " gameBolt=" + (_gameBoltHidden ? "hidden" : "shown") +
                                " | bolt map " + (_boltMap != null ? _boltMap.Describe() : "none"));
@@ -226,7 +268,58 @@ namespace VolumetricClouds.Sky
                 _ownSpawned = 0;
                 _ownInView = 0;
                 _ownSkippedNoCloud = 0;
+                _ownFollowUps = 0;
+                _ownInCell = 0;
             }
+        }
+
+        /// <summary>Where the camera looks: the point the game's camera orbits, else under the camera.</summary>
+        private Vector3 LookAt()
+        {
+            CameraController controller = GameCamera.Controller;
+            Vector3 point = controller != null ? controller.m_currentPosition : _camera.transform.position;
+            if (Singleton<TerrainManager>.exists)
+                point.y = Singleton<TerrainManager>.instance.SampleRawHeightSmooth(point);
+            return point;
+        }
+
+        /// <summary>Travelling storms: the cells move with the clouds; off, they go.</summary>
+        private void AdvanceCells(bool paused, SimulationManager simulation)
+        {
+            int movement = Travelling ? 1 : 0;
+            if (movement != _loggedMovement)
+            {
+                _loggedMovement = movement;
+                Log.Msg("lightning: storms " + (movement == 1
+                    ? "travel -- each is born upwind of where the camera looks, passes over and moves away downwind"
+                    : "stay around the camera (as before)") + "; variety " + (Variety * 100f).ToString("F0") + "%");
+            }
+
+            if (movement == 0)
+            {
+                _cells.Clear("storms around the camera");
+                return;
+            }
+
+            float activity = Activity();
+            if (activity <= 0f)
+            {
+                if (_cells.Cells.Count > 0)
+                    _cells.Clear("no storm: the rain or the cover dropped");
+                return;
+            }
+
+            if (_cloudAt == null)
+                _cloudAt = CloudAt;
+
+            float simSeconds = paused ? 0f : Time.deltaTime * SimulationRate(simulation);
+            _cells.Advance(simSeconds, Time.deltaTime, LookAt(), CloudWeather.WindDirection, activity, _camera, _cloudAt, _random);
+        }
+
+        /// <summary>Simulation speed: 1, 2 or 3 (the wind and the clouds move with it).</summary>
+        private static float SimulationRate(SimulationManager simulation)
+        {
+            return Mathf.Max(1, simulation.FinalSimulationSpeed);
         }
 
         // ---- the game's strikes -------------------------------------------------------------
@@ -362,10 +455,21 @@ namespace VolumetricClouds.Sky
 
             float activity = Activity();
             if (activity <= 0f)
+            {
+                _pending.Clear();
                 return;
+            }
 
-            // Real time, not simulation time: at 3x speed a storm should not strobe.
-            float rate = LightningPlacement.StrikesPerSecond(activity);
+            float variety = Variety;
+            SpawnFollowUps(frame, variety);
+
+            // Real time, not simulation time: at 3x speed a storm should not strobe. With variety the
+            // strikes come in bursts, so the first strikes are fewer by the burst's mean size and the
+            // slider's "one every N s" holds on average; a travelling storm far off flashes less.
+            float rate = LightningPlacement.StrikesPerSecond(activity) / LightningBursts.ExpectedSize(activity, variety);
+            bool cells = Travelling && _cells.Cells.Count > 0;
+            if (cells)
+                rate *= StormCellRules.RateScale(_cells.Strongest);
             if (_random.NextDouble() > Time.deltaTime * rate)
                 return;
 
@@ -373,10 +477,16 @@ namespace VolumetricClouds.Sky
             Vector3 spot = Vector3.zero;
             bool found = false;
             bool inView = false;
+            int cellId = 0;
 
             float ground = Singleton<TerrainManager>.exists
                 ? Singleton<TerrainManager>.instance.SampleRawHeightSmooth(camera)
                 : 0f;
+
+            // Travelling storms: 85% of the strikes come from a cell (chosen by how active it is);
+            // the rest stay all round the camera, as thunder from anywhere belongs in a storm.
+            if (cells && _random.NextDouble() < 0.85)
+                found = SpotInCell(camera, out spot, out inView, out cellId);
 
             // Only ever inside cloud -- and mostly where the camera is pointed. The rate
             // was never the reason the storms went unseen; where the strikes were put was.
@@ -407,35 +517,144 @@ namespace VolumetricClouds.Sky
                 return;
             }
 
+            // Most lightning stays in the cloud; some of it comes down.
+            bool toGround = _random.NextDouble() < 0.35;
+            Strike own = AddOwnStrike(frame, spot, toGround, inView, cellId, false);
+            if (own == null)
+                return;
+
+            // A burst: the follow-ups land near this one, a little later (never from a follow-up).
+            LightningBursts.Draw(_random, activity, variety, _burst);
+            foreach (LightningBursts.FollowUp f in _burst)
+                _pending.Add(new Pending { In = f.Delay, Near = new Vector3(spot.x + f.Dx, spot.y, spot.z + f.Dz), Twin = f.Twin });
+        }
+
+        /// <summary>A strike of ours at <paramref name="spot"/> (on the ground: its height is set here).</summary>
+        private Strike AddOwnStrike(uint frame, Vector3 spot, bool toGround, bool inView, int cellId, bool followUp)
+        {
+            Vector3 camera = _camera.transform.position;
             spot.y = Singleton<TerrainManager>.exists
                 ? Singleton<TerrainManager>.instance.SampleRawHeightSmooth(spot)
                 : 0f;
 
-            // Most lightning stays in the cloud; some of it comes down.
-            bool toGround = _random.NextDouble() < 0.35;
             Strike own = NewStrike(frame, spot, false, toGround);
+            own.FollowUp = followUp;
 
-            float delay = Mathf.Min(Vector3.Distance(camera, own.Source) / SpeedOfSound, MaxThunderDelay);
+            float distance = Vector3.Distance(camera, own.Source);
+            float variety = Variety;
+            float delay = Mathf.Min(distance / SpeedOfSound, variety > 0f ? MaxThunderDelayVariety : MaxThunderDelay);
+            // The clap leaves with the return stroke, after the leader has crawled down.
+            delay += own.Profile.LeaderFrames / 60f;
             own.ThunderIn = delay;
 
-            // A long strike, or now and then any strike, rolls on after the first clap.
-            if (own.Profile.Frames > 45u || _random.NextDouble() < 0.3)
+            // A long strike, or now and then any strike, rolls on after the first clap. With variety a
+            // close one cracks and its roll follows almost at once.
+            if (variety > 0f && distance < 1200f)
+                own.RollIn = delay + Mathf.Lerp(0.2f, 0.5f, (float)_random.NextDouble());
+            else if (own.Profile.Frames > 45u || _random.NextDouble() < 0.3)
                 own.RollIn = delay + Mathf.Lerp(0.5f, 1.6f, (float)_random.NextDouble());
 
             if (Log.Detailed)
             {
                 LightningFlicker.Profile p = own.Profile;
-                Log.Detail("lightning: own " + (toGround ? "bolt" : "sheet") +
-                           (inView ? " in view" : " all-round") +
-                           " at " + Vector3.Distance(camera, spot).ToString("F0") + " m" +
-                           ", lasts " + (p.Frames / 60f).ToString("F2") + "s, " + p.Strokes + " stroke(s), flicker every " +
-                           p.Reseed + " frames, power " + p.Power.ToString("F2") + ", reach " + p.Reach.ToString("F0") + " m");
+                Vector3 to = spot - camera;
+                Log.Detail("lightning: own " + (own.Kind >= 0 ? ((LightningBoltShape.Kind)own.Kind).ToString() : toGround ? "bolt" : "sheet") +
+                           (followUp ? " (burst)" : "") + (inView ? " in view" : " all-round") +
+                           (cellId > 0 ? " from cell #" + cellId : "") +
+                           " at (" + spot.x.ToString("F0") + ", " + spot.z.ToString("F0") + "), " +
+                           Vector3.Distance(camera, spot).ToString("F0") + " m " + StormCells.Bearing(to) + " of the camera" +
+                           ", lasts " + (p.Frames / 60f).ToString("F2") + "s" +
+                           (p.LeaderFrames > 0 ? " (leader " + p.LeaderFrames + " frames)" : "") + ", " + p.Strokes + " stroke(s), flicker every " +
+                           p.Reseed + " frames, power " + p.Power.ToString("F2") + ", reach " + p.Reach.ToString("F0") + " m, tint (" +
+                           p.Tint.r.ToString("F2") + ", " + p.Tint.g.ToString("F2") + ", " + p.Tint.b.ToString("F2") + ")");
             }
 
             _ownStrikes.Add(own);
             _ownSpawned++;
             if (inView)
                 _ownInView++;
+            if (cellId > 0)
+                _ownInCell++;
+            if (followUp)
+                _ownFollowUps++;
+            return own;
+        }
+
+        /// <summary>Bursts: the follow-ups whose time has come land near their first strike, if there is cloud.</summary>
+        private void SpawnFollowUps(uint frame, float variety)
+        {
+            for (int i = _pending.Count - 1; i >= 0; i--)
+            {
+                Pending p = _pending[i];
+                p.In -= Time.deltaTime;
+                if (p.In > 0f)
+                {
+                    _pending[i] = p;
+                    continue;
+                }
+
+                _pending.RemoveAt(i);
+                if (variety <= 0f || CloudAt(p.Near) <= 0.45f)
+                    continue;
+
+                bool toGround = p.Twin || _random.NextDouble() < 0.45;
+                Vector3 camera = _camera.transform.position;
+                Vector2 kept = StormCellRules.KeepAway(camera.x, camera.z, new Vector2(p.Near.x, p.Near.z));
+                AddOwnStrike(frame, new Vector3(kept.x, p.Near.y, kept.y), toGround, false, 0, true);
+            }
+        }
+
+        /// <summary>
+        /// A spot inside a storm cell, the cell chosen by how active it is. While a cell is in view,
+        /// 60% of its strikes are tried in the part of it the camera sees.
+        /// </summary>
+        private bool SpotInCell(Vector3 camera, out Vector3 spot, out bool inView, out int cellId)
+        {
+            spot = Vector3.zero;
+            inView = false;
+            cellId = 0;
+
+            float total = 0f;
+            foreach (StormCells.Cell c in _cells.Cells)
+                total += c.Envelope;
+            if (total <= 0f)
+                return false;
+
+            float pick = (float)_random.NextDouble() * total;
+            StormCells.Cell cell = _cells.Cells[0];
+            foreach (StormCells.Cell c in _cells.Cells)
+            {
+                cell = c;
+                pick -= c.Envelope;
+                if (pick <= 0f)
+                    break;
+            }
+
+            Vector3 centre = cell.Position(camera.y);
+            float half = StormCellRules.HalfWedge(_camera.fieldOfView, _camera.aspect);
+            Vector3 heading = _camera.transform.forward;
+            bool wantView = cell.InView && _random.NextDouble() < 0.6;
+
+            for (int attempt = 0; attempt < 12; attempt++)
+            {
+                Vector2 s = StormCellRules.SpotIn(centre.x, centre.z, cell.Radius,
+                    (float)_random.NextDouble(), (float)_random.NextDouble());
+                s = StormCellRules.KeepAway(camera.x, camera.z, s);
+                bool seen = StormCellRules.InWedge(camera.x, camera.z, heading.x, heading.z, half, s.x, s.y);
+                if (wantView && !seen && attempt < 8)
+                    continue;
+
+                Vector3 candidate = new Vector3(s.x, 0f, s.y);
+                if (CloudAt(candidate) <= 0.45f)
+                    continue;
+
+                spot = candidate;
+                inView = seen;
+                cellId = cell.Id;
+                return true;
+            }
+
+            return false;
         }
 
         // ---- shared ---------------------------------------------------------------------------
@@ -459,6 +678,15 @@ namespace VolumetricClouds.Sky
                 bottom + Mathf.Max(50f, thickness) * depth,
                 ground.z + ((float)random.NextDouble() - 0.5f) * 500f);
 
+            // Lightning variety (2026-11-15): a kind of channel per strike. 0% = the 1.5.3 code paths.
+            float variety = Variety;
+            int kind = -1;
+            if (variety > 0f)
+            {
+                bool underBase = _camera != null && _camera.transform.position.y < bottom;
+                kind = LightningBoltShape.Pick(random.NextDouble(), variety, withBolt, fromGame, underBase);
+            }
+
             // No two alike. The game's strikes keep the game's timing (its ground lights and
             // thunder run on it); ours vary in everything.
             Strike strike = new Strike
@@ -468,12 +696,23 @@ namespace VolumetricClouds.Sky
                 Source = source,
                 Profile = fromGame
                     ? LightningFlicker.Profile.ForGameStrike(random)
-                    : LightningFlicker.Profile.Random(random, withBolt),
+                    : variety > 0f
+                        ? LightningFlicker.Profile.Random(random, withBolt, kind, variety)
+                        : LightningFlicker.Profile.Random(random, withBolt),
                 FromGame = fromGame,
+                Kind = kind,
             };
 
-            if (withBolt && _boltMaterial != null && source.y > ground.y + 50f)
-                strike.Bolt = LightningBoltMesh.Build(source, ground, random);
+            if (fromGame && variety > 0f)
+                strike.Profile.Tint = LightningFlicker.Profile.VarietyTint(random, variety, strike.Profile.Tint);
+
+            if (_boltMaterial != null && source.y > ground.y + 50f)
+            {
+                if (kind >= 0)
+                    strike.Bolt = LightningBoltMesh.Build((LightningBoltShape.Kind)kind, source, ground, bottom, random);
+                else if (withBolt)
+                    strike.Bolt = LightningBoltMesh.Build(source, ground, random);
+            }
 
             return strike;
         }
@@ -589,7 +828,24 @@ namespace VolumetricClouds.Sky
             _thunderReady = ThunderCooldown;
             float volume = Mathf.Clamp01((clap.Bolt != null ? 0.7f : 0.45f) * (0.6f + 0.5f * clap.Profile.Power))
                          * LightningPlacement.ThunderVolume(nearest);
-            Thunder(clap, volume, _soundRandomizer.Int32(620, 1150) * 0.001f);
+            int low = 620, high = 1150;
+            if (Variety > 0f)
+            {
+                // The one sound the game has, pitched by distance: a sharp crack close by, a low
+                // quiet rumble far off, as Lightning variety's thunder.
+                if (nearest < 1200f)
+                {
+                    low = 1050;
+                    high = 1300;
+                }
+                else if (nearest > 4000f)
+                {
+                    low = 450;
+                    high = 700;
+                    volume *= 0.8f;
+                }
+            }
+            Thunder(clap, volume, _soundRandomizer.Int32(low, high) * 0.001f);
         }
 
         /// <summary>Counts a timer down; true on the frame it runs out. Negative means not pending.</summary>
@@ -615,8 +871,9 @@ namespace VolumetricClouds.Sky
             try
             {
                 AudioManager audio = Singleton<AudioManager>.instance;
+                bool landed = strike.Bolt != null && (strike.Kind < 0 || LightningBoltShape.ReachesGround((LightningBoltShape.Kind)strike.Kind));
                 audio.AddEvent(audio.EffectGroup, properties.m_lightningSound.GetVariation(ref _soundRandomizer),
-                               strike.Bolt != null ? strike.Ground : strike.Source, Vector3.zero,
+                               landed ? strike.Ground : strike.Source, Vector3.zero,
                                10000f, volume, pitch);
             }
             catch (Exception e)
@@ -656,12 +913,26 @@ namespace VolumetricClouds.Sky
                 if (strike.FromGame && !replaceGame)
                     continue;
 
-                // Per strike, so each bolt has the colour of its own flash in the cloud.
+                // Per strike, so each bolt has the colour of its own flash in the cloud. With variety,
+                // seen through the air between: close ones blue-white, far ones dimmer and pinker.
                 Color colour = strike.Profile.Tint * (22f * brightness);
+                float variety = Variety;
+                if (variety > 0f)
+                    colour *= LightningBursts.DistanceTint(Vector3.Distance(_camera.transform.position, strike.Ground), variety);
+
+                // The leader (x on, y revealed share of the path), and the forks' fade (w). Zero = all
+                // shown, as every 1.5.3 bolt and every game strike.
+                uint frameNow = strike.FromGame ? Singleton<SimulationManager>.instance.m_referenceFrameIndex : (uint)_ownClock;
+                float reveal = LightningFlicker.LeaderReveal(frameNow, strike.StartFrame, strike.Profile);
+                float forkFade = LightningFlicker.ForkFade(frameNow, strike.StartFrame, strike.Profile);
+                float intensity = strike.Intensity * strike.Power;
+                if (reveal >= 0f)
+                    intensity = 0.35f * strike.Power;   // the leader: faint, its tip brighter (shader)
 
                 _block.Clear();
                 _block.SetVector(IdBoltColor, new Vector4(colour.r, colour.g, colour.b, 0f));
-                _block.SetFloat(IdBoltIntensity, strike.Intensity * strike.Power);
+                _block.SetFloat(IdBoltIntensity, intensity);
+                _block.SetVector(IdBoltLeader, new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal), 0f, forkFade));
                 Graphics.DrawMesh(strike.Bolt, Matrix4x4.identity, _boltMaterial, 0, null, 0, _block);
                 _drawnBolts.Add(strike.Bolt);
                 drawn = true;
@@ -726,6 +997,8 @@ namespace VolumetricClouds.Sky
             _gameStrikes.Clear();
             _ownStrikes.Clear();
             _active.Clear();
+            _pending.Clear();
+            _cells.Clear("lightning off or the weather hidden");
             _flashCount = 0;
 
             if (_boltMap != null)

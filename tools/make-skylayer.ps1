@@ -18,7 +18,10 @@ param(
     [int]$Width = 4096,
     [int]$Quality = 85,
     [string[]]$Only,
-    [switch]$Views
+    [switch]$Views,
+    # 2026-11-15 (the author: "more high definition"): which Poly Haven size the sources are, <id>_<Res>.hdr.
+    # 8k sources with -Width 8192 = their upper half at full size.
+    [string]$Res = "4k"
 )
 
 # The skies: what the mod calls each picture, the Poly Haven name, where the cloud starts fading in
@@ -34,7 +37,12 @@ $skies = @(
     @{ Name = "sheep-2";   Id = "citrus_orchard_road_puresky"; Cut = 1.0; SunClear = 0;  SunFill = 0;  Rays = $false },
     @{ Name = "far-1";     Id = "rosendal_plains_2";           Cut = 1.5; SunClear = 25; SunFill = 0;  Rays = $true },
     @{ Name = "far-2";     Id = "quarry_cloudy";               Cut = 1.5; SunClear = 0;  SunFill = 0;  Rays = $false },
-    @{ Name = "layers-1";  Id = "cloud_layers";                Cut = 1.5; SunClear = 0;  SunFill = 13; Rays = $false }
+    @{ Name = "layers-1";  Id = "cloud_layers";                Cut = 1.5; SunClear = 0;  SunFill = 13; Rays = $false },
+    # 2026-11-15, more variety (the author's four picks of Poly Haven's pure skies).
+    @{ Name = "far-3";     Id = "kloofendal_48d_partly_cloudy_puresky"; Cut = 1.0; SunClear = 0; SunFill = 0; Rays = $false; Ground = $false },
+    @{ Name = "sheep-3";   Id = "sunflowers_puresky";          Cut = 1.0; SunClear = 0;  SunFill = 0;  Rays = $false; Ground = $false },
+    @{ Name = "layers-2";  Id = "wasteland_clouds_puresky";    Cut = 1.0; SunClear = 0;  SunFill = 0;  Rays = $false; Ground = $false },
+    @{ Name = "layers-3";  Id = "kloofendal_overcast_puresky"; Cut = 1.0; SunClear = 0;  SunFill = 0;  Rays = $false; Ground = $false }
 )
 
 Add-Type -Path (Join-Path $PSScriptRoot "SkyLayerMaker.cs") -ReferencedAssemblies System.Drawing
@@ -44,11 +52,13 @@ if ($Out) { New-Item -ItemType Directory -Force $Out | Out-Null }
 $total = 0
 foreach ($s in $skies) {
     if ($Only -and $Only -notcontains $s.Name) { continue }
-    $hdr = Join-Path $Source ($s.Id + "_4k.hdr")
+    $hdr = Join-Path $Source ($s.Id + "_" + $Res + ".hdr")
     if (-not (Test-Path $hdr)) { Write-Host "MISSING $hdr"; continue }
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
     $sky = [SkyLayerMaker]::ReadUpperHalf($hdr)
+    # A pure sky (no ground in the photo): no ground search (its low clouds were taken for hills).
+    [SkyLayerMaker]::SkylineMax = $(if ($s.Ground -eq $false) { 0.0 } else { 20.0 })
     $cut = [SkyLayerMaker]::Extract($sky, [float]$s.Cut, 3.0, [float]$s.SunClear, [float]$s.SunFill, [bool]$s.Rays)
     $h = $Width / 4
     $small = [SkyLayerMaker]::Downsample($cut.Cloud, $cut.Width, $cut.Height, $Width, $h)

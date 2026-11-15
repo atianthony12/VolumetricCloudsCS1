@@ -247,9 +247,26 @@
 
   <String key="RainFallSpeed.Label">Vitesse de chute</String>
 
+  <String key="RainWind.Label">Vent sur la pluie</String>
+  <String key="RainWind.Tooltip">Le vent pousse la pluie de côté, presque à l'horizontale dans une tempête, et les rafales amènent des averses plus fortes. 0 % = tombe droit</String>
+
+  <String key="RainDetail.Label">Pluie plus fine</String>
+  <String key="RainDetail.Tooltip">Petites, moyennes et grosses gouttes, quelques-unes juste devant la caméra, des éclaboussures au sol et une pluie éclairée par les réverbères et les phares la nuit</String>
+
+  <String key="StormMist.Label">Brume d'orage</String>
+  <String key="StormMist.Tooltip">Sous une forte pluie et un vent fort, la brume roule au ras des rues avec le vent. 0 % = désactivé</String>
+
   <String key="Rainbows.Label">Arcs-en-ciel</String>
 
   <String key="RainLocalised.Label">Son, routes mouillées et neige suivent les nuages</String>
+
+  <String key="Group.WetGround">Sol mouillé</String>
+
+  <String key="WetGround.Label">Routes mouillées et flaques</String>
+  <String key="WetGround.Tooltip">Pendant et après la pluie, routes et sol s'assombrissent et brillent, reflètent la ville et le ciel, et des flaques se forment sur le sol plat. 0 % = désactivé</String>
+
+  <String key="WheelSpray.Label">Projections des roues</String>
+  <String key="WheelSpray.Tooltip">Les voitures soulèvent de l'eau et de la brume sur les routes mouillées, d'autant plus qu'elles roulent vite. 0 % = désactivé</String>
 
   <String key="Group.Lightning">Éclairs</String>
 
@@ -260,6 +277,14 @@
   <String key="LightningBrightness.Label">Luminosité des éclairs</String>
 
   <String key="LightningStormScale.Label">Éclairs en tempête</String>
+
+  <String key="LightningVariety.Label">Variété des éclairs</String>
+  <String key="LightningVariety.Tooltip">Éclairs de formes et de couleurs variées, en salves, claquements de près et grondements au loin. 0 % = tous pareils</String>
+
+  <String key="StormMovement.Label">Orages</String>
+  <String key="StormMovement.Tooltip">Les orages qui se déplacent arrivent avec le vent, passent là où vous regardez puis s'éloignent</String>
+  <String key="StormMovement.Around">Autour de la caméra</String>
+  <String key="StormMovement.Travelling">Orages qui se déplacent</String>
 
   <String key="Group.Trees">Arbres (expérimental)</String>
 
@@ -363,6 +388,8 @@
   <String key="CloudDepthOcclusion.Label">Bâtiments et terrain masquent les nuages derrière eux</String>
 
   <String key="SmootherClouds.Label">Nuages plus lisses (mélange plusieurs images : moins de grain)</String>
+  <String key="SmootherCloudsSharp.Label">Nuages plus lisses sans traînées (test)</String>
+  <String key="SmootherCloudsSharp.Tooltip">Une nouvelle façon de mélanger les images : les bords et sommets des nuages ne traînent plus quand la caméra bouge. Désactivé = le mélange d'avant</String>
 
   <String key="SimplerClouds.Label">Nuages simplifiés pour cartes graphiques anciennes (à partir de la prochaine ville chargée)</String>
 

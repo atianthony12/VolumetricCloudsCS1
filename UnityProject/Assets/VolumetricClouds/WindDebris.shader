@@ -37,7 +37,7 @@ Shader "VolumetricClouds/WindDebris"
             #pragma target 3.5   // not 4.0: no Metal code at 4.0 in Unity 5.6 (see CloudRaymarch.shader)
             #include "UnityCG.cginc"
 
-            float _Part;          // 0 = leaves, 1 = dust
+            float _Part;          // 0 = leaves, 1 = dust, 2 = storm mist (2026-11-15: the dust's motion, bigger, wet, wherever it rains)
             float4 _WVFocus;      // xyz = the point the camera looks at, on the ground
             float4 _WVMapPlace;   // xy = the map's corner (world x, z), z = 1 / its width (m)
             sampler2D _WVMap;
@@ -98,11 +98,12 @@ Shader "VolumetricClouds/WindDebris"
 
                 float3 seed = v.vertex.xyz;
                 float3 e = v.extra;
-                bool dust = _Part > 0.5;
+                bool dust = _Part > 0.5;     // dust AND mist: soft puffs low over the ground
+                bool mist = _Part > 1.5;
 
                 // Its life: a whole number of lives in the clock's period (leaves 4-8 s, dust 6-13 s at
                 // 64 s), counted on across the clock's wraps.
-                float lives = dust ? 5.0 + floor(e.x * 6.0) : 8.0 + floor(e.x * 9.0);
+                float lives = mist ? 4.0 + floor(e.x * 4.0) : (dust ? 5.0 + floor(e.x * 6.0) : 8.0 + floor(e.x * 9.0));
                 float t = lives * _WVClock.x + seed.x;
                 float life = floor(t);
                 float u = t - life;
@@ -125,7 +126,8 @@ Shader "VolumetricClouds/WindDebris"
                 float4 at = MapAt(here);
                 float ground = _WVFocus.y + at.b;
                 float strength = _WVWind.w;
-                float share = dust ? from.a : from.r;
+                // Mist: wherever it rains (the C# side scales it by the rain); dust where the ground is dusty.
+                float share = mist ? 1.0 : (dust ? from.a : from.r);
                 float shown = saturate((share * strength - e.y) * 8.0);
 
                 float3 centre;
@@ -135,9 +137,10 @@ Shader "VolumetricClouds/WindDebris"
                 if (dust)
                 {
                     // Low, rising a little and spreading as it drifts.
-                    float rise = (1.0 + 5.0 * r.z * strength) * sqrt(u);
-                    centre = float3(here.x, ground + 0.5 + rise, here.y);
-                    size = (2.5 + 7.0 * u) * (0.6 + 0.8 * r.y) * (0.6 + 0.4 * strength);
+                    // Mist stays low and spreads wide; dust rises and grows less.
+                    float rise = mist ? (0.3 + 1.5 * r.z) * sqrt(u) : (1.0 + 5.0 * r.z * strength) * sqrt(u);
+                    centre = float3(here.x, ground + (mist ? 1.2 : 0.5) + rise, here.y);
+                    size = mist ? (6.0 + 14.0 * u) * (0.6 + 0.8 * r.y) : (2.5 + 7.0 * u) * (0.6 + 0.8 * r.y) * (0.6 + 0.4 * strength);
                     lengthwise = size * _WVLook.y;
                     flight = float3(dir.x, 0.05, dir.y);
                 }

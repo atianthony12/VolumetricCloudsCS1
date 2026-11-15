@@ -83,7 +83,7 @@ namespace VolumetricClouds.Sky
                 return;
 
             if (_camera == null)
-                _camera = Camera.main;
+                _camera = GameCamera.Get();
             if (_camera == null)
                 return;
 

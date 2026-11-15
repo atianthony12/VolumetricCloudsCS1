@@ -89,6 +89,8 @@ namespace VolumetricClouds
             gameObject.AddComponent<FogLampMap>();
             gameObject.AddComponent<TreeShaders>();
             gameObject.AddComponent<WindDebris>();
+            gameObject.AddComponent<WetGround>().Initialise(_field);
+            gameObject.AddComponent<WheelSpray>();
 
             BuildButton();
         }

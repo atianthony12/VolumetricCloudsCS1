@@ -196,6 +196,31 @@ namespace VolumetricClouds
         public static FloatSetting RainFallSpeed { get; private set; }
 
         /// <summary>
+        /// (2026-11-15) "Wind on the rain", 0..2: the city's wind (Sky.WeatherWind) leans the streaks --
+        /// near-horizontal in a gale -- carries them, and its gusts roll through as fronts with heavier
+        /// bands of rain. 0 = the streaks as before (the curtains' slant). The curtains are unchanged.
+        /// </summary>
+        public static FloatSetting RainWind { get; private set; }
+
+        /// <summary>(2026-11-15) "Finer rain": small, medium and large drops, a few right at the lens.</summary>
+        public static BoolSetting RainDetail { get; private set; }
+
+        /// <summary>
+        /// (2026-11-15) "Storm mist", 0..2: in heavy rain and a strong wind, mist rolls low along the streets on
+        /// the wind (Sky.WindDebris, its third part). 0 = nothing runs.
+        /// </summary>
+        public static FloatSetting StormMist { get; private set; }
+
+        /// <summary>
+        /// (2026-11-15) "Wet ground", 0..2: wet roads and ground darken, shine and mirror the city, with
+        /// puddles on level hard ground and rings from the drops in them (Sky.WetGround). 0 = nothing runs.
+        /// </summary>
+        public static FloatSetting WetGround { get; private set; }
+
+        /// <summary>(2026-11-15) "Spray from wheels", 0..3: cars throw spray and mist off wet roads (Sky.WheelSpray). 0 = nothing runs.</summary>
+        public static FloatSetting WheelSpray { get; private set; }
+
+        /// <summary>
         /// The rain sound and wet roads follow the clouds too -- and on a winter map road snow,
         /// which the game keeps as road wetness (1.3.0). The one setting that changes what the
         /// simulation sees (see SampleRainIntensityPatch).
@@ -250,6 +275,20 @@ namespace VolumetricClouds
         /// left on for ever.
         /// </summary>
         public static FloatSetting LightningStormScale { get; private set; }
+
+        /// <summary>
+        /// (2026-11-15) "Lightning variety", 0..2: bolt shapes (forked, heavy, staccato, dying in the
+        /// air, crawlers along the base, cloud to cloud), a leader crawling down first, a wider palette
+        /// and colour by distance, bursts of strikes, cracks and rumbles by distance. 0 = 1.5.3's
+        /// strikes through the old code paths.
+        /// </summary>
+        public static FloatSetting LightningVariety { get; private set; }
+
+        /// <summary>
+        /// (2026-11-15) "Storms": 0 around the camera (as before), 1 travelling storms (Sky.StormCells:
+        /// born upwind, pass over where the camera looks, leave downwind). Stored by value, append-only.
+        /// </summary>
+        public static IntSetting StormMovement { get; private set; }
 
         /// <summary>
         /// "Trees move in the wind" (Sky.TreeShaders, Sky.TreeWind): the game's tree shaders rebuilt
@@ -710,6 +749,12 @@ namespace VolumetricClouds
         public static BoolSetting SimplerClouds { get; private set; }
 
         /// <summary>
+        /// (2026-11-15, TEST row) Smoother clouds' new blend against smearing (CloudRaymarchPass.cginc
+        /// TemporalResolve, _TemporalParams.w): on = three depths, variance clip, sharp history; off = 1.5.3's.
+        /// </summary>
+        public static BoolSetting SmootherCloudsSharp { get; private set; }
+
+        /// <summary>
         /// World illumination at 100% coverage, 0..1. Overcast, not night. The CLOUD never takes it
         /// since 1.5.0 (Cloud brightness has its own Overcast values; with Auto brightness on it never
         /// did): it dims only the fog's sunlight. Kept for the players who set it,
@@ -1059,6 +1104,7 @@ namespace VolumetricClouds
 
             /// <summary>Simpler clouds: off, so the new row changes nothing for anyone (invariant 15).</summary>
             public const bool SimplerClouds = false;
+            public const bool SmootherCloudsSharp = true;
 
             /// <summary>
             /// Raymarch steps. 96 is the slider's maximum, what the author runs, and the shader's
@@ -1088,6 +1134,13 @@ namespace VolumetricClouds
             /// <summary>White: the streaks' colour exactly as before the setting existed.</summary>
             public static readonly Color32 RainStreakColor = new Color32(255, 255, 255, 255);
             public const float RainFallSpeed = 1f;
+            // 2026-11-15: seen in game ("The new settings are perfect"), on for every player at their middle
+            // value (the design's 100%), as Lightning variety (the author's call the same day).
+            public const float RainWind = 1f;
+            public const bool RainDetail = true;
+            public const float StormMist = 1f;
+            public const float WetGround = 1f;
+            public const float WheelSpray = 1f;
             public const bool RainLocalised = true;
 
             // ---- rainbows (1.3.0) ----
@@ -1107,6 +1160,10 @@ namespace VolumetricClouds
             public const bool LightningOverride = false;
             public const float LightningActivity = 0.5f;
             public const float LightningStormScale = 1f;
+            // 2026-11-15: the author asked for "a LOT" more variety; 100% for every player (confirmed the same day).
+            public const float LightningVariety = 1f;
+            // Travelling storms for every player (the author, 2026-11-15: "make this the default for our mod's lightning").
+            public const int StormMovement = 1;
 
             // ---- trees in the wind (2026-10-30) ----
             // Off for everyone until the author has judged it in-game; the rest at the design's 100%.
@@ -1258,6 +1315,11 @@ namespace VolumetricClouds
                 RainStreakOpacity = new FloatSetting("RainStreakOpacity", Defaults.RainStreakOpacity);
                 RainStreakColor = new ColorSetting("RainStreakColor", Defaults.RainStreakColor);
                 RainFallSpeed = new FloatSetting("RainFallSpeed", Defaults.RainFallSpeed);
+                RainWind = new FloatSetting("RainWind", Defaults.RainWind);
+                RainDetail = new BoolSetting("RainDetail", Defaults.RainDetail);
+                StormMist = new FloatSetting("StormMist", Defaults.StormMist);
+                WetGround = new FloatSetting("WetGround", Defaults.WetGround);
+                WheelSpray = new FloatSetting("WheelSpray", Defaults.WheelSpray);
                 RainLocalised = new BoolSetting("RainLocalised", Defaults.RainLocalised);
                 Rainbows = new FloatSetting("Rainbows", Defaults.Rainbows);
                 RainbowChance = new FloatSetting("RainbowChance", Defaults.RainbowChance);
@@ -1271,6 +1333,8 @@ namespace VolumetricClouds
                 // means exactly what it meant, so a saved one is still the sky it described.
                 LightningActivity = new FloatSetting("LightningActivity", Defaults.LightningActivity);
                 LightningStormScale = new FloatSetting("LightningStormScale", Defaults.LightningStormScale);
+                LightningVariety = new FloatSetting("LightningVariety", Defaults.LightningVariety);
+                StormMovement = new IntSetting("StormMovement", Defaults.StormMovement);
 
                 TreeWind = new BoolSetting("TreeWind", Defaults.TreeWind);
                 TreeWindStrength = new FloatSetting("TreeWindStrength", Defaults.TreeWindStrength);
@@ -1406,6 +1470,7 @@ namespace VolumetricClouds
                 // (its old "CloudTemporal" is retired, SettingsXml.Retired); a player who turns it off stays off.
                 CloudTemporal = new BoolSetting("SmootherClouds", Defaults.Temporal);
                 SimplerClouds = new BoolSetting("SimplerClouds", Defaults.SimplerClouds);
+                SmootherCloudsSharp = new BoolSetting("SmootherCloudsSharp", Defaults.SmootherCloudsSharp);
                 MinIllumination = new FloatSetting("MinIllumination", Defaults.MinIllumination);
 
                 CloudsVisible = new BoolSetting("CloudsVisible", Defaults.CloudsVisible);

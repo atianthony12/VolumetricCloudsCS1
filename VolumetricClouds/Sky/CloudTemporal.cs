@@ -36,6 +36,9 @@ namespace VolumetricClouds.Sky
         /// <summary>How much of the frames before each frame keeps: about ten frames' average.</summary>
         public const float Keep = 0.9f;
 
+        /// <summary>Which blend was last logged (the test row SmootherCloudsSharp); null: none yet.</summary>
+        private bool? _loggedSharp;
+
         /// <summary>While lightning flashes: the flash shows within a frame or two instead of fading in.</summary>
         public const float KeepInFlash = 0.5f;
 
@@ -212,7 +215,16 @@ namespace VolumetricClouds.Sky
             _resolve.SetVector(IdTemporalEye, new Vector4(eye.x, eye.y, eye.z, _up));
             _resolve.SetVector(IdTemporalSize, size);
             _resolve.SetMatrix(IdTemporalPrevVP, _previousVP);
-            _resolve.SetVector(IdTemporalParams, new Vector4(keep, drift.x, drift.y, 0f));
+            // w: the 2026-11-15 blend against smearing (1) or 1.5.3's (0), by the test row.
+            bool sharp = Settings.SmootherCloudsSharp == null || Settings.SmootherCloudsSharp.value;
+            if (sharp != _loggedSharp)
+            {
+                _loggedSharp = sharp;
+                Log.Msg("smoother clouds: blend " + (sharp
+                    ? "against smearing -- three depths per pixel (base, middle, far side), variance clip, sharp history, less kept in fast moves"
+                    : "as in 1.5.3 -- the base plane, min/max clamp"));
+            }
+            _resolve.SetVector(IdTemporalParams, new Vector4(keep, drift.x, drift.y, sharp ? 1f : 0f));
             // A pass has 16 samplers and the cloud shader had one left: the blend reads this frame's
             // march through _TemporalTex and the blend so far through the rainbow's _BowTex (never the
             // rainbow on this material).

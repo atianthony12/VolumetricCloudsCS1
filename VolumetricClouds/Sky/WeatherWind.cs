@@ -66,7 +66,35 @@ namespace VolumetricClouds.Sky
         /// <summary>Something needs the city's wind: the trees' wind is on, or another mod reads it.</summary>
         internal static bool Wanted
         {
-            get { return _asked || (Settings.TreeWind != null && Settings.TreeWind.value); }
+            get { return _asked || (Settings.TreeWind != null && Settings.TreeWind.value) || RainWanted; }
+        }
+
+        /// <summary>(2026-11-15) Wind on the rain is on and it is raining (Sky.RainDrops reads the wind).</summary>
+        private static bool RainWanted
+        {
+            get
+            {
+                return ((Settings.RainWind != null && Settings.RainWind.value > 0f) || (Settings.StormMist != null && Settings.StormMist.value > 0f))
+                    && CloudRain.Active && !CloudRain.IsSnow && CloudRain.Amount > 0.001f;
+            }
+        }
+
+        /// <summary>The city's wind as it is now (eased): what storm mist travels on.</summary>
+        internal static TreeWind.Wind Current
+        {
+            get { return _wind; }
+        }
+
+        /// <summary>The gust field as the shaders get it, for the rain's own twin (RainGust.cginc).</summary>
+        internal static TreeWind.Globals Globals
+        {
+            get { return _globals; }
+        }
+
+        /// <summary>True once advanced in this city, for our own readers (never counts as another mod's read).</summary>
+        internal static bool Advanced
+        {
+            get { return _advanced; }
         }
 
         public static bool Overridden { get; private set; }
@@ -178,10 +206,14 @@ namespace VolumetricClouds.Sky
             if (kind != _loggedKind)
             {
                 _loggedKind = kind;
-                Log.Msg("wind: the city's wind is " + Describe() + " -- followed by " +
-                        (Settings.TreeWind != null && Settings.TreeWind.value ? "the trees" : "") +
-                        (Settings.TreeWind != null && Settings.TreeWind.value && _asked ? " and " : "") +
-                        (_asked ? "another mod reading it (Real Flag)" : ""));
+                string readers = "";
+                if (Settings.TreeWind != null && Settings.TreeWind.value)
+                    readers = "the trees";
+                if (RainWanted)
+                    readers += (readers.Length > 0 ? ", " : "") + "the rain";
+                if (_asked)
+                    readers += (readers.Length > 0 ? " and " : "") + "another mod reading it";
+                Log.Msg("wind: the city's wind is " + Describe() + " -- followed by " + readers);
             }
         }
 
@@ -194,7 +226,7 @@ namespace VolumetricClouds.Sky
             _advanced = false;
             _loggedKind = null;
             Overridden = false;
-            Log.Msg("wind: the city's wind stopped (the trees' wind is off and no other mod reads it)");
+            Log.Msg("wind: the city's wind stopped (the trees' wind is off, the rain needs none, and no other mod reads it)");
         }
 
         /// <summary>A new city starts from its own weather, and with nothing asking for the wind.</summary>

@@ -78,6 +78,51 @@ namespace VolumetricClouds.Sky
             return mesh;
         }
 
+        // Reused by every shaped bolt (main thread only).
+        private static readonly List<LightningBoltShape.Ribbon> ShapeRibbons = new List<LightningBoltShape.Ribbon>();
+        private static readonly List<Vector3> ShapeBranches = new List<Vector3>();
+
+        /// <summary>
+        /// A bolt of one of <see cref="LightningBoltShape"/>'s kinds (Lightning variety above 0).
+        /// TEXCOORD1 gains z = the path position the leader reveals (LightningRibbon.cginc).
+        /// </summary>
+        public static Mesh Build(LightningBoltShape.Kind kind, Vector3 top, Vector3 ground, float cloudBase,
+            System.Random random)
+        {
+            LightningBoltShape.Build(kind, top, ground, cloudBase, random, ShapeRibbons);
+
+            Builder builder = new Builder();
+            ShapeBranches.Clear();
+            foreach (LightningBoltShape.Ribbon ribbon in ShapeRibbons)
+            {
+                int before = builder.Positions.Count;
+                AddRibbon(builder, ribbon.Points, ribbon.Width, ribbon.Brightness, ribbon.Tip);
+
+                // AddRibbon wrote (level, along) per vertex: the path position follows "along".
+                for (int i = before; i < builder.Branches.Count; i++)
+                {
+                    Vector2 b = builder.Branches[i];
+                    ShapeBranches.Add(new Vector3(b.x, b.y, Mathf.Lerp(ribbon.PathStart, ribbon.PathEnd, b.y)));
+                }
+            }
+            ShapeRibbons.Clear();
+
+            Mesh mesh = new Mesh { name = "VolumetricCloudsLightningBolt" };
+            mesh.SetVertices(builder.Positions);
+            mesh.SetNormals(builder.Tangents);
+            mesh.SetUVs(0, builder.Shapes);
+            mesh.SetUVs(1, ShapeBranches);
+            mesh.SetTriangles(builder.Triangles, 0);
+
+            mesh.RecalculateBounds();
+            Bounds bounds = mesh.bounds;
+            bounds.Expand(200f);
+            mesh.bounds = bounds;
+
+            ShapeBranches.Clear();
+            return mesh;
+        }
+
         private static List<Vector3> Fork(Vector3 from, Vector3 ground, Vector3 down, float shortest, float longest,
             System.Random random)
         {

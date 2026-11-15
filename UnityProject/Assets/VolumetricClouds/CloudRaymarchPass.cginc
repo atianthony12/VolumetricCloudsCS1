@@ -866,12 +866,79 @@ float TemporalDistance(float3 eye, float3 dir)
 // never leaves a ghost. A texel with no history (new on screen, or a reset) takes the march.
 // (This frame's march comes in through _TemporalTex, the blend until last frame through _BowTex:
 // see their declarations.)
+// (2026-11-15, the smearing fix; _TemporalParams.w 1 = on, 0 = the 1.5.3 resolve below, bit for bit.)
+// The colour space the history is compared and clipped in: each channel over (1 + luminance), so a
+// bright sunlit edge does not widen the box for the dim cloud beside it; alpha (the sky let through)
+// as it is.
+float4 TemporalToned(float4 c)
+{
+    return float4(c.rgb / (1.0 + dot(c.rgb, float3(0.2126, 0.7152, 0.0722))), c.a);
+}
+
+float4 TemporalUntoned(float4 c)
+{
+    return float4(c.rgb / max(1.0 - dot(c.rgb, float3(0.2126, 0.7152, 0.0722)), 1e-3), c.a);
+}
+
+// Where along the ray the history is read, for each of three guesses: the slab's near face (the
+// base from under it: right for flat bases, as before), its middle, and its far face (a heap's
+// side, a tall cloud's top, the far part seen through a gap). From inside: near by, 1 km, 3 km.
+float3 TemporalGuesses(float3 eye, float3 dir)
+{
+    float dy = abs(dir.y) < 1e-4 ? (dir.y < 0 ? -1e-4 : 1e-4) : dir.y;
+    float tA = (_CloudBottom - eye.y) / dy;
+    float tB = (_CloudTop - eye.y) / dy;
+    float tEnter = max(min(tA, tB), 0.0);
+    float tExit = min(max(tA, tB), _MaxDistance);
+    if (tExit <= tEnter)
+        return float3(100000.0, 100000.0, 100000.0);
+    if (tEnter <= 0.0)
+        return float3(min(tExit, 300.0), min(tExit, 1000.0), min(tExit, 3000.0));
+    float far = min(tExit, tEnter * 3.0 + 2000.0);
+    return float3(tEnter, 0.5 * (tEnter + far), far);
+}
+
+float2 TemporalWas(float3 eye, float3 dir, float t)
+{
+    float3 then = eye + dir * t - float3(_TemporalParams.y, 0.0, _TemporalParams.z);
+    float4 clip = mul(_TemporalPrevVP, float4(then, 1.0));
+    return clip.w > 1e-3 ? clip.xy / clip.w * 0.5 + 0.5 : float2(-1.0, -1.0);
+}
+
+// The history at `was` by Catmull-Rom in five bilinear taps (Jimenez's form, as used for TAA): no
+// blur at each frame's resample, so the detail does not wash out while the camera moves.
+float4 TemporalHistorySharp(float2 was)
+{
+    float2 size = _TemporalSize.xy;
+    float2 pos = was * size;
+    float2 centre = floor(pos - 0.5) + 0.5;
+    float2 f = pos - centre;
+    float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    float2 w3 = f * f * (-0.5 + 0.5 * f);
+    float2 w12 = w1 + w2;
+    float2 t0 = (centre - 1.0) / size;
+    float2 t3 = (centre + 2.0) / size;
+    float2 t12 = (centre + w2 / w12) / size;
+    float4 c = tex2Dlod(_BowTex, float4(t12.x, t0.y, 0, 0)) * (w12.x * w0.y)
+             + tex2Dlod(_BowTex, float4(t0.x, t12.y, 0, 0)) * (w0.x * w12.y)
+             + tex2Dlod(_BowTex, float4(t12.x, t12.y, 0, 0)) * (w12.x * w12.y)
+             + tex2Dlod(_BowTex, float4(t3.x, t12.y, 0, 0)) * (w3.x * w12.y)
+             + tex2Dlod(_BowTex, float4(t12.x, t3.y, 0, 0)) * (w12.x * w3.y);
+    float total = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
+    return c / max(total, 1e-4);
+}
+
 float4 TemporalResolve(float2 uv, float3 worldPos)
 {
     float2 texel = _TemporalSize.zw;
     float4 now = tex2Dlod(_TemporalTex, float4(uv, 0, 0));
     float4 low = now;
     float4 high = now;
+    float4 nowT = TemporalToned(now);
+    float4 sum = nowT;
+    float4 sumSq = nowT * nowT;
 
     [unroll]
     for (int y = -1; y <= 1; y++)
@@ -884,32 +951,97 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
                 float4 s = tex2Dlod(_TemporalTex, float4(uv + float2(x, y) * texel, 0, 0));
                 low = min(low, s);
                 high = max(high, s);
+                float4 st = TemporalToned(s);
+                sum += st;
+                sumSq += st * st;
             }
         }
     }
 
     float3 eye = _TemporalEye.xyz;
     float3 dir = normalize(worldPos - eye);
-    float3 then = eye + dir * TemporalDistance(eye, dir) - float3(_TemporalParams.y, 0.0, _TemporalParams.z);
 
-    float keep = 0.0;
-    float4 history = now;
-    float4 clip = mul(_TemporalPrevVP, float4(then, 1.0));
-    if (clip.w > 1e-3)
+    // One exit (an early return here made D3D11 warn "potentially uninitialized", which fails the build).
+    float4 result = now;
+
+    // 1.5.3's resolve, kept whole for the comparison switch (and for anyone who wants it back).
+    UNITY_BRANCH
+    if (_TemporalParams.w < 0.5)
     {
-        float2 was = clip.xy / clip.w * 0.5 + 0.5;
+        float3 then = eye + dir * TemporalDistance(eye, dir) - float3(_TemporalParams.y, 0.0, _TemporalParams.z);
+
+        float keep = 0.0;
+        float4 history = now;
+        float4 clip = mul(_TemporalPrevVP, float4(then, 1.0));
+        if (clip.w > 1e-3)
+        {
+            float2 was = clip.xy / clip.w * 0.5 + 0.5;
+            if (was.x >= 0.0 && was.x <= 1.0 && was.y >= 0.0 && was.y <= 1.0)
+            {
+                history = clamp(tex2Dlod(_BowTex, float4(was, 0, 0)), low, high);
+                keep = _TemporalParams.x;
+            }
+        }
+
+        // Nothing invalid ever goes into the history: there it would stay, and spread. On D3D11
+        // min/max return the operand that is a number, so a NaN becomes 0 (not isnan, which the
+        // compiler may fold away).
+        result = lerp(now, history, keep);
+    }
+    else
+    {
+    // The neighbourhood's mean and spread (toned).
+    float4 mean = sum / 9.0;
+    float4 sigma = sqrt(max(sumSq / 9.0 - mean * mean, 0.0));
+
+    // Three guesses of how far the clouds on this ray were; the history read at each, and the one
+    // that best matches this frame's neighbourhood taken (a cloud's side or top no longer drags
+    // behind a moving camera as if it were the flat base).
+    float3 guesses = TemporalGuesses(eye, dir);
+    float2 best = float2(-1.0, -1.0);
+    float bestError = 1e9;
+    [unroll]
+    for (int g = 0; g < 3; g++)
+    {
+        float t = g == 0 ? guesses.x : (g == 1 ? guesses.y : guesses.z);
+        float2 was = TemporalWas(eye, dir, t);
         if (was.x >= 0.0 && was.x <= 1.0 && was.y >= 0.0 && was.y <= 1.0)
         {
-            history = clamp(tex2Dlod(_BowTex, float4(was, 0, 0)), low, high);
-            keep = _TemporalParams.x;
+            float4 h = TemporalToned(tex2Dlod(_BowTex, float4(was, 0, 0)));
+            float4 d = (h - mean) / (sigma + 0.02);
+            float error = dot(d, d) + g * 0.05;   // ties go to the nearer guess
+            if (error < bestError)
+            {
+                bestError = error;
+                best = was;
+            }
         }
     }
 
-    // Nothing invalid ever goes into the history: there it would stay, and spread. On D3D11
-    // min/max return the operand that is a number, so a NaN becomes 0 (not isnan, which the
-    // compiler may fold away).
-    float4 blended = lerp(now, history, keep);
-    return min(max(blended, 0.0), float4(60000.0, 60000.0, 60000.0, 1.0));
+    // No guess lands on last frame's view: this frame's march alone (result = now).
+    if (best.x >= 0.0)
+    {
+    // The history read sharp, then clipped toward the mean into what this frame's neighbourhood
+    // allows (variance clip, Salvi 2016), inside its min/max: tighter when the reprojection moved far.
+    float motion = length((best - uv) * _TemporalSize.xy);
+    float gamma = lerp(1.25, 0.75, saturate((motion - 2.0) / 6.0));
+    float4 history = TemporalToned(max(TemporalHistorySharp(best), 0.0));
+    float4 boxLow = max(mean - gamma * sigma, TemporalToned(low));
+    float4 boxHigh = min(mean + gamma * sigma, TemporalToned(high));
+    boxHigh = max(boxHigh, boxLow);
+    float4 clipped = clamp(history, boxLow, boxHigh);
+    float moved = length(clipped - history);
+
+    // Keep less of the past while the view moves fast and where the history had to be pulled far.
+    float keep = _TemporalParams.x * lerp(1.0, 0.55, saturate(motion / 6.0)) * (1.0 - 0.5 * saturate(moved * 6.0));
+    float4 blendedT = lerp(nowT, clipped, keep);
+    result = TemporalUntoned(blendedT);
+    }
+    }
+
+    // Nothing invalid ever goes into the history: there it would stay, and spread. On D3D11 min/max
+    // return the operand that is a number, so a NaN becomes 0 (not isnan, which the compiler may fold away).
+    return min(max(result, 0.0), float4(60000.0, 60000.0, 60000.0, 1.0));
 }
 #endif // !VC_LITE: Smoother clouds
 

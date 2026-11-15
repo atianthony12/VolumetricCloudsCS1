@@ -2367,6 +2367,47 @@ namespace VolumetricClouds.UI
                 Enabled = RainOn,
             });
 
+            // 2026-11-15 (the author, after Torrent: "when there's strong wind it goes almost horizontal"):
+            // the city's wind on the streaks (Sky.RainDrops, RainGust.cginc). 0% = as before. The trees'
+            // Gusts / Rain and storms rows shape the city's wind, so they shape this too.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.RainWind,
+                DefaultFloat = Settings.Defaults.RainWind,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = RainOn,
+                AfterChange = State("wind on the rain", () => (Settings.RainWind.value * 100f).ToString("F0") + "%"),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Bool = Settings.RainDetail,
+                DefaultBool = Settings.Defaults.RainDetail,
+                Enabled = RainOn,
+                AfterChange = State("finer rain", OnOff(Settings.RainDetail)),
+            });
+
+            // 2026-11-15 (the author, after Torrent's storm mist): low mist rolling on the wind in storms
+            // (Sky.WindDebris, part 2). 0% = nothing runs.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.StormMist,
+                DefaultFloat = Settings.Defaults.StormMist,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = RainOn,
+                AfterChange = State("storm mist", () => (Settings.StormMist.value * 100f).ToString("F0") + "%"),
+            });
+
+
             // 1.3.0: the rainbows' strength, 100% = nature ("B is perfect!"), 200% more vivid than
             // nature; 0% switches them off (Sky.Rainbow). They need our rain and the cloud shadows.
             Add(new Row
@@ -2386,6 +2427,33 @@ namespace VolumetricClouds.UI
                 Bool = Settings.RainLocalised,
                 DefaultBool = Settings.Defaults.RainLocalised,
                 AfterChange = State("localised rain sound and wet roads", OnOff(Settings.RainLocalised)),
+            });
+
+            // 2026-11-15 (the author: "move wet roads with puddles here into VW, and improve them"):
+            // a screen pass over the ground (Sky.WetGround, WetGround.shader). 0% = nothing runs.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Group = "WetGround",
+                HasTooltip = true,
+                Float = Settings.WetGround,
+                DefaultFloat = Settings.Defaults.WetGround,
+                Min = 0f, Max = 200f, Step = 5f,
+                AfterChange = State("wet ground", () => (Settings.WetGround.value * 100f).ToString("F0") + "%"),
+            });
+
+            // 2026-11-15 (the author: "car wheels effects during rain"): spray and mist off wet roads
+            // (Sky.WheelSpray). 0% = nothing runs.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.WheelSpray,
+                DefaultFloat = Settings.Defaults.WheelSpray,
+                Min = 0f, Max = 300f, Step = 5f,
+                AfterChange = State("spray from wheels", () => (Settings.WheelSpray.value * 100f).ToString("F0") + "%"),
             });
 
             Add(new Row
@@ -2426,6 +2494,35 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.LightningStormScale,
                 Min = 0f, Max = 400f, Step = 5f,
                 Enabled = LightningOn,
+            });
+
+            // 2026-11-15 (the author: "increase lightning variety a LOT"): shapes, leader, colours,
+            // bursts, thunder by distance (Sky.LightningBoltShape, LightningBursts). 0% = 1.5.3's strikes.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.LightningVariety,
+                DefaultFloat = Settings.Defaults.LightningVariety,
+                Min = 0f, Max = 200f, Step = 5f,
+                Enabled = LightningOn,
+            });
+
+            // 2026-11-15 (the author: "strikes start at the sea, then move towards us very gradually,
+            // then move away"): around the camera as before, or travelling storm cells (Sky.StormCells).
+            // Stored by value, append-only.
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Int = Settings.StormMovement,
+                DefaultInt = Settings.Defaults.StormMovement,
+                ChoiceKeys = new[] { "StormMovement.Around", "StormMovement.Travelling" },
+                ChoiceValues = new[] { 0, 1 },
+                Enabled = LightningOn,
+                AfterChange = State("storms", () => Settings.StormMovement.value == 1 ? "travelling" : "around the camera"),
             });
 
             // 2026-10-30 (the author: "tree movement in high wind like other games do"): the game's tree
@@ -2794,6 +2891,22 @@ namespace VolumetricClouds.UI
                 Profiled = false,
                 Enabled = WholeShaders,
                 AfterChange = State("smoother clouds", OnOff(Settings.CloudTemporal)),
+            });
+
+            // 2026-11-15 (the author: "fix the smearing issue with Smoother clouds"): the new blend --
+            // three depths per pixel, variance clipping, a sharp history read, less kept in fast moves.
+            // A TEST row so he can compare in game; before the release either kept or retired (its name
+            // then goes to SettingsXml.Retired).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.General,
+                HasTooltip = true,
+                Bool = Settings.SmootherCloudsSharp,
+                DefaultBool = Settings.Defaults.SmootherCloudsSharp,
+                Profiled = false,
+                Enabled = () => WholeShaders() && Settings.CloudTemporal != null && Settings.CloudTemporal.value,
+                AfterChange = State("smoother clouds without smearing", OnOff(Settings.SmootherCloudsSharp)),
             });
 
             // Simpler clouds (2026-11-02, Sky/CloudShaders): the light cloud shaders first, for an older or

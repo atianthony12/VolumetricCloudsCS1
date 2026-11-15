@@ -14,6 +14,32 @@ below; the mods list shows it after the mod's name, and the first line of
   height, so trees in hollows and among tall buildings barely move or stand still. On, Tree Control's sway
   factors no longer change our wind; gusts still roll across the map and small trees still move less.
   `VolumetricClouds.xml` gains one line, `TreeWindEverywhere` (off): nobody's trees change.
+- *Lightning variety* (Weather tab, Lightning, 100%): bolts come in many shapes (forked into limbs that land
+  apart, heavy single strokes, thin bushy ones, strokes that die in the air, crawlers running along the cloud
+  base, bows from cloud to cloud), a faint leader crawls down before most strokes flash, colours range from
+  blue-white to violet, pink and warm white, far strikes look dimmer and pinker, strikes come in bursts and
+  twins, and thunder cracks up close and rumbles far off. 0% gives every player's strikes exactly as before.
+  This is on for everyone.
+- *Storms* (Weather tab, Lightning): lightning now comes from storm cells that form upwind, pass over where you
+  look and move away downwind (*Travelling storms*, the new default for everyone). *Around the camera* gives the
+  lightning as it was.
+- *Wind on the rain* (Weather tab, 100%): the city's wind blows the rain streaks sideways, nearly flat in a gale,
+  and its gusts sweep heavier bands of rain past. *Finer rain* (on): small, medium and large drops, a few
+  falling right in front of the camera, splashes where drops land on the ground, and at night rain lit by street
+  lights and car headlights (with the fog off too; the fog is lit only by its own setting, as before), and no
+  rain or splashes under roofs, canopies, bridges and elevated roads (a strong wind still blows some in under
+  the edges). *Storm mist* (100%): in heavy rain and a strong wind, mist rolls low along the streets with the wind.
+- *Wet roads and puddles* (Weather tab, new Wet ground group, 100%): in and after rain, roads and ground get
+  darker and shiny, mirror the city and the sky, puddles form on flat ground and drops make rings in them.
+  *Spray from wheels* (100%): cars throw up spray and a trail of mist from wet roads.
+- *Smoother clouds without smearing* (options page, on, a test row): Smoother clouds blends its frames a new
+  way, so cloud edges, sides and tops no longer trail behind a moving camera. Off gives the blend before.
+- Distant clouds (Distant clouds tab) are twice as sharp (cut from 8K photographs instead of 4K), get four more
+  skies (more sheep clouds, far clouds and two more cloud layers), finer detail at their edges up close, and come
+  back mirrored in some of their lives, so the same picture repeats less. The mod's download grows by about
+  14 MB, and while distant clouds show they take about 256 MB of graphics memory (43 MB before).
+- Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every player, at its
+  middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before.
 
 ### Changed
 

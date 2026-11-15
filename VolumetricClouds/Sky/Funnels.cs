@@ -75,7 +75,7 @@ namespace VolumetricClouds.Sky
         {
             SimTime += deltaTime * simulationRate;
 
-            Camera camera = Camera.main;
+            Camera camera = GameCamera.Get();
             bool clouds = Settings.WeatherShown;
             float cloudBase = CloudRain.CloudBottom;
             Vector3 eye = camera != null ? camera.transform.position : Vector3.zero;
