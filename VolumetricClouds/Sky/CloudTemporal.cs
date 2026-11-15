@@ -221,7 +221,7 @@ namespace VolumetricClouds.Sky
             {
                 _loggedSharp = sharp;
                 Log.Msg("smoother clouds: blend " + (sharp
-                    ? "against smearing -- three depths per pixel (base, middle, far side), variance clip, sharp history, less kept in fast moves"
+                    ? "against smearing -- three depths per pixel (base, middle, far side), variance clip, less kept where the depths disagree (a turn keeps it all), the march softened where history is given up"
                     : "as in 1.5.3 -- the base plane, min/max clamp"));
             }
             _resolve.SetVector(IdTemporalParams, new Vector4(keep, drift.x, drift.y, sharp ? 1f : 0f));

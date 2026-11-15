@@ -905,30 +905,9 @@ float2 TemporalWas(float3 eye, float3 dir, float t)
     return clip.w > 1e-3 ? clip.xy / clip.w * 0.5 + 0.5 : float2(-1.0, -1.0);
 }
 
-// The history at `was` by Catmull-Rom in five bilinear taps (Jimenez's form, as used for TAA): no
-// blur at each frame's resample, so the detail does not wash out while the camera moves.
-float4 TemporalHistorySharp(float2 was)
-{
-    float2 size = _TemporalSize.xy;
-    float2 pos = was * size;
-    float2 centre = floor(pos - 0.5) + 0.5;
-    float2 f = pos - centre;
-    float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
-    float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
-    float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
-    float2 w3 = f * f * (-0.5 + 0.5 * f);
-    float2 w12 = w1 + w2;
-    float2 t0 = (centre - 1.0) / size;
-    float2 t3 = (centre + 2.0) / size;
-    float2 t12 = (centre + w2 / w12) / size;
-    float4 c = tex2Dlod(_BowTex, float4(t12.x, t0.y, 0, 0)) * (w12.x * w0.y)
-             + tex2Dlod(_BowTex, float4(t0.x, t12.y, 0, 0)) * (w0.x * w12.y)
-             + tex2Dlod(_BowTex, float4(t12.x, t12.y, 0, 0)) * (w12.x * w12.y)
-             + tex2Dlod(_BowTex, float4(t3.x, t12.y, 0, 0)) * (w3.x * w12.y)
-             + tex2Dlod(_BowTex, float4(t12.x, t3.y, 0, 0)) * (w12.x * w3.y);
-    float total = w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
-    return c / max(total, 1e-4);
-}
+// (The history is read bilinearly. A Catmull-Rom read, tried first on 2026-11-15, kept each frame's
+// march noise alive: at every sub-texel resample its sharpening handed the grain back, and the far
+// clouds turned to pixel grain while the camera turned -- 2.7x the old blend's in the cloud bench.)
 
 float4 TemporalResolve(float2 uv, float3 worldPos)
 {
@@ -939,6 +918,7 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
     float4 nowT = TemporalToned(now);
     float4 sum = nowT;
     float4 sumSq = nowT * nowT;
+    float4 tent = nowT * 4.0;
 
     [unroll]
     for (int y = -1; y <= 1; y++)
@@ -954,6 +934,7 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
                 float4 st = TemporalToned(s);
                 sum += st;
                 sumSq += st * st;
+                tent += st * (x == 0 || y == 0 ? 2.0 : 1.0);
             }
         }
     }
@@ -1000,6 +981,8 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
     float3 guesses = TemporalGuesses(eye, dir);
     float2 best = float2(-1.0, -1.0);
     float bestError = 1e9;
+    float2 wasLow = float2(1e9, 1e9);
+    float2 wasHigh = float2(-1e9, -1e9);
     [unroll]
     for (int g = 0; g < 3; g++)
     {
@@ -1007,6 +990,8 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
         float2 was = TemporalWas(eye, dir, t);
         if (was.x >= 0.0 && was.x <= 1.0 && was.y >= 0.0 && was.y <= 1.0)
         {
+            wasLow = min(wasLow, was);
+            wasHigh = max(wasHigh, was);
             float4 h = TemporalToned(tex2Dlod(_BowTex, float4(was, 0, 0)));
             float4 d = (h - mean) / (sigma + 0.02);
             float error = dot(d, d) + g * 0.05;   // ties go to the nearer guess
@@ -1018,23 +1003,35 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
         }
     }
 
-    // No guess lands on last frame's view: this frame's march alone (result = now).
+    // This frame's march, softened by a 3x3 tent: what a texel shows in the share of it the history
+    // no longer carries (one march alone is grain at half size).
+    tent /= 16.0;
+
+    // No guess lands on last frame's view: this frame's march alone, softened.
+    result = TemporalUntoned(tent);
     if (best.x >= 0.0)
     {
-    // The history read sharp, then clipped toward the mean into what this frame's neighbourhood
-    // allows (variance clip, Salvi 2016), inside its min/max: tighter when the reprojection moved far.
-    float motion = length((best - uv) * _TemporalSize.xy);
-    float gamma = lerp(1.25, 0.75, saturate((motion - 2.0) / 6.0));
-    float4 history = TemporalToned(max(TemporalHistorySharp(best), 0.0));
+    // How sure the reprojection is: how far apart the three guesses land, in texels. A turn of the
+    // camera moves every distance alike (0, however fast it turns); a move sideways or forward
+    // spreads them, and the more it does, the less the history is trusted. (Screen motion itself is
+    // no measure: cutting the history on it left the turning camera's far clouds grainy.)
+    float spread = length((wasHigh - wasLow) * _TemporalSize.xy);
+
+    // The history read (bilinear), then clipped toward the mean into what this frame's neighbourhood
+    // allows (variance clip, Salvi 2016), inside its min/max: tighter when the guesses disagree.
+    float gamma = lerp(1.25, 0.75, saturate((spread - 2.0) / 6.0));
+    float4 history = TemporalToned(max(tex2Dlod(_BowTex, float4(best, 0, 0)), 0.0));
     float4 boxLow = max(mean - gamma * sigma, TemporalToned(low));
     float4 boxHigh = min(mean + gamma * sigma, TemporalToned(high));
     boxHigh = max(boxHigh, boxLow);
     float4 clipped = clamp(history, boxLow, boxHigh);
     float moved = length(clipped - history);
 
-    // Keep less of the past while the view moves fast and where the history had to be pulled far.
-    float keep = _TemporalParams.x * lerp(1.0, 0.55, saturate(motion / 6.0)) * (1.0 - 0.5 * saturate(moved * 6.0));
-    float4 blendedT = lerp(nowT, clipped, keep);
+    // Keep less of the past where the guesses disagree and where the history had to be pulled far;
+    // what is given up comes from the softened march, not the raw one.
+    float keep = _TemporalParams.x * lerp(1.0, 0.55, saturate(spread / 6.0)) * (1.0 - 0.2 * saturate(moved * 6.0));
+    float givenUp = 1.0 - keep / max(_TemporalParams.x, 1e-3);
+    float4 blendedT = lerp(lerp(nowT, tent, givenUp), clipped, keep);
     result = TemporalUntoned(blendedT);
     }
     }
