@@ -273,6 +273,25 @@ float4 _DeepBody;       // what each kind's inside value is times: x = heaps, y 
 #define DEEP_ARG(x)
 #endif
 
+// SOFTER SHADE INSIDE THE CLOUDS (2026-11-16, Sky/DeepLight.cs: the same 100 -> 200% half of "Glow and softer
+// shade"). Against the path tracer the shade inside the heaps had crisp edges: the sun's looks (SunDepth) and
+// the sky's (CloudRadiance) read the very cloud that is drawn, 97% hard, so each lobe threw a sharp shadow on
+// the next, where real light, scattered many times, blurs it. The light's looks that read the big shape only
+// (`detailed` false: the sun's farther looks and the sky's) see a softer cloud: each kind's edge hardness
+// divided by 1 + _DeepSoft.x x its scale (DeepLight.Soften*) -- the edge ramps in over a deeper skin, from
+// the same surface (nothing outside it gets denser). The cloud drawn and the near, detailed looks are
+// untouched. 0 = the hardness as it always was, exactly (selected, so the old value is used as it was).
+// Only in the whole cloud pass. (Tried 2026-11-16: the softened edges worked out on the CPU and a bool
+// selecting them: 1-2.5 ms dearer at 4K than this, with the row off.)
+#ifdef VC_DEEP
+float4 _DeepSoft;       // x = how much (0: off), y, z, w = its scale for the heaps, the puffs, the layer
+#define DEEP_SOFT_IN , float soft
+#define DEEP_SOFT(x) , x
+#else
+#define DEEP_SOFT_IN
+#define DEEP_SOFT(x)
+#endif
+
 // Rounded base, tapering top: what makes a slab read as cumulus rather than fog.
 float HeightShape(float h)
 {
@@ -503,11 +522,39 @@ float CumulusCurve(float h)
     return ((k.x * s + k.y) * s + k.z) * s + k.w;
 }
 
+// SOFTER CUMULUS (2026-11-16, the row "Softer cumulus", Sky/CloudStyle.cs Softness*): the heaps read as cotton,
+// as the Soft style's puffs do. Behind the row (_HeapSoft.x > 0), in the cloud pass's and the shadow map's extras
+// variant only (VC_PLUS: clouds and their shadows share one density); 0 = the heaps exactly as they always were.
+// - the edge: soft over 1 / _HeapSoft.y of `inside` where it was hard over 1/33, the skin starting at _HeapSoft.z,
+//   so the half-density surface stays where the hard one was: a soft skin outwards, thinner just inside, the core
+//   as dense as before;
+// - the push: the noise lookup moved about by the 64^3 noise (_HeapSoft.w metres), as Soft's are; the coverage
+//   (cg) is never moved, so nothing is drawn where cg is 0 (the empty-sky skip, the slab and the rain hold);
+// - the fray, in detailed reads only and gone with distance: a finer read of the same noise (_HeapFray.y times
+//   the heaps' repeat) carving strands near the base and billows higher;
+// - the fringe: a faint, see-through edge of strands from that read (_HeapFringe).
+// CloudStyle.SofterDensity is its C# twin.
+#ifdef VC_PLUS
+float4 _HeapSoft;       // x = the row as drawn (0: off), y = the edge's hardness, z = where the edge starts (in
+                        // `inside`, at or under 0), w = the push in metres
+float4 _HeapFray;       // the fine read: x = how deep it carves, y = its multiple (whole), z = log2 of that,
+                        // w = 1 / the height (m above the base) over which its strands turn to billows
+float4 _HeapFringe;     // x = the fringe's density, y = 1 / its reach, z = the fine read's middle, w = its contrast
+float4 _HeapWarp;       // xy = the 64^3 noise's R and G middles, as read (sRGB-decoded), z = 1 / the cg over which
+                        // the skin and the fringe come in, w = what the fray gives back on average (the sky's amount)
+// The read (`detailed`) and its mip level before the heaps' own clamp (`lodHere`): for the fray only.
+#define HEAP_PLUS_IN , bool detailed, float lodHere
+#define HEAP_PLUS(d, l) , d, l
+#else
+#define HEAP_PLUS_IN
+#define HEAP_PLUS(d, l)
+#endif
+
 // EVE V5: cg = saturate(coverage + curve(h) - 1); the noise carves erosion-depth deep into it,
 // and the edge hardness gives what is left a surface. CloudStyle.Density is its C# twin.
 // `score`: the map's normal score here (the same lookup as the weather map's: repeat and drift). `heapLine`:
 // the coverage line's start, _CumulusShape.x (under the type, by how far the sky leans to heaps).
-float CumulusDensity(float3 p, float lod, float score, float heapLine DEEP_OUT)
+float CumulusDensity(float3 p, float lod, float score, float heapLine HEAP_PLUS_IN DEEP_SOFT_IN DEEP_OUT)
 {
 #ifdef VC_DEEP
     bodyOut = 0.0;
@@ -520,20 +567,68 @@ float CumulusDensity(float3 p, float lod, float score, float heapLine DEEP_OUT)
     if (cg <= 0.0)
         return 0.0;
 
+#ifdef VC_PLUS
+    // Softer cumulus (above). Off, the heaps below, as they always were.
+    [branch]
+    if (_HeapSoft.x > 0.0)
+    {
+        // The push: the noise lookup only, never cg.
+        float2 push = tex3Dlod(_NoiseTex, float4(p / _NoiseTile - _NoisePhase, 0)).rg - _HeapWarp.xy;
+        float3 uvSoft = (p + float3(push.x, (push.x - push.y) * 0.5, push.y) * _HeapSoft.w) * _CumulusNoise.x - _CumulusPhase;
+        float inSoft = cg - (1.0 - tex3Dlod(_CumulusTex, float4(uvSoft, lod)).a) * _CumulusNoise.y;
+
+        // The fray: strands at the base (the fine read's middles carved), billows higher.
+        float wisps = 0.0;
+        float f = 0.0;
+        if (detailed)
+        {
+            float fineLod = lodHere + _HeapFray.z;
+            wisps = saturate(1.0 - fineLod * 0.5);
+            [branch]
+            if (wisps > 0.0)
+            {
+                f = saturate((tex3Dlod(_CumulusTex, float4(uvSoft * _HeapFray.y, max(fineLod, 0.0))).a - _HeapFringe.z) * _HeapFringe.w + 0.5);
+                inSoft -= _HeapFray.x * wisps * (f + (1.0 - 2.0 * f) * saturate((p.y - _CloudBottom) * _HeapFray.w) - _HeapWarp.w);
+            }
+        }
+
+        // The edge starts _HeapSoft.z out, less where the cloud thins to nothing (cg towards 0), so a heap's top
+        // and its foot still fade to nothing where cg does.
+        float skin = saturate(cg * _HeapWarp.z);
+        float fromEdge = inSoft - _HeapSoft.z * skin;
+        float hardSoft = _HeapSoft.y;
+#ifdef VC_DEEP
+        bodyOut = saturate(fromEdge * _DeepBody.x);
+        // A light's look at the big shape: the softer of this edge and the softer shade's (never both at once).
+        hardSoft = min(hardSoft, _CumulusNoise.z / (1.0 + soft * _DeepSoft.y));
+#endif
+        float dSoft = saturate(fromEdge * hardSoft);
+
+        // The fringe: a faint, see-through edge of strands.
+        if (wisps > 0.0 && _HeapFringe.x > 0.0)
+            dSoft = max(dSoft, _HeapFringe.x * wisps * skin * f * f * saturate(1.0 + inSoft * _HeapFringe.y));
+        return dSoft * _CumulusNoise.w;
+    }
+#endif
+
     float3 uv = p * _CumulusNoise.x - _CumulusPhase;
     float noise = tex3Dlod(_CumulusTex, float4(uv, lod)).a;
     float inside = cg - (1.0 - noise) * _CumulusNoise.y;
 #ifdef VC_DEEP
     bodyOut = saturate(inside * _DeepBody.x);
-#endif
+    // A light's look at the big shape sees a softer edge (_DeepSoft); off, the hardness itself.
+    float hardness = soft > 0.0 ? _CumulusNoise.z / (1.0 + soft * _DeepSoft.y) : _CumulusNoise.z;
+    return saturate(inside * hardness) * _CumulusNoise.w;
+#else
     return saturate(inside * _CumulusNoise.z) * _CumulusNoise.w;
+#endif
 }
 
 // THE CLASSIC LAYER at p: `h` its height through the layer (0 at the base, 1 at the top), `weather`
 // the map there, `lod` cloud detail's mip level, `threshold` the map value it starts at (_Threshold,
 // except under Mixed, whose type varies it across the sky). The layer the mod has always drawn; the
 // Cumulus, Mixed and Soft styles draw it too, beside their own clouds.
-float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, float threshold DEEP_OUT)
+float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, float threshold DEEP_SOFT_IN DEEP_OUT)
 {
 #ifdef VC_DEEP
     bodyOut = 0.0;
@@ -619,8 +714,12 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
         // inside made of noise. Then the density curve: denser tops, softer bases.
 #ifdef VC_DEEP
         bodyOut = saturate(d * _DeepBody.z);
-#endif
+        // A light's look at the big shape sees a softer edge (_DeepSoft); off, the softness itself.
+        float edge = soft > 0.0 ? _DetailParams.y * (1.0 + soft * _DeepSoft.w) : _DetailParams.y;
+        d = saturate(d / edge);
+#else
         d = saturate(d / _DetailParams.y);
+#endif
         d *= 1.0 - _DetailParams.z * (1.0 - h);
     }
     // Detail off, the soft look from before: subtract fine cellular noise from the solid shape.
@@ -681,7 +780,7 @@ float SoftStretch(float n)
 // `lod`: the Cumulus noise's mip level at Soft's repeat (CloudShaderParams.NoiseTexel; negative near).
 // The fine read's is _SoftWisp.z more and fades out above 0, where it would only shimmer. Not `detailed`
 // (the light's looks): a level blurrier, no fine read. `weather`: the map at p; `threshold`: the puffs' cut.
-float SoftDensity(float3 p, bool detailed, float lod, float weather, float threshold DEEP_OUT)
+float SoftDensity(float3 p, bool detailed, float lod, float weather, float threshold DEEP_SOFT_IN DEEP_OUT)
 {
 #ifdef VC_DEEP
     bodyOut = 0.0;
@@ -726,9 +825,13 @@ float SoftDensity(float3 p, bool detailed, float lod, float weather, float thres
         }
     }
 
-    float d = saturate(v * _SoftCarve.x);
 #ifdef VC_DEEP
+    // A light's look at the big shape sees a softer edge (_DeepSoft); off, the carving's softness itself.
+    float carve = soft > 0.0 ? _SoftCarve.x / (1.0 + soft * _DeepSoft.z) : _SoftCarve.x;
+    float d = saturate(v * carve);
     bodyOut = saturate(v * _DeepBody.y);
+#else
+    float d = saturate(v * _SoftCarve.x);
 #endif
 
     // The fringe: a faint, see-through edge of strands round every puff.
@@ -775,6 +878,8 @@ float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
 #ifdef VC_DEEP
     float body = 0.0;
     float kindBody = 0.0;
+    // The light's looks at the big shape see the softer cloud (_DeepSoft); the drawn cloud, never.
+    float soft = detailed ? 0.0 : _DeepSoft.x;
 #endif
     bool heaps = _CloudStyle > 0.5 && _CloudStyle < 2.5;
     float heapLine = _CumulusShape.x;
@@ -805,7 +910,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
             heapLine = lerp(_MixHeaps.x, _CumulusShape.x, lean);
         }
 
-        clouds = SoftDensity(p, detailed, lod, weather, puffThreshold DEEP_ARG(body));
+        clouds = SoftDensity(p, detailed, lod, weather, puffThreshold DEEP_SOFT(soft) DEEP_ARG(body));
         layer = weather > threshold || _FragAmount > 0.0;
     }
 #endif
@@ -817,7 +922,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
         [branch]
         if (heaps)
         {
-            float heap = CumulusDensity(p, max(lod, 0.0), score, heapLine DEEP_ARG(kindBody));
+            float heap = CumulusDensity(p, max(lod, 0.0), score, heapLine HEAP_PLUS(detailed, lod) DEEP_SOFT(soft) DEEP_ARG(kindBody));
 #ifdef VC_DEEP
             body = heap > clouds ? kindBody : body;
 #endif
@@ -834,7 +939,7 @@ float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
     [branch]
     if (layer && hLayer < 1.0)
     {
-        float deck = LayerDensity(p, detailed, lodLayer, hLayer, weather, threshold DEEP_ARG(kindBody));
+        float deck = LayerDensity(p, detailed, lodLayer, hLayer, weather, threshold DEEP_SOFT(soft) DEEP_ARG(kindBody));
 #ifdef VC_DEEP
         body = deck > clouds ? kindBody : body;
 #endif

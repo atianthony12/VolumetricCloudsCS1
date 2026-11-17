@@ -20,8 +20,9 @@
 
 #include "UnityCG.cginc"
 // Light through clouds (Sky/DeepLight.cs): CloudCommon keeps how deep in its cloud each density read was, in
-// the whole cloud pass only (not the light shader; nothing else that includes CloudCommon defines it).
-#ifndef VC_LITE
+// the whole cloud pass's extras variant only (VC_PLUS, CloudRaymarch.shader; never the light shader; nothing
+// else that includes CloudCommon defines it). Without the extras the pass has none of its code.
+#if defined(VC_PLUS) && !defined(VC_LITE)
 #define VC_DEEP 1
 #endif
 #include "CloudCommon.cginc"
@@ -522,7 +523,7 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
         if (soak)
             multipleT = Soak(multipleT, tau);
         float sunLit = r.lobes.x * exp(-tau) + r.lobes.y * multipleT;
-#ifndef VC_LITE
+#ifdef VC_DEEP
         // Light through clouds (see _DeepLight).
         [branch]
         if (_DeepLight.x > 0.0)
@@ -758,7 +759,11 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
             // Deep in a cloud the step before's light will do (a ray is only under DEEP_LIGHT after a lit step).
             [branch]
             if (transmittance >= DEEP_LIGHT)
+#ifdef VC_DEEP
                 radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT, bodyHere);
+#else
+                radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT);
+#endif
 #else
             radiance = CloudRadiance(p, lod, rayLight, false);
 #endif

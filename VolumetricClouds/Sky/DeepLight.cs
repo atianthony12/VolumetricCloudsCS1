@@ -38,6 +38,47 @@ namespace VolumetricClouds.Sky
         public static float MidReach = 0.25f;
         /// <summary>The direct beam's cap at 100%, x CloudStyle.SingleCap.</summary>
         public static float BeamCap = 3f;
+        /// <summary>
+        /// SOFTER SHADE (2026-11-16, the author: "the shadows inside the clouds themselves are too defined"):
+        /// the light's looks at the big shape (the sun's farther looks, the sky's) see each kind's edge hardness
+        /// divided by 1 + <see cref="SoftenFor"/> x its scale (this is its most, at 150%), so a lobe's shadow on the
+        /// next is soft as in the path tracer. Measured in the Unity 5.6 bench: the sharpest tenth of
+        /// the sun's light edges came down to the reference's; the light that was crisp was the sun's (the sky's
+        /// own edges were already the reference's, and a twentieth of the sun's in strength).
+        /// </summary>
+        public static float Soften = 0.35f;
+        public static float SoftenHeaps = 15f;
+        public static float SoftenPuffs = 4f;
+        public static float SoftenLayer = 4f;
+
+        /// <summary>
+        /// The layer's softening goes as the sky closes into a deck (from <see cref="DeckFrom"/> to <see cref="DeckTo"/>
+        /// of cover): through a closed deck the softer looks let in up to 2.3x the sun (measured, 98%), and his dark
+        /// overcast is his own choice. Among the heaps and over a broken sky it is most of the gain.
+        /// </summary>
+        public static float DeckFrom = 0.85f, DeckTo = 0.95f;
+
+        /// <summary>The layer's scale at a cover (the shader's _DeepSoft.w): <see cref="SoftenLayer"/>, none over a closed deck.</summary>
+        public static float SoftenLayerAt(float cover)
+        {
+            float t = Math.Max(0f, Math.Min(1f, (cover - DeckFrom) / Math.Max(0.001f, DeckTo - DeckFrom)));
+            return SoftenLayer * (1f - t * t * (3f - 2f * t));
+        }
+
+        /// <summary>
+        /// How much the light's looks soften at a setting (the shader's _DeepSoft.x): none at 0% (the slider at 100%),
+        /// most (<see cref="Soften"/>) at 50% (the slider at 150%), none again at 100% (200%). Measured: the slow light
+        /// and the edge dimming above soften the shade by themselves as they grow, and at 200% they bring its sharpest
+        /// edges to the reference's (0.159 against 0.139); any softening on top of them at 200% made the shade smoother
+        /// than the path tracer's and, looking towards the sun, lost the clouds' own shading (correlation 0.70 -> 0.44
+        /// at a quarter of it). At 150% the old light's edges were 1.75x the reference's: this brings them to it.
+        /// </summary>
+        public static float SoftenFor(float setting)
+        {
+            float s = Math.Max(0f, Math.Min(1f, setting));
+            return Soften * 2f * Math.Min(s, 1f - s);
+        }
+
         /// <summary>What each kind's inside value is times to make "how deep in its cloud", 0..1.</summary>
         public static float BodyHeap = 5f;
         public static float BodyPuff = 2f;
@@ -60,10 +101,14 @@ namespace VolumetricClouds.Sky
             return Math.Max(0f, Math.Min(1f, slider - 1f));
         }
 
-        /// <summary>The row as drawn: 0 under Simpler clouds and while the Cumulus light is not the one drawn.</summary>
+        /// <summary>
+        /// The row as drawn: 0 under Simpler clouds, while the Cumulus light is not the one drawn, and while the
+        /// cloud shader's extras variant is not (CloudShaders.PlusOn: its code is only there; off, the light is
+        /// drawn as at 100%).
+        /// </summary>
         public static float Setting
         {
-            get { return CloudShaders.Lite || !CloudStyle.LobesLight ? 0f : Row; }
+            get { return CloudShaders.Lite || !CloudStyle.LobesLight || !CloudShaders.PlusOn ? 0f : Row; }
         }
 
         /// <summary>The slow light's share at a setting (the shader's _DeepLight.x).</summary>
@@ -139,7 +184,8 @@ namespace VolumetricClouds.Sky
                    (Scattered(2f, 0f, setting) * 100f).ToString("F0", c) + "%, 10 in " +
                    (Scattered(10f, 0f, setting) * 100f).ToString("F0", c) + "% (before " + (before10 * 100f).ToString("F1", c) +
                    "%), 40 in " + (Scattered(40f, 0f, setting) * 100f).ToString("F0", c) + "%; at a cloud's edge " +
-                   (EdgeFor(setting) * 100f).ToString("F0", c) + "% of it; the direct beam's cap x" + CapFactor(setting).ToString("F1", c);
+                   (EdgeFor(setting) * 100f).ToString("F0", c) + "% of it; the direct beam's cap x" + CapFactor(setting).ToString("F1", c) +
+                   "; the light's looks see the heaps' edges " + (1f + SoftenFor(setting) * SoftenHeaps).ToString("F1", c) + "x softer";
         }
     }
 }

@@ -83,6 +83,16 @@ namespace VolumetricClouds.Sky
             return (1f / Math.Max(level, 1e-3f) - 1f) * Clamp01(strength);
         }
 
+        /// <summary>
+        /// The same for a heaps' level of <paramref name="target"/> instead of 1 ("Brightness difference between
+        /// clouds" under 100%: CloudStyle.HeapLevel). The shader lifts only (MixLight reads it while over 0): the
+        /// target is never under the level.
+        /// </summary>
+        public static float LightBoost(float level, float strength, float target)
+        {
+            return (target / Math.Max(level, 1e-3f) - 1f) * Clamp01(strength);
+        }
+
         // ---- the layer and the type ------------------------------------------------------------
 
         /// <summary>The layer's cover at this intensity: none at low intensity, Classic's own from ~85% up.</summary>

@@ -249,6 +249,7 @@ namespace VolumetricClouds.Sky
         private static readonly int IdDeepLight = Shader.PropertyToID("_DeepLight");
         private static readonly int IdDeepLight2 = Shader.PropertyToID("_DeepLight2");
         private static readonly int IdDeepBody = Shader.PropertyToID("_DeepBody");
+        private static readonly int IdDeepSoft = Shader.PropertyToID("_DeepSoft");
         private static readonly int IdSunsetEdge = Shader.PropertyToID("_SunsetEdge");
         private static readonly int IdCumulusLobes = Shader.PropertyToID("_CumulusLobes");
         private static readonly int IdCumulusLobeG = Shader.PropertyToID("_CumulusLobeG");
@@ -959,10 +960,46 @@ namespace VolumetricClouds.Sky
             _material.SetFloat(IdMaxDistance, CurvedClouds.MarchReach(Reach, SceneAmbient.SkyBelowHorizon, CurvedClouds.Share(CloudShaderParams.CurvedStrength)));
             _material.SetFloat(IdUseDepth, useDepth ? 1f : 0f);
 
+            ApplyExtras();
             ApplyLighting();
             ApplyDetailLight();
             CloudLightning.ApplyTo(_material);
             Funnels.ApplyTo(_material);
+        }
+
+        /// <summary>What the extras' variant was when last logged: -1 never, 0 off, 1 on.</summary>
+        private int _plusLogged = -1;
+
+        /// <summary>
+        /// The cloud shader's extras variant (CloudShaders.PlusOn, VC_PLUS): on the cloud material -- its own
+        /// draws and Smoother clouds' march, which draws this material -- exactly while the settings ask for an
+        /// extra and the variant runs here; the air's material follows it in UpdateParts. Off, the pass has none
+        /// of the extras' code. On the log when it changes.
+        /// </summary>
+        private void ApplyExtras()
+        {
+            bool plus = CloudShaders.PlusOn;
+            if (plus)
+                _material.EnableKeyword(CloudShaders.PlusKeyword);
+            else
+                _material.DisableKeyword(CloudShaders.PlusKeyword);
+
+            int state = plus ? 1 : 0;
+            if (state == _plusLogged)
+                return;
+
+            _plusLogged = state;
+            string asked = CloudShaders.ExtrasAsked;
+            string why;
+            if (plus)
+                why = asked;
+            else if (CloudShaders.Lite)
+                why = "Simpler clouds draw none of them";
+            else if (asked != null)
+                why = asked + ", but the extras' variant does not run on this graphics driver";
+            else
+                why = "nothing asks for one (the light inside the clouds is at 100% or under now, at this time of day and cover, or the Classic style is picked; Softer cumulus at 0% or no style with heaps picked)";
+            Log.Msg("cloud shader: extras " + (plus ? "on" : "off") + ", because " + why);
         }
 
         /// <summary>
@@ -1041,6 +1078,12 @@ namespace VolumetricClouds.Sky
                     _airMaterial.EnableKeyword(FunnelKeyword);
                 else
                     _airMaterial.DisableKeyword(FunnelKeyword);
+
+                // The extras' variant as the cloud material has it (ApplyExtras), set here too, not left to CopyValues.
+                if (CloudShaders.PlusOn)
+                    _airMaterial.EnableKeyword(CloudShaders.PlusKeyword);
+                else
+                    _airMaterial.DisableKeyword(CloudShaders.PlusKeyword);
             }
 
             _airRenderer.enabled = air;
@@ -1131,6 +1174,12 @@ namespace VolumetricClouds.Sky
                 _material.SetVector(IdDeepBody, deepOn
                     ? new Vector4(DeepLight.BodyHeap, DeepLight.BodyPuff, DeepLight.BodyLayer, 0f)
                     : Vector4.zero);
+                // The softer shade (2026-11-16): 0 = the hardness the light's looks always read. The layer's goes
+                // as the sky closes into a deck (DeepLight.SoftenLayerAt).
+                _material.SetVector(IdDeepSoft, deepOn
+                    ? new Vector4(DeepLight.SoftenFor(deep), DeepLight.SoftenHeaps, DeepLight.SoftenPuffs,
+                                  DeepLight.SoftenLayerAt(CloudShaderParams.Coverage))
+                    : Vector4.zero);
             }
             else
             {
@@ -1138,6 +1187,7 @@ namespace VolumetricClouds.Sky
                 _material.SetVector(IdDeepLight, Vector4.zero);
                 _material.SetVector(IdDeepLight2, Vector4.zero);
                 _material.SetVector(IdDeepBody, Vector4.zero);
+                _material.SetVector(IdDeepSoft, Vector4.zero);
             }
 
             // Sunlight through the clouds (LightThrough), on both lights above; 0 = off, the shader's
@@ -1358,14 +1408,20 @@ namespace VolumetricClouds.Sky
             // them, seen against a dark city, lit up like day. They stand at the level the curtains were
             // tuned at, the row's default: a player who never moved it gets exactly the light as before.
             const float rainLevel = Settings.Defaults.Light;
-            Color rainAmbient = WithFloor(airLightAmbient * rainLevel);
+            // Rain curtain brightness (2026-11-15), with a clock: the city's light they take can stay far
+            // brighter at night than the clouds' (x10 the cloud bases under another mod's lighting), so the
+            // night value lets them be a dark veil. On the sky's light and the sun's, not a strike's.
+            // 100% = exactly the light before.
+            float curtainLight = Mathf.Max(0f, Settings.Now(Settings.RainCurtainLight, Settings.RainCurtainLightSunset,
+                Settings.RainCurtainLightNight, Settings.Defaults.RainCurtainLight));
+            Color rainAmbient = WithFloor(airLightAmbient * rainLevel) * curtainLight;
             _material.SetVector(IdRainAmbient, AsVector(rainAmbient) * (snow ? 1f : 0.6f));
             // Its sun is the cloud's WITHOUT Real Light's sky multiplier (1.5.2): that lifts the clouds
             // to the sky drawn behind them, but the curtains are seen against the city, which is no
             // brighter for it -- with it they glowed x3-4 brighter than tuned (x3.87 at dusk, 2026-10-30),
             // as the funnels did (2026-10-19). Without Real Light it is 1: the same light. The shader
             // then lets through only the sun the cloud above leaves it (SunShaft).
-            Color rainSun = cloudLightSun * rainLevel;
+            Color rainSun = cloudLightSun * (rainLevel * curtainLight);
             _material.SetVector(IdRainSun, AsVector(rainSun) * (snow ? 0.3f : 0.12f));
 
             // The funnels (1.5.0, FunnelShape.cginc): low down in the air's light as the FOG has it (its

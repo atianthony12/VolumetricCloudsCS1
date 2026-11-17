@@ -174,6 +174,15 @@ namespace VolumetricClouds
         /// <summary>Multiplier on how dense the rain curtains under the clouds are. 0 = none.</summary>
         public static FloatSetting RainCurtains { get; private set; }
 
+        /// <summary>
+        /// Multiplier on the light the rain curtains stand in (the sky's and the sun's, not a strike's),
+        /// with a clock: at night the city's light they take can leave them glowing over a dark city.
+        /// 100% = the light as before; 0 = a black veil.
+        /// </summary>
+        public static FloatSetting RainCurtainLight { get; private set; }
+        public static FloatSetting RainCurtainLightSunset { get; private set; }
+        public static FloatSetting RainCurtainLightNight { get; private set; }
+
         /// <summary>Multiplier on how many streaks show near the camera. 0 = none.</summary>
         public static FloatSetting RainStreaks { get; private set; }
 
@@ -613,6 +622,21 @@ namespace VolumetricClouds
         public static FloatSetting CumulusHeight { get; private set; }
         public static FloatSetting CumulusAmount { get; private set; }
 
+        /// <summary>
+        /// 2026-11-16, the author: the Cumulus clouds are "too flat on the bottom". ROUNDED CUMULUS BASES
+        /// (Sky.CloudStyle.ShapeFor), 0..1: the heaps' undersides formed like their tops, the widest level
+        /// higher. 0 = EVE's flat bases exactly (the default: nobody's sky changes).
+        /// </summary>
+        public static FloatSetting CumulusBases { get; private set; }
+
+        /// <summary>
+        /// 2026-11-16, the author: the Cumulus clouds are "just blocks", the Soft style's "like cotton candy". SOFTER
+        /// CUMULUS (Sky.CloudStyle.SofterDensity), 0..1: the heaps' edges soft, frayed and pushed about as the puffs'
+        /// are. Drawn by the cloud shader's extras variant only. 0 = the heaps exactly as they were (the default:
+        /// nobody's sky changes).
+        /// </summary>
+        public static FloatSetting CumulusSoftness { get; private set; }
+
         /// <summary>Vertical extent of the cloud layer, in metres.</summary>
         public static FloatSetting CloudThickness { get; private set; }
 
@@ -729,6 +753,13 @@ namespace VolumetricClouds
         public static FloatSetting CloudLightSunsetOvercast { get; private set; }
         public static FloatSetting CloudLightNightOvercast { get; private set; }
 
+        /// <summary>
+        /// "Brightness difference between clouds" (2026-11-16, Sky.CloudStyle.CloudLightScale), 0..1, under Mixed and
+        /// Auto only: 1 = the sky as before (soft clouds where the sky does not lean to heaps lit at their own lower
+        /// level), 0 = soft clouds and heaps equally bright where the sun reaches them.
+        /// </summary>
+        public static FloatSetting CloudLightDifference { get; private set; }
+
         /// <summary>Raymarch steps per pixel. Cost scales linearly.</summary>
         public static FloatSetting CloudQuality { get; private set; }
 
@@ -740,6 +771,13 @@ namespace VolumetricClouds
         /// frames for the main camera. On by default since 2026-11-07 (see Defaults.Temporal).
         /// </summary>
         public static BoolSetting CloudTemporal { get; private set; }
+
+        /// <summary>
+        /// (2026-11-17) How large Smoother clouds marches the clouds (Sky/SmootherSize), stored by value, append-only:
+        /// 0 half the screen each way (the default, as before), 1 by the screen's size (half up to 1440 lines, a third
+        /// above), 2 a third, 3 a quarter. The machine's choice: never in a profile.
+        /// </summary>
+        public static IntSetting SmootherCloudsSize { get; private set; }
 
         /// <summary>
         /// Simpler clouds (2026-11-02, Sky/CloudShaders): the light cloud shaders (about 1.4.0's) first, for an
@@ -978,6 +1016,12 @@ namespace VolumetricClouds
             /// <summary>The cumulus rows (1.5.0): the clouds as they were, so a new row changes nobody's sky.</summary>
             public const float CumulusSize = 1f, CumulusHeight = 1f, CumulusAmount = 1f;
 
+            /// <summary>Rounded cumulus bases (2026-11-16): off, EVE's flat bases, so a new row changes nobody's sky.</summary>
+            public const float CumulusBases = 0f;
+
+            /// <summary>Softer cumulus (2026-11-16): off, the heaps' edges as they were, so a new row changes nobody's sky.</summary>
+            public const float CumulusSoftness = 0f;
+
             public const float Altitude = 750f;
             public const float Thickness = 400f;
             /// <summary>
@@ -1115,6 +1159,9 @@ namespace VolumetricClouds
             /// <summary>1 = off. Dims the fog's sunlight at full overcast (never the clouds' since 1.5.0).</summary>
             public const float MinIllumination = 1f;
 
+            /// <summary>Brightness difference between clouds (2026-11-16): 100%, the sky as before, so a new row changes nobody's sky.</summary>
+            public const float CloudLightDifference = 1f;
+
             /// <summary>
             /// 0 (1.5.0): by day the far clouds fade into the sky behind them, as they always have.
             /// Asked for by a player whose cubemap (and its sun) showed through a full overcast.
@@ -1144,6 +1191,9 @@ namespace VolumetricClouds
             /// </summary>
             public const bool Temporal = true;
 
+            /// <summary>Smoother clouds' size: half the screen each way, exactly as before the row (invariant 15).</summary>
+            public const int SmootherCloudsSize = 0;
+
             /// <summary>Simpler clouds: off, so the new row changes nothing for anyone (invariant 15).</summary>
             public const bool SimplerClouds = false;
             public const bool SmootherCloudsSharp = true;
@@ -1163,6 +1213,9 @@ namespace VolumetricClouds
             // ---- rain ----
             public const bool RainEnabled = true;
             public const float RainCurtains = 1f;
+            public const float RainCurtainLight = 1f;
+            public const float RainCurtainLightSunset = RainCurtainLight;
+            public const float RainCurtainLightNight = RainCurtainLight;
             public const float RainStreaks = 1f;
             public const float RainStreakHeight = 500f;
 
@@ -1368,6 +1421,9 @@ namespace VolumetricClouds
 
                 RainEnabled = new BoolSetting("RainEnabled", Defaults.RainEnabled);
                 RainCurtains = new FloatSetting("RainCurtains", Defaults.RainCurtains);
+                RainCurtainLight = new FloatSetting("RainCurtainLight", Defaults.RainCurtainLight);
+                RainCurtainLightSunset = new FloatSetting("RainCurtainLightSunset", Defaults.RainCurtainLightSunset);
+                RainCurtainLightNight = new FloatSetting("RainCurtainLightNight", Defaults.RainCurtainLightNight);
                 RainStreaks = new FloatSetting("RainStreaks", Defaults.RainStreaks);
                 RainStreakHeight = new FloatSetting("RainStreakHeight", Defaults.RainStreakHeight);
                 RainStreakLength = new FloatSetting("RainStreakLength", Defaults.RainStreakLength);
@@ -1496,6 +1552,8 @@ namespace VolumetricClouds
                 CumulusLayer = new FloatSetting("CumulusLayer", Defaults.CumulusLayer);
                 CumulusSize = new FloatSetting("CumulusSize", Defaults.CumulusSize);
                 CumulusHeight = new FloatSetting("CumulusHeight", Defaults.CumulusHeight);
+                CumulusBases = new FloatSetting("CumulusBases", Defaults.CumulusBases);
+                CumulusSoftness = new FloatSetting("CumulusSoftness", Defaults.CumulusSoftness);
                 CumulusAmount = new FloatSetting("CumulusAmount", Defaults.CumulusAmount);
                 CloudThickness = new FloatSetting("CloudThickness", Defaults.Thickness);
                 CloudDensity = new FloatSetting("CloudDensity", Defaults.Density);
@@ -1524,11 +1582,13 @@ namespace VolumetricClouds
                 CloudLightOvercast = new FloatSetting("CloudLightOvercast", Defaults.LightOvercast);
                 CloudLightSunsetOvercast = new FloatSetting("CloudLightSunsetOvercast", Defaults.LightSunsetOvercast);
                 CloudLightNightOvercast = new FloatSetting("CloudLightNightOvercast", Defaults.LightNightOvercast);
+                CloudLightDifference = new FloatSetting("CloudLightDifference", Defaults.CloudLightDifference);
                 CloudQuality = new FloatSetting("CloudQuality", Defaults.Quality);
                 CloudDepthOcclusion = new BoolSetting("CloudDepthOcclusion", Defaults.DepthOcclusion);
                 // Stored as "SmootherClouds" since 2026-11-07: a new name so every existing file reads as on once
                 // (its old "CloudTemporal" is retired, SettingsXml.Retired); a player who turns it off stays off.
                 CloudTemporal = new BoolSetting("SmootherClouds", Defaults.Temporal);
+                SmootherCloudsSize = new IntSetting("SmootherCloudsSize", Defaults.SmootherCloudsSize);
                 SimplerClouds = new BoolSetting("SimplerClouds", Defaults.SimplerClouds);
                 SmootherCloudsSharp = new BoolSetting("SmootherCloudsSharp", Defaults.SmootherCloudsSharp);
                 MinIllumination = new FloatSetting("MinIllumination", Defaults.MinIllumination);

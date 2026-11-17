@@ -6,7 +6,8 @@ namespace VolumetricClouds.Sky
 {
     /// <summary>
     /// SMOOTHER CLOUDS (1.5.0, <see cref="Settings.CloudTemporal"/>, off by default): the clouds marched at
-    /// half the screen's size each way, every frame, and blended with the frames before -- temporal
+    /// half the screen's size each way (since 2026-11-17 the row "Cloud drawing size" can make it a third or a
+    /// quarter: <see cref="SmootherSize"/>), every frame, and blended with the frames before -- temporal
     /// accumulation, as Unity HDRP, Horizon Zero Dawn and KSP's EVE-Redux draw their clouds. A quarter of
     /// the marches per frame, and the march's jitter moves on every frame, so its grain averages away.
     /// </summary>
@@ -86,6 +87,9 @@ namespace VolumetricClouds.Sky
         /// <summary>Draws in a row at a size the targets don't have (see Render).</summary>
         private int _otherSize;
 
+        /// <summary>The size row's choice the targets were made for (-1: none yet).</summary>
+        private int _madeChoice = -1;
+
         private Matrix4x4 _previousVP;
         private Vector3 _previousEye;
         private Vector3 _previousForward;
@@ -95,6 +99,8 @@ namespace VolumetricClouds.Sky
         {
             _resolve = new Material(shader) { name = "VolumetricCloudsTemporalBlend" };
             _resolve.SetFloat(IdTemporalMode, 2f);
+            // The blend marches nothing: never the extras' variant (CloudShaders.PlusKeyword), whatever the clouds draw.
+            _resolve.DisableKeyword(CloudShaders.PlusKeyword);
 
             _quad = new Mesh { name = "VolumetricCloudsTemporalQuad" };
             _quad.vertices = new[]
@@ -151,17 +157,31 @@ namespace VolumetricClouds.Sky
             if (frame == _lastFrame)
                 return _hasHistory;
 
-            int width = Mathf.Max(1, (camera.pixelWidth + 1) / 2);
-            int height = Mathf.Max(1, (camera.pixelHeight + 1) / 2);
+            // The march's size (SmootherSize, the row "Cloud drawing size"): the size the camera renders at -- never
+            // the screen's: a mod that renders the game's camera into a target of its own size gets the march for
+            // that size -- divided by 2 (the default, as always), 3 or 4 each way.
+            int choice = Settings.SmootherCloudsSize != null ? Settings.SmootherCloudsSize.value : Settings.Defaults.SmootherCloudsSize;
+            int divisor = SmootherSize.Divisor(choice, camera.pixelHeight);
+            int width = SmootherSize.Size(camera.pixelWidth, divisor);
+            int height = SmootherSize.Size(camera.pixelHeight, divisor);
             if (_march == null || _march.width != width || _march.height != height)
             {
                 // A one-off draw at another size (the game's screenshot) marches as before, at its own
                 // full size, and keeps the blend; a size that stays (a resolution change) gets new targets.
+                // The player's own change of the row is no one-off: new targets at once.
                 _otherSize++;
-                if (_march != null && _otherSize < 3)
+                bool rowMoved = _march != null && choice != _madeChoice;
+                if (_march != null && _otherSize < 3 && !rowMoved)
                     return false;
-                if (!Create(width, height))
+                if (!Create(width, height, choice, divisor, camera.pixelWidth, camera.pixelHeight))
                     return false;
+            }
+            else if (choice != _madeChoice)
+            {
+                // The row moved to a choice that gives this render the same size: the targets stay as they are.
+                _madeChoice = choice;
+                Log.Msg("smoother clouds: drawing size now " + SmootherSize.ChoiceName(choice) + " -- still " + width + "x" + height +
+                        " (" + SmootherSize.DivisorName(divisor) + " of the " + camera.pixelWidth + "x" + camera.pixelHeight + " render each way)");
             }
 
             _otherSize = 0;
@@ -286,9 +306,10 @@ namespace VolumetricClouds.Sky
             return d - Mathf.Floor(d + 0.5f);
         }
 
-        private bool Create(int width, int height)
+        private bool Create(int width, int height, int choice, int divisor, int renderWidth, int renderHeight)
         {
             Release(false);
+            _madeChoice = choice;
 
             if (!SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf))
             {
@@ -307,7 +328,8 @@ namespace VolumetricClouds.Sky
 
             float megabytes = 3f * width * height * 8f / (1024f * 1024f);
             Log.Msg("smoother clouds: on -- the clouds marched at " + width + "x" + height +
-                    " (half the screen each way) every frame and blended with the frames before (keep " +
+                    " (" + SmootherSize.DivisorName(divisor) + " of the " + renderWidth + "x" + renderHeight + " render each way; drawing size: " +
+                    SmootherSize.ChoiceName(choice) + ") every frame and blended with the frames before (keep " +
                     Keep.ToString("F2") + ", " + KeepInFlash.ToString("F2") + " in a flash); 3 ARGBHalf targets, " +
                     megabytes.ToString("F0") + " MB; target up " + _up +
                     "; pixels with a building or hill inside the clouds, or a bolt, marched as before");

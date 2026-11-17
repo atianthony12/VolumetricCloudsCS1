@@ -247,7 +247,7 @@ namespace VolumetricClouds.Sky
                 float cover = CloudWeather.Coverage;
                 float a, b;
                 Line(HeapEdge(HeapCoverage(cover)), out a, out b);
-                return CloudAuto.Mix(HeapTopAt(a + b) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f);
+                return CloudAuto.Mix(HeapTopAt(a + b - LineTrimNow) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f);
             }
         }
 
@@ -344,10 +344,10 @@ namespace VolumetricClouds.Sky
             get { return Span * SizeFactor * HeightFactor; }
         }
 
-        /// <summary>The tallest heap now, metres above the base.</summary>
+        /// <summary>The tallest heap now, metres above the base (with Rounded cumulus bases, its curve's: <see cref="ShapeNow"/>).</summary>
         public static float TallestNow
         {
-            get { return Tallest * SizeFactor * HeightFactor; }
+            get { return ShapeNow.Tallest * SizeFactor * HeightFactor; }
         }
 
         /// <summary>
@@ -380,7 +380,119 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static float HeapLightBoost
         {
-            get { return TypeDrawn ? CloudMix.LightBoost(CloudLightScale, TypeStrengthNow) : 0f; }
+            get
+            {
+                if (!TypeDrawn)
+                    return 0f;
+                // "Brightness difference between clouds" at 100% (or where it does nothing): exactly as before it.
+                if (EvenRow >= 1f)
+                    return CloudMix.LightBoost(CloudLightScale, TypeStrengthNow);
+                return CloudMix.LightBoost(CloudLightScale, TypeStrengthNow, HeapLevel);
+            }
+        }
+
+        // ---- "Brightness difference between clouds" (CloudLightDifference, 2026-11-16) ---------------
+        // Under the type (Mixed, Auto below Cumulus) the sky is lit at the puffs' level (LevelToday, about x0.5)
+        // and lifted back to 1 where it leans to heaps (HeapLightBoost): a sunlit soft cloud in a stretch that
+        // does not lean to heaps got half a heap's light (measured 2026-11-16 at his settings, two cities: a sunlit
+        // heap 1.9x a sunlit soft cloud's light per opacity there, at Glow 100 and 150 alike; 1.66x / 1.82x over
+        // all their opaque pixels, shade included). The row at 100% (the default) is that sky exactly; at 0% the
+        // two levels are EVEN: a sunlit soft cloud there as bright per opacity as a sunlit heap. Evened from both
+        // sides, so the whole sky keeps about its brightness: the soft stretches up and the heaps' level down from
+        // 1, by how much of the sky's cloud light the soft stretches carry at the cover (EvenSoftShare). The
+        // numbers are fields so the bench can try them.
+
+        /// <summary>
+        /// A sunlit heap's light per opacity per unit of light level, as a share of a sunlit soft cloud's: the
+        /// level at which the soft stretches are as bright as heaps lit at 1. Measured in the Unity 5.6 bench
+        /// (his settings, his city and a second one, 24 views each): 0.965 at Glow 100, 0.945 at 150.
+        /// </summary>
+        public static float EvenHeapLight = 0.955f;
+
+        /// <summary>
+        /// Under Auto, how much of the sky's cloud light the soft stretches carry, by cover: all of it at
+        /// <see cref="EvenShareFrom"/>, none from <see cref="EvenShareTo"/>, a smoothstep between: 33% at 43% cover,
+        /// 4% at 58%, 0 at 68% (measured, his settings, light-weighted over 8 views: 16% and 43% at 43% in the two
+        /// cities, 2% and 6% at 58%, under 1% at 68%; the two cities' 43% evened out between them). It decides how
+        /// far the heaps' level comes down (EvenLevels).
+        /// </summary>
+        public static float EvenShareFrom = 0.085f, EvenShareTo = 0.64f;
+
+        /// <summary>The same under Mixed, at every cover (measured: 4% in his city, 16-19% in the second, 43-68%).</summary>
+        public static float EvenShareMixed = 0.1f;
+
+        /// <summary>The row's effect fades out over this cover, so the sky meets Cumulus's light as before (none from EvenFadeTo).</summary>
+        public static float EvenFadeFrom = 0.8f, EvenFadeTo = 0.88f;
+
+        /// <summary>The row, 0..1 (1: the sky as before it).</summary>
+        public static float LightDifference
+        {
+            get { return Clamp(Settings.CloudLightDifference != null ? Settings.CloudLightDifference.value : Settings.Defaults.CloudLightDifference, 0f, 1f); }
+        }
+
+        /// <summary>
+        /// The row as it acts now: 1 (nothing) unless the type is drawn, faded to 1 over EvenFadeFrom..EvenFadeTo
+        /// of cover, 1 exactly from there.
+        /// </summary>
+        private static float EvenRow
+        {
+            get
+            {
+                if (!TypeDrawn)
+                    return 1f;
+                float row = LightDifference;
+                float cover = CloudWeather.Coverage;
+                if (row >= 1f || cover >= EvenFadeTo)
+                    return 1f;
+                float t = Clamp((cover - EvenFadeFrom) / Math.Max(1e-3f, EvenFadeTo - EvenFadeFrom), 0f, 1f);
+                return row + (1f - row) * t * t * (3f - 2f * t);
+            }
+        }
+
+        /// <summary>The share of the sky's cloud light in the soft stretches at this cover, 0..1 (EvenShareFrom..To).</summary>
+        private static float EvenSoftShare
+        {
+            get
+            {
+                if (!AutoDrawn)
+                    return Clamp(EvenShareMixed, 0f, 1f);
+                float t = Clamp((CloudWeather.Coverage - EvenShareFrom) / Math.Max(1e-3f, EvenShareTo - EvenShareFrom), 0f, 1f);
+                return 1f - t * t * (3f - 2f * t);
+            }
+        }
+
+        /// <summary>
+        /// The two levels at the row's 0% for today's soft level <paramref name="today"/>: even (soft = heaps' level
+        /// x EvenHeapLight), with the sky's mean light kept: share s of the light in the soft stretches (which go
+        /// x soft / today), 1 - s on the heaps' (x heap), so s soft / today + (1 - s) heap = 1, i.e.
+        /// heap = 1 / (1 + s (EvenHeapLight / today - 1)). The soft level never under today's nor over 1; where the
+        /// soft clouds are already as bright (today at or over EvenHeapLight), nothing moves.
+        /// </summary>
+        private static void EvenLevels(float today, out float soft, out float heap)
+        {
+            float q = Clamp(EvenHeapLight, 1e-3f, 1f);
+            if (today >= q)
+            {
+                soft = today;
+                heap = 1f;
+                return;
+            }
+            heap = 1f / (1f + EvenSoftShare * (q / Math.Max(1e-3f, today) - 1f));
+            soft = Clamp(q * heap, today, 1f);
+        }
+
+        /// <summary>The heaps' level under the type, where the sky leans all the way to them: 1 at the row's 100%.</summary>
+        public static float HeapLevel
+        {
+            get
+            {
+                float row = EvenRow;
+                if (row >= 1f)
+                    return 1f;
+                float soft, heap;
+                EvenLevels(LevelToday, out soft, out heap);
+                return Math.Max(CloudLightScale, CloudAuto.Mix(heap, 1f, row));
+            }
         }
 
         /// <summary>
@@ -401,8 +513,27 @@ namespace VolumetricClouds.Sky
         /// (CloudSoft.LightScaleAt), under Auto its own (CloudAuto.LightScale), 1 for every other style.
         /// The heaps' stretches under the type are lifted from it to 1 (<see cref="HeapLightBoost"/>). What
         /// reads those two lights back for something else (the distant clouds, SkyLayer) divides it out again.
+        /// Under the type, "Brightness difference between clouds" below 100% moves it (and the heaps' level,
+        /// <see cref="HeapLevel"/>) towards the even levels (EvenLevels).
         /// </summary>
         public static float CloudLightScale
+        {
+            get
+            {
+                float today = LevelToday;
+                // "Brightness difference between clouds" (under the type only): from today's level at 100% to the
+                // even one at 0% (EvenLevels).
+                float row = EvenRow;
+                if (row >= 1f)
+                    return today;
+                float soft, heap;
+                EvenLevels(today, out soft, out heap);
+                return CloudAuto.Mix(soft, today, row);
+            }
+        }
+
+        /// <summary>The clouds' own light level as the styles set it, before "Brightness difference between clouds".</summary>
+        private static float LevelToday
         {
             get
             {
@@ -593,8 +724,10 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static float HeapTopAt(float coverage)
         {
+            // The curve drawn now (Rounded cumulus bases): EVE's Tops with the row at 0.
+            float[] tops = ShapeNow.Tops;
             int i = (int)Math.Ceiling(Math.Max(0f, coverage) * 100f);
-            return Tops[Math.Min(i, Tops.Length - 1)];
+            return tops[Math.Min(i, tops.Length - 1)];
         }
 
         // ---- how much cloud -------------------------------------------------------------------
@@ -719,6 +852,364 @@ namespace VolumetricClouds.Sky
             return Math.Max(0f, Math.Min(1f, d));
         }
 
+        // ---- rounded bases (2026-11-16, the row "Rounded cumulus bases", CumulusBases) -------------
+
+        /// <summary>
+        /// The heaps' undersides, formed like their tops. EVE's curve climbs from nothing to its peak over the
+        /// lowest 7% of the span and falls over the rest: the noise could move a heap's underside by some 70 m
+        /// while it moved its top by a kilometre, so every heap sat on one flat line, widest right at the
+        /// bottom. With the row on, the climb is slower and rounded (fast low down, easing into the peak), and
+        /// the widest level higher (<see cref="BaseWidest"/>); the peak's value and the fall's shape are EVE's.
+        /// The noise then shapes the undersides through the coverage as it shapes the tops: nothing is cut or
+        /// moved (the two tries of 2026-10-05 did: "it's like bending the cloud rather than naturally forming").
+        /// 0 = EVE's curve exactly (the same numbers reach the shader). Static fields so the bench can sweep them.
+        /// Chosen 2026-11-16 in the Unity 5.6 bench: widest at 15% of the span
+        /// (20% made every heap visibly bigger and taller), the undersides formed over ~2.6x EVE's height
+        /// (the coverage of an underside crossed over 132 m of the span where EVE's crossed it over 51 m).
+        /// </summary>
+        public static float BaseWidest = 0.15f;
+
+        /// <summary>The climb's slope at its foot at 100%, in units of its rise per its length: 2 = a parabola (1 - (1 - s)^2), 3 at most (monotone).</summary>
+        public static float BaseRise = 2f;
+
+        /// <summary>How much of the widest level's move the fall's end follows: 1 = the tops ride up with it, their shape EVE's; 0 = they stay where they end and the fall is squeezed (chosen: the heaps keep their heights).</summary>
+        public static float BaseTopShift = 0f;
+
+        /// <summary>
+        /// Coverage taken off the heaps' line at 100%: a thicker band near the peak makes each heap's footprint
+        /// from below a little wider (the noise differs with height: +2 to +4 points of sky on one city's map),
+        /// and the cover tables of Soft, Auto and the rain are solved against Cumulus's sky. This keeps that
+        /// sky's amount (measured from straight above on two cities: within a point of the row at 0).
+        /// </summary>
+        public static float BaseTrim = 0.015f;
+
+        /// <summary>The coverage taken off the heaps' line now (<see cref="BaseTrim"/> x the row as drawn).</summary>
+        public static float BaseTrimNow
+        {
+            get { return BaseTrim * ShapeNow.Bases; }
+        }
+
+        /// <summary>The curve as the shader evaluates it: three keys, two cubics in s, the value past the last key; with its tops.</summary>
+        public sealed class Shape
+        {
+            public float Bases;
+            public float[] Time;
+            public float[][] Cubics;
+            public float End;
+            /// <summary>Metres above the base where a heap of the most coverage ends (at Cumulus size and height 100%).</summary>
+            public float Tallest;
+            /// <summary>The same per 1% of coverage, 0 .. CoverageMax.</summary>
+            public float[] Tops;
+
+            /// <summary>The curve at h (0 = base, 1 = Span up), exactly as CumulusCurve in the shader.</summary>
+            public float Eval(float h)
+            {
+                if (h <= Time[0])
+                    return Cubics[0][3];
+                if (h >= Time[2])
+                    return End;
+                bool first = h < Time[1];
+                float[] k = first ? Cubics[0] : Cubics[1];
+                float start = first ? Time[0] : Time[1];
+                float end = first ? Time[1] : Time[2];
+                float s = (h - start) / (end - start);
+                return ((k[0] * s + k[1]) * s + k[2]) * s + k[3];
+            }
+
+            /// <summary>Metres over Span where a heap of this coverage ends: where the fall crosses 1 - coverage.</summary>
+            public float TopOf(float coverage)
+            {
+                float target = 1f - coverage;
+                float lo = Time[1], hi = Time[2];
+                for (int k = 0; k < 40; k++)
+                {
+                    float mid = (lo + hi) * 0.5f;
+                    if (Eval(mid) > target)
+                        lo = mid;
+                    else
+                        hi = mid;
+                }
+
+                return hi * Span;
+            }
+        }
+
+        /// <summary>EVE's curve, the row at 0: the very arrays and cubics the shader always got.</summary>
+        public static readonly Shape EveShape = new Shape
+        {
+            Bases = 0f,
+            Time = CurveTime,
+            Cubics = Cubics,
+            End = CurveValue[CurveValue.Length - 1],
+            Tallest = Tallest,
+            Tops = Tops,
+        };
+
+        /// <summary>A cubic in s from its ends' values and slopes (per unit of s), as <see cref="SegmentCubic"/>.</summary>
+        private static float[] Hermite(float v0, float v1, float m0, float m1)
+        {
+            return new[] { 2f * v0 + m0 - 2f * v1 + m1, -3f * v0 - 2f * m0 + 3f * v1 - m1, m0, v0 };
+        }
+
+        /// <summary>The curve with the row at <paramref name="bases"/> (0..1): EVE's at 0 (the same object).</summary>
+        public static Shape ShapeFor(float bases)
+        {
+            bases = Math.Max(0f, Math.Min(1f, bases));
+            if (bases <= 0f)
+                return EveShape;
+
+            float t0 = CurveTime[0], t1Eve = CurveTime[1], t2Eve = CurveTime[2];
+            float t1 = t1Eve + (Math.Max(BaseWidest, t1Eve) - t1Eve) * bases;
+            float t2 = t2Eve + (t1 - t1Eve) * Math.Max(0f, Math.Min(1f, BaseTopShift));
+            float v0 = CurveValue[0], v1 = CurveValue[1], v2 = CurveValue[2];
+
+            // The climb: EVE's slopes (per unit of s) handed over to a rounded rise, steep at the foot, flat at the peak.
+            float dt0 = t1Eve - t0;
+            float m0Eve = CurveOut[0] * dt0, m1Eve = CurveIn[1] * dt0;
+            float rise = Math.Max(0f, Math.Min(3f, BaseRise)) * (v1 - v0);
+            float m0 = m0Eve + (rise - m0Eve) * bases;
+            float m1 = m1Eve * (1f - bases);
+
+            // The fall: EVE's shape in s, over its new stretch.
+            float dt1 = t2Eve - t1Eve;
+            float n0 = CurveOut[1] * dt1, n1 = CurveIn[2] * dt1;
+
+            var shape = new Shape
+            {
+                Bases = bases,
+                Time = new[] { t0, t1, t2 },
+                Cubics = new[] { Hermite(v0, v1, m0, m1), Hermite(v1, v2, n0, n1) },
+                End = v2,
+            };
+            int n = (int)Math.Round(CoverageMax * 100f) + 1;
+            shape.Tops = new float[n];
+            for (int i = 0; i < n; i++)
+                shape.Tops[i] = shape.TopOf(Math.Min(i * 0.01f, CoverageMax));
+            shape.Tallest = shape.TopOf(CoverageMax);
+            return shape;
+        }
+
+        /// <summary>The "Rounded cumulus bases" row, 0..1 (its default without one).</summary>
+        public static float BasesRow
+        {
+            get { return Clamp(Settings.CumulusBases != null ? Settings.CumulusBases.value : Settings.Defaults.CumulusBases, 0f, 1f); }
+        }
+
+        /// <summary>The row as drawn: none under Simpler clouds (its shaders keep EVE's base: the C# side sends EVE's curve).</summary>
+        public static float BasesNow
+        {
+            get
+            {
+                float row = BasesRow;
+                return row > 0f && !CloudShaders.Lite ? row : 0f;
+            }
+        }
+
+        private static Shape _shape = EveShape;
+        private static float _shapeWidest = float.NaN, _shapeRise = float.NaN, _shapeShift = float.NaN;
+
+        /// <summary>The curve drawn now (<see cref="BasesNow"/>): what the shader gets, the tops and the slab.</summary>
+        public static Shape ShapeNow
+        {
+            get
+            {
+                float bases = BasesNow;
+                if (bases != _shape.Bases || (bases > 0f && (BaseWidest != _shapeWidest || BaseRise != _shapeRise || BaseTopShift != _shapeShift)))
+                {
+                    _shape = ShapeFor(bases);
+                    _shapeWidest = BaseWidest;
+                    _shapeRise = BaseRise;
+                    _shapeShift = BaseTopShift;
+                }
+
+                return _shape;
+            }
+        }
+
+        /// <summary>The density at one point with the row at <paramref name="bases"/>: <see cref="Density(float, float, float)"/> on that curve.</summary>
+        public static float Density(float coverage, float h, float noise, float bases)
+        {
+            float cg = Math.Max(0f, Math.Min(1f, coverage + ShapeFor(bases).Eval(h) - 1f));
+            if (cg <= 0f)
+                return 0f;
+
+            float d = (cg - (1f - noise) * ErosionDepth) / (1f - Hardness);
+            return Math.Max(0f, Math.Min(1f, d));
+        }
+
+        /// <summary>For the log: the row and what it draws.</summary>
+        public static string DescribeBases()
+        {
+            CultureInfo c = CultureInfo.InvariantCulture;
+            Shape s = ShapeNow;
+            if (s.Bases <= 0f)
+                return BasesRow > 0f ? "off under Simpler clouds (EVE's flat bases)" : "off (EVE's flat bases)";
+            return "on " + (s.Bases * 100f).ToString("F0", c) + "% -- widest " + (s.Time[1] * SpanNow).ToString("F0", c) +
+                   " m above the base (EVE's " + (CurveTime[1] * SpanNow).ToString("F0", c) + " m), tallest heap " +
+                   (s.Tallest * SizeFactor * HeightFactor).ToString("F0", c) + " m";
+        }
+
+        // ---- softer cumulus (2026-11-16, the row "Softer cumulus", CumulusSoftness) ------------------
+
+        /// <summary>
+        /// The heaps read as cotton, as the Soft style's puffs do (the author: the Cumulus clouds are "just blocks",
+        /// Soft's "basically like cotton candy"). EVE's edge goes from nothing to full over 1/33 of the cloud's
+        /// inside; with the row on, over about Soft's softness, starting further out so the half-density surface
+        /// stays where it was (a soft skin outwards, thinner just inside, the core as dense as before); the noise
+        /// lookup pushed about as Soft's is; and, close up, a finer read of the same noise frays the edge (strands
+        /// low, billows higher) with a faint fringe. The coverage (cg) is never moved: nothing is drawn where it was
+        /// not, so the empty-sky skip, the slab's top and the rain stay as they are. Drawn by the cloud shader's
+        /// extras variant only (CloudShaders.PlusOn); 0 = the heaps exactly as they always were. Static fields so
+        /// the bench can sweep them; at 100% each value below, at less the row's share of it (the edge's width
+        /// moves from EVE's to <see cref="SoftHardness"/>'s).
+        /// </summary>
+        public static float SoftHardness = 7f;
+
+        /// <summary>Where the half-density surface sits at 100%: 1 = where the hard edge's was (the skin grows outwards as it thins inwards), 0 = the soft edge starts at the hard one's foot.</summary>
+        public static float SoftSurface = 1f;
+
+        /// <summary>The cloud's inside (cg) over which the skin and the fringe come in: so a heap's top and its foot still thin to nothing where cg does.</summary>
+        public static float SoftSkinFade = 0.05f;
+
+        /// <summary>Metres the noise lookup is pushed about by the 64^3 noise at 100% (Soft's own: <see cref="CloudSoft.Warp"/>).</summary>
+        public static float SoftWarp = 250f;
+
+        /// <summary>How deep the fine read carves at 100%, in the cloud's inside (cg) units.</summary>
+        public static float SoftFray = 0.1f;
+
+        /// <summary>The fine read's repeat: the heaps' divided by this whole number (4: ~575-600 m features, as Soft's).</summary>
+        public static float SoftFrayMultiple = 4f;
+
+        /// <summary>
+        /// What the fray gives back, in units of its depth: it carves (fine read x its depth) and then adds this back
+        /// everywhere it reaches, so up close (where it is drawn) the sky keeps its amount as it does far off (where it
+        /// fades out). 0 = it only carves. Chosen 2026-11-16 in the bench: the clouds from straight above with the fine read
+        /// in (mip -3) within a point of the row at 0 at 43 / 58 / 70%, Cumulus and Auto (0 took 2.6-8.4 points off).
+        /// </summary>
+        public static float SoftFrayBias = 0.45f;
+
+        /// <summary>Over this share of the tallest heap the fine read's strands (low) turn to billows (higher), as Soft's <see cref="CloudSoft.WispHeight"/>.</summary>
+        public static float SoftFrayHeight = 0.3f;
+
+        /// <summary>The fringe's density at 100% (a share of the heaps' full density), as Soft's <see cref="CloudSoft.Fringe"/>.</summary>
+        public static float SoftFringe = 0.2f;
+
+        /// <summary>
+        /// How far outside the surface the fringe reaches, in the cloud's inside (cg) units. Chosen in the bench (2026-11-16):
+        /// 0.17 (Soft's 0.4 in the heaps' units) filled the gaps between heaps with haze; 0.05 left no fringe at all.
+        /// </summary>
+        public static float SoftFringeReach = 0.13f;
+
+        /// <summary>
+        /// Coverage taken off the heaps' line at 100%, as <see cref="BaseTrim"/>: the soft skin outwards made each heap's
+        /// footprint from above wider (+6 to +9 points of sky at 43-70% on two cities); this keeps the sky's amount from
+        /// straight above within a point of the row at 0 (measured 2026-11-16, Cumulus and Auto, 43 / 58 / 70 / 98%).
+        /// </summary>
+        public static float SoftTrim = 0.035f;
+
+        /// <summary>The "Softer cumulus" row, 0..1 (its default without one).</summary>
+        public static float SoftnessRow
+        {
+            get { return Clamp(Settings.CumulusSoftness != null ? Settings.CumulusSoftness.value : Settings.Defaults.CumulusSoftness, 0f, 1f); }
+        }
+
+        /// <summary>
+        /// The row as drawn: only while the cloud shader's extras variant is (CloudShaders.PlusOn: never under Simpler
+        /// clouds, nor where that variant does not run); 0 otherwise, and the shader gets the heaps as they always were.
+        /// </summary>
+        public static float SoftnessNow
+        {
+            get
+            {
+                float row = SoftnessRow;
+                return row > 0f && CloudShaders.PlusOn ? row : 0f;
+            }
+        }
+
+        /// <summary>The edge's hardness at <paramref name="softness"/> (0..1): EVE's 1 / (1 - <see cref="Hardness"/>) at 0, its width moving to <see cref="SoftHardness"/>'s.</summary>
+        public static float SoftHardnessAt(float softness)
+        {
+            float hard = 1f / (1f - Hardness);
+            float soft = Math.Max(1f, SoftHardness);
+            float width = 1f / hard + (1f / soft - 1f / hard) * Math.Max(0f, Math.Min(1f, softness));
+            return 1f / width;
+        }
+
+        /// <summary>Where the soft edge starts, in the cloud's inside units (at or under 0): half its width under the hard edge's half-density point, times <see cref="SoftSurface"/>.</summary>
+        public static float SoftStartAt(float softness)
+        {
+            float hard = 1f / (1f - Hardness);
+            return Math.Min(0f, (0.5f / hard - 0.5f / SoftHardnessAt(softness)) * Math.Max(0f, Math.Min(1f, SoftSurface)));
+        }
+
+        /// <summary>The coverage taken off the heaps' line now: <see cref="BaseTrimNow"/> and <see cref="SoftTrim"/> x the row as drawn (both 0 off: the line as it was).</summary>
+        public static float LineTrimNow
+        {
+            get
+            {
+                float soft = SoftnessNow;
+                return soft > 0f ? BaseTrimNow + SoftTrim * soft : BaseTrimNow;
+            }
+        }
+
+        /// <summary>
+        /// The heaps' density at one point, 0..1, with the row at <paramref name="softness"/>: the shader's CumulusDensity
+        /// from cg on (its C# twin; the push moves where `noise` and `fine` are read, <see cref="SoftPush"/>). `noise`: the
+        /// Cumulus noise there; `fine`: its read at <see cref="SoftFrayMultiple"/> x the frequency; `wisps`: how much of
+        /// the fray the distance leaves (0..1, 0 for the light's looks); `y`: metres above the base; `tallest`: the
+        /// tallest heap now (m). At 0 exactly <see cref="Density(float, float, float)"/>'s formula from cg.
+        /// </summary>
+        public static float SofterDensity(float cg, float noise, float fine, float wisps, float y, float softness, float tallest)
+        {
+            if (cg <= 0f)
+                return 0f;
+            if (softness <= 0f)
+                return Math.Max(0f, Math.Min(1f, (cg - (1f - noise) * ErosionDepth) / (1f - Hardness)));
+
+            float s = Math.Min(1f, softness);
+            float inside = cg - (1f - noise) * ErosionDepth;
+            float f = 0f;
+            if (wisps > 0f)
+            {
+                f = Clamp01((fine - CloudSoft.NoiseMiddle) * CloudSoft.NoiseContrast + 0.5f);
+                inside -= SoftFray * s * wisps * (f + (1f - 2f * f) * Clamp01(y / Math.Max(SoftFrayHeight * tallest, 1f)) - SoftFrayBias);
+            }
+
+            float skin = Clamp01(cg / SoftSkinFade);
+            float d = Clamp01((inside - SoftStartAt(s) * skin) * SoftHardnessAt(s));
+            if (wisps > 0f && SoftFringe > 0f)
+                d = Math.Max(d, SoftFringe * s * wisps * skin * f * f * Clamp01(1f + inside / SoftFringeReach));
+            return d;
+        }
+
+        /// <summary>The push at a point (the shader's): metres along x, y, z from the 64^3 noise's R and G there (as read) at the row's <paramref name="softness"/>.</summary>
+        public static void SoftPush(float r, float g, float softness, out float x, out float y, out float z)
+        {
+            float w = SoftWarp * Math.Max(0f, Math.Min(1f, softness));
+            float a = r - CloudSoft.WarpMiddleR, b = g - CloudSoft.WarpMiddleG;
+            x = a * w;
+            y = (a - b) * 0.5f * w;
+            z = b * w;
+        }
+
+        private static float Clamp01(float v)
+        {
+            return v < 0f ? 0f : v > 1f ? 1f : v;
+        }
+
+        /// <summary>For the log: the row and what it draws.</summary>
+        public static string DescribeSoftness()
+        {
+            CultureInfo c = CultureInfo.InvariantCulture;
+            float s = SoftnessNow;
+            if (s <= 0f)
+                return SoftnessRow > 0f ? "off: the cloud shader's extras variant is not drawn (Simpler clouds, or it does not run here)" : "off (EVE's hard edges)";
+            return "on " + (s * 100f).ToString("F0", c) + "% -- edge soft over " + (1f / SoftHardnessAt(s)).ToString("F3", c) + " of the inside (EVE's " +
+                   (1f - Hardness).ToString("F3", c) + "), starting " + (-SoftStartAt(s)).ToString("F3", c) + " out, pushed " + (SoftWarp * s).ToString("F0", c) +
+                   " m, frayed " + (SoftFray * s).ToString("F3", c) + " deep by its x" + SoftFrayMultiple.ToString("F0", c) + " read, fringe " +
+                   (SoftFringe * s).ToString("F2", c) + ", line trimmed " + (SoftTrim * s).ToString("F3", c);
+        }
+
         // ---- the light ------------------------------------------------------------------------
 
         /// <summary>
@@ -793,15 +1284,16 @@ namespace VolumetricClouds.Sky
         {
             CultureInfo c = CultureInfo.InvariantCulture;
             string layer = " (Classic layer " + (LayerAmount * 100f).ToString("F0", c) + "%, ";
+            string bases = ", rounded bases " + (BasesRow * 100f).ToString("F0", c) + "%)";
             if (Current == Auto)
                 return Name(Current) + layer + CloudAuto.DescribeAt(CloudWeather.Coverage) + ", cumulus size " + (SizeFactor * 100f).ToString("F0", c) +
-                       "%, height " + (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%)";
+                       "%, height " + (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%" + bases;
             if (Current == Cumulus)
                 return Name(Current) + layer + "size " + (SizeFactor * 100f).ToString("F0", c) + "%, height " +
-                       (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%)";
+                       (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%" + bases;
             if (Current == Mixed)
                 return Name(Current) + layer + "puffs up to " + SoftTallestNow.ToString("F0", c) + " m tall, cumulus size " + (SizeFactor * 100f).ToString("F0", c) +
-                       "%, height " + (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%)";
+                       "%, height " + (HeightFactor * 100f).ToString("F0", c) + "%, amount " + (AmountFactor * 100f).ToString("F0", c) + "%" + bases;
             if (Current == Soft)
                 return Name(Current) + layer + "up to " + SoftTallestNow.ToString("F0", c) + " m tall)";
             return Name(Current);

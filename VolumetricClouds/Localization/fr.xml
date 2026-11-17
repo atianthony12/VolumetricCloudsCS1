@@ -105,6 +105,9 @@
   <String key="CumulusLayer.Label">Couche classique</String>
   <String key="CumulusSize.Label">Taille des cumulus</String>
   <String key="CumulusHeight.Label">Hauteur des cumulus</String>
+  <String key="CumulusBases.Label">Bases arrondies des cumulus</String>
+  <String key="CumulusSoftness.Label">Cumulus plus doux</String>
+  <String key="CumulusSoftness.Tooltip">Donne aux cumulus des bords doux et effilochés, comme les nuages du style Doux. 0% = bords nets, comme avant</String>
   <String key="CumulusAmount.Label">Quantité de cumulus</String>
 
   <String key="Group.CloudShape">Altitude et forme</String>
@@ -232,7 +235,7 @@
   <String key="RainEnabled.Label">Remplacer la pluie et la neige du jeu</String>
 
   <String key="RainCurtains.Label">Rideaux de pluie sous les nuages</String>
-
+  <String key="RainCurtainLight.Label">Luminosité des rideaux de pluie</String>
   <String key="RainStreaks.Label">Traits de pluie près de la caméra</String>
 
   <String key="RainStreakHeight.Label">Les traits disparaissent au-dessus de</String>
@@ -318,6 +321,9 @@
   <String key="Group.Brightness">Luminosité et densité</String>
 
   <String key="CloudLight.Label">Luminosité des nuages</String>
+
+  <String key="CloudLightDifference.Label">Écart de luminosité entre les nuages</String>
+  <String key="CloudLightDifference.Tooltip">À quel point les nuages doux sont plus sombres que les gros cumulus au soleil. 0% = aussi lumineux</String>
 
   <String key="MinIllumination.Label">Assombrir le soleil dans le brouillard à ciel couvert à</String>
 
@@ -413,6 +419,12 @@
   <String key="CloudDepthOcclusion.Label">Bâtiments et terrain masquent les nuages derrière eux</String>
 
   <String key="SmootherClouds.Label">Nuages plus lisses (mélange plusieurs images : moins de grain)</String>
+  <String key="SmootherCloudsSize.Label">Taille de dessin des nuages</String>
+  <String key="SmootherCloudsSize.Tooltip">Nuages plus lisses dessine les nuages plus petits que l'écran et les mélange sur quelques images. Une taille plus petite est bien plus rapide ; les filaments les plus fins deviennent plus doux</String>
+  <String key="SmootherCloudsSize.Half">La moitié de l'écran (le plus net)</String>
+  <String key="SmootherCloudsSize.ByScreen">Selon l'écran (la moitié jusqu'à 1440p, un tiers au-delà)</String>
+  <String key="SmootherCloudsSize.Third">Un tiers de l'écran</String>
+  <String key="SmootherCloudsSize.Quarter">Un quart de l'écran (le plus rapide)</String>
   <String key="SmootherCloudsSharp.Label">Nuages plus lisses sans traînées (test)</String>
   <String key="SmootherCloudsSharp.Tooltip">Une nouvelle façon de mélanger les images : les bords et sommets des nuages ne traînent plus quand la caméra bouge. Désactivé = le mélange d'avant</String>
 

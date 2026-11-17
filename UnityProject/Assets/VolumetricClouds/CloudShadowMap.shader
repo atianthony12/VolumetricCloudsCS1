@@ -24,6 +24,9 @@ Shader "VolumetricClouds/CloudShadowMap"
             #pragma vertex vert_img
             #pragma fragment frag
             #pragma target 3.0
+            // The extras' variant (Sky/CloudShaders.cs, VC_PLUS): the density code a player turned on
+            // (CloudCommon.cginc), so the shadows fall from the very clouds the cloud pass draws.
+            #pragma multi_compile __ VC_PLUS
             // The pass itself (shared with CloudShadowMapLite.shader, which defines VC_LITE first).
             #include "CloudShadowMapPass.cginc"
             ENDCG

@@ -411,6 +411,151 @@ for ($i = 0; $i -le 50; $i++) {
 Check $topsOk "the tallest heap only rises with its coverage, and none reaches over it"
 
 ""
+"=== CloudStyle: Rounded cumulus bases (CumulusBases, 2026-11-16) ==="
+$shapeFor = $style.GetMethod("ShapeFor")
+$eve = $style.GetField("EveShape").GetValue($null)
+$s0 = $shapeFor.Invoke($null, @([single]0))
+Check ([object]::ReferenceEquals($s0, $eve)) "at 0 the curve is EVE's own object: the shader gets the very numbers it always got"
+$cub = [single[][]](Value "Cubics")
+$same = $true
+for ($k = 0; $k -lt 2; $k++) { for ($j = 0; $j -lt 4; $j++) { if ($eve.Cubics[$k][$j] -ne $cub[$k][$j]) { $same = $false } } }
+for ($k = 0; $k -lt 3; $k++) { if ($eve.Time[$k] -ne ([single[]](Value "CurveTime"))[$k]) { $same = $false } }
+if ($eve.End -ne ([single[]](Value "CurveValue"))[2]) { $same = $false }
+Check $same "EVE's shape holds the cached cubics, the keys and the end value, number for number"
+Check (($eve.Tallest -eq $tallestHeap) -and ([single]$eve.TopOf([single]$covMax) -eq $tallestHeap)) "EVE's shape ends where Tallest says"
+$evalOk = $true
+for ($i = 0; $i -le 200; $i++) { $h = [single]($i / 200.0); if ([single]$eve.Eval($h) -ne [single](Call "Curve" @($h))) { $evalOk = $false; "  EveShape.Eval($h) differs from Curve" } }
+Check $evalOk "EVE's shape evaluates as Curve, everywhere"
+$widest = [single]$style.GetField("BaseWidest").GetValue($null)
+$v = [single[]](Value "CurveValue"); $t = [single[]](Value "CurveTime")
+foreach ($b in 0.25, 0.5, 1.0) {
+    $s = $shapeFor.Invoke($null, @([single]$b))
+    $ok = $true
+    if ($s.Time[0] -ne $t[0]) { $ok = $false; "  the foot moved" }
+    if ([Math]::Abs([single]$s.Eval($s.Time[1]) - $v[1]) -gt 1e-5) { $ok = $false; "  the peak's value is not EVE's" }
+    if ([single]$s.Eval([single]0) -ge 0.0 -or [single]$s.Eval($s.Time[0]) -ge 0.0) { $ok = $false; "  cloud at the base itself" }
+    $prev = -1.0
+    for ($i = 0; $i -le 400; $i++) {
+        $h = $s.Time[0] + ($s.Time[1] - $s.Time[0]) * $i / 400.0
+        $c = [single]$s.Eval([single]$h)
+        if ($c -lt $prev - 1e-6) { $ok = $false; "  the climb falls at $h"; break }
+        $prev = $c
+    }
+    # The fall: EVE's leaves its peak key with a tiny rise (its out tangent), then only falls.
+    $prev = -1.0; $falling = $false
+    for ($i = 0; $i -le 400; $i++) {
+        $h = $s.Time[1] + ($s.Time[2] - $s.Time[1]) * $i / 400.0
+        $c = [single]$s.Eval([single]$h)
+        if ($c -gt $v[1] + 0.005) { $ok = $false; "  the fall rises over the peak at $h"; break }
+        if ($c -lt $prev) { $falling = $true } elseif ($falling -and $c -gt $prev + 1e-6) { $ok = $false; "  the fall rises again at $h"; break }
+        $prev = $c
+    }
+    $expectWidest = $t[1] + ([Math]::Max($widest, $t[1]) - $t[1]) * $b
+    if ([Math]::Abs($s.Time[1] - $expectWidest) -gt 1e-6) { $ok = $false; "  the widest level is not where the row puts it" }
+    # The slab: no heap reaches over its top at any coverage.
+    for ($i = 3; $i -le 45; $i++) {
+        $cv = [single]($i * 0.01)
+        $hAbove = [single](($s.Tops[$i] + 1) / [single](Value "Span"))
+        if (($cv + [single]$s.Eval($hAbove) - 1) -gt 1e-3) { $ok = $false; "  a heap of $cv reaches over its top at $b" }
+    }
+    # The climb is slower: the coverage that makes an underside is crossed over a taller stretch.
+    $lo = 0.0; while ($lo -lt 1 -and [single]$s.Eval([single]$lo) -lt 0.55) { $lo += 0.0005 }
+    $hi = 0.0; while ($hi -lt 1 -and [single]$s.Eval([single]$hi) -lt 0.95) { $hi += 0.0005 }
+    $elo = 0.0; while ([single]$eve.Eval([single]$elo) -lt 0.55) { $elo += 0.0005 }
+    $ehi = 0.0; while ([single]$eve.Eval([single]$ehi) -lt 0.95) { $ehi += 0.0005 }
+    if (($hi - $lo) -le ($ehi - $elo)) { $ok = $false; "  the undersides' stretch is no taller than EVE's" }
+    Check $ok ("at {0:P0}: the foot and peak value are EVE's, the climb only rises, the fall only falls, widest at {1:F3} of the span, no cloud under the base, every heap under its top; undersides formed over {2:F0} m of the span (EVE's {3:F0} m)" -f $b, $s.Time[1], (($hi - $lo) * 2000), (($ehi - $elo) * 2000))
+}
+$d0 = [single]$style.GetMethod("Density", [Type[]]@([single], [single], [single])).Invoke($null, @([single]0.3, [single]0.2, [single]0.8))
+$d0b = [single]$style.GetMethod("Density", [Type[]]@([single], [single], [single], [single])).Invoke($null, @([single]0.3, [single]0.2, [single]0.8, [single]0))
+Check ($d0 -eq $d0b) "the density at 0% is EVE's density"
+Check ([single]$style.GetProperty("BasesNow").GetValue($null, $null) -eq 0) "offline the row is off: the tops and the slab are EVE's"
+
+""
+"=== CloudStyle: Softer cumulus (CumulusSoftness, 2026-11-16) ==="
+$softer = $style.GetMethod("SofterDensity")
+$dens3 = $style.GetMethod("Density", [Type[]]@([single], [single], [single]))
+Add-Type -TypeDefinition @"
+public static class SofterHelp
+{
+    // cg exactly as CloudStyle.Density works it out (float arithmetic): coverage + curve - 1, clamped.
+    public static float Cg(float coverage, float curve) { float cg = coverage + curve - 1f; return cg < 0f ? 0f : cg > 1f ? 1f : cg; }
+}
+"@
+$tallestNow = [single]2000
+$same0 = $true
+foreach ($cov in 0.05, 0.12, 0.2, 0.3, 0.45) {
+    foreach ($h in 0.03, 0.06, 0.1, 0.3, 0.6) {
+        $cg = [SofterHelp]::Cg([single]$cov, [single](Call "Curve" @([single]$h)))
+        for ($i = 0; $i -le 100; $i++) {
+            $n = [single]($i / 100.0)
+            $old = [single]$dens3.Invoke($null, @([single]$cov, [single]$h, $n))
+            foreach ($w in 0.0, 1.0) {
+                $new = [single]$softer.Invoke($null, @([single]$cg, $n, [single]0.5, [single]$w, [single]300, [single]0, $tallestNow))
+                if ($new -ne $old) { $same0 = $false; "  at 0%: cov $cov h $h noise $n wisps $w : $new vs $old" }
+            }
+        }
+    }
+}
+Check $same0 "at 0% the density is EVE's, number for number (fray and fringe asked or not)"
+$hardAt = $style.GetMethod("SoftHardnessAt"); $startAt = $style.GetMethod("SoftStartAt")
+$k0 = [single]$hardAt.Invoke($null, @([single]0)); $k1 = [single]$hardAt.Invoke($null, @([single]1))
+$kSoft = [single]$style.GetField("SoftHardness").GetValue($null)
+Check (([Math]::Abs($k0 - 1 / (1 - [single](Value "Hardness"))) -lt 1e-3) -and ([Math]::Abs($k1 - $kSoft) -lt 1e-4)) ("the edge's hardness runs from EVE's {0:F2} at 0% to {1:F2} at 100%" -f $k0, $k1)
+$s0 = [single]$startAt.Invoke($null, @([single]0)); $s1 = [single]$startAt.Invoke($null, @([single]1))
+Check (($s0 -eq 0) -and ($s1 -lt 0)) ("the soft edge starts at EVE's at 0%, {0:F4} further out at 100%" -f (-$s1))
+# At 100%, without the fray: a soft skin out, the half-density surface where EVE's was, the core as dense.
+$ok = $true
+$ero = [single](Value "ErosionDepth")
+$halfOld = $null; $halfNew = $null
+$cg = [single]0.3
+for ($i = 0; $i -le 2000; $i++) {
+    $n = [single](0.4 + 0.2 * $i / 2000.0)
+    $inside = $cg - (1 - $n) * $ero
+    $old = [single]$softer.Invoke($null, @($cg, $n, [single]0.5, [single]0, [single]300, [single]0, $tallestNow))
+    $new = [single]$softer.Invoke($null, @($cg, $n, [single]0.5, [single]0, [single]300, [single]1, $tallestNow))
+    if ($null -eq $halfOld -and $old -ge 0.5) { $halfOld = $inside }
+    if ($null -eq $halfNew -and $new -ge 0.5) { $halfNew = $inside }
+    if ($new -lt 0 -or $new -gt 1) { $ok = $false; "  out of 0..1 at $n" }
+    if ($old -ge 1 -and $inside -gt (1 - $s1 * $k1) / $k1 + 1e-3 -and $new -lt 1) { $ok = $false; "  the core thinner at inside $inside" }
+    if ($inside -lt 0 -and $inside -gt $s1 + 1e-3 -and $new -le 0) { $ok = $false; "  no skin outside the hard edge at inside $inside" }
+}
+Check ($ok -and [Math]::Abs($halfNew - $halfOld) -lt 2e-3) ("at 100%: a soft skin outwards, the core as dense, the half-density surface where EVE's was (inside {0:F4} vs {1:F4})" -f $halfNew, $halfOld)
+# Nothing where cg is 0, and it thins to nothing as cg does (no cliff at a heap's top or foot).
+$ok = ([single]$softer.Invoke($null, @([single]0, [single]1, [single]1, [single]1, [single]300, [single]1, $tallestNow)) -eq 0)
+foreach ($cgs in 1e-5, 1e-4) { $d = [single]$softer.Invoke($null, @([single]$cgs, [single]1, [single]1, [single]1, [single]300, [single]1, $tallestNow)); if ($d -gt 0.01) { $ok = $false; "  $d at cg $cgs" } }
+Check $ok "no cloud where cg is 0, and next to nothing just inside (the skin and the fringe come in with cg)"
+# The fray carves (strands at the base, billows higher); the fringe never adds more than its own density.
+# (Checked with SoftFrayBias at 0; with it, the fray gives back at most its depth x the bias, below.)
+$fr = [single]$style.GetField("SoftFringe").GetValue($null)
+$biasField = $style.GetField("SoftFrayBias"); $bias = [single]$biasField.GetValue($null); $biasField.SetValue($null, [single]0)
+$ok = $true; $carved = $false
+foreach ($n in 0.5, 0.55, 0.6, 0.7, 0.85) {
+    foreach ($fine in 0.2, 0.5, 0.8, 1.0) {
+        foreach ($y in 0, 300, 1500) {
+            $plain = [single]$softer.Invoke($null, @($cg, [single]$n, [single]$fine, [single]0, [single]$y, [single]1, $tallestNow))
+            $fray = [single]$softer.Invoke($null, @($cg, [single]$n, [single]$fine, [single]1, [single]$y, [single]1, $tallestNow))
+            if ($fray -gt [Math]::Max($plain, $fr) + 1e-6) { $ok = $false; "  the fray added cloud at n $n fine $fine y $y" }
+            if ($fray -lt $plain - 1e-4) { $carved = $true }
+        }
+    }
+}
+Check ($ok -and $carved) "without its bias the fray only carves; the fringe is at most its own density"
+$biasField.SetValue($null, $bias)
+$back = [single]$style.GetField("SoftFray").GetValue($null) * $bias * $k1
+$ok = $true
+foreach ($n in 0.5, 0.55, 0.6, 0.7, 0.85) {
+    foreach ($fine in 0.2, 0.5, 0.8, 1.0) {
+        $plain = [single]$softer.Invoke($null, @($cg, [single]$n, [single]$fine, [single]0, [single]300, [single]1, $tallestNow))
+        $fray = [single]$softer.Invoke($null, @($cg, [single]$n, [single]$fine, [single]1, [single]300, [single]1, $tallestNow))
+        if ($fray -gt [Math]::Max($plain + $back, $fr) + 1e-5) { $ok = $false; "  the fray gave back more than its bias at n $n fine $fine" }
+    }
+}
+Check $ok ("with its bias ({0:F2}) the fray gives back at most depth x bias ({1:F3} of density)" -f $bias, $back)
+Check ([single]$style.GetProperty("SoftnessNow").GetValue($null, $null) -eq 0) "offline the row is off"
+Check ([single]$style.GetProperty("LineTrimNow").GetValue($null, $null) -eq [single]$style.GetProperty("BaseTrimNow").GetValue($null, $null)) "off, the heaps' line is trimmed as before (Rounded cumulus bases only)"
+
+""
 "=== CloudStyle: how much cloud (the same amount as Classic) ==="
 $table = [single[]](Value "EdgeTable")
 Check ($table.Length -eq 21) "one entry per 5% of the Intensity slider, 0% to 100% (got $($table.Length))"

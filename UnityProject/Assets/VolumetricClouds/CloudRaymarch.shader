@@ -40,6 +40,11 @@ Shader "VolumetricClouds/CloudRaymarch"
             // in the pass it raised every AMD chip's registers ~18% (fewer waves in flight on every
             // frame, a funnel or not). Without it the pass is what it was.
             #pragma multi_compile __ VC_FUNNELS
+            // The extras (Sky/CloudShaders.cs, PlusWanted): code only a player who turned an extra on runs
+            // (light through clouds: the light inside the clouds over 100%; Softer cumulus, whose density
+            // code CloudShadowMap.shader's variant of the same name shares), in a variant of its own, so
+            // without one the pass has none of it. Switched on the materials that march (Sky/CloudVolume.cs).
+            #pragma multi_compile __ VC_PLUS
             // The pass itself (shared with CloudRaymarchLite.shader, which defines VC_LITE first).
             #include "CloudRaymarchPass.cginc"
             ENDCG

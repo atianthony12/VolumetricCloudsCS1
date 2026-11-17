@@ -40,6 +40,17 @@ namespace VolumetricClouds.Sky
         /// <summary>The waterspouts' variant of the whole cloud shader.</summary>
         private const string FunnelsKeyword = "VC_FUNNELS";
 
+        /// <summary>
+        /// The extras' variant of the whole cloud shader (CloudRaymarch.shader, VC_PLUS): the code only a
+        /// player who turned an extra on runs. Without it the pass has none of that code, so what nobody asked
+        /// for costs nothing (measured 2026-11-16: light through clouds cost 1.6-3.6 ms a frame at 4K where it
+        /// changed no pixel).
+        /// </summary>
+        public const string PlusKeyword = "VC_PLUS";
+
+        /// <summary>The extras' variant with the waterspouts' (both keywords), probed as its own program.</summary>
+        private const string PlusFunnelsKeywords = PlusKeyword + " " + FunnelsKeyword;
+
         /// <summary>What the probe's fragment writes (CloudRaymarchPass PROBE_COLOUR, CloudShadowMapPass).</summary>
         private static readonly Color ProbeColour = new Color(0.25f, 0.5f, 0.75f, 1f);
 
@@ -61,6 +72,103 @@ namespace VolumetricClouds.Sky
 
         /// <summary>The whole cloud shader's waterspouts variant runs here (false under the light one: it has none).</summary>
         public static bool FunnelsDrawn { get; private set; }
+
+        /// <summary>
+        /// Both of the whole cloud shader's extras variants (VC_PLUS, with and without the waterspouts') run
+        /// here, and the whole shadow map's (when there are cloud shadows: its density is the clouds', so Softer
+        /// cumulus's code is in it too): probed at every city load whatever the settings say, since a profile pick can turn an extra on
+        /// mid-city. False under the light shader (it has none) and when either does not draw: then the extras
+        /// stand down (<see cref="PlusOn"/> stays false, each extra behaves as off) and the lean variant draws.
+        /// </summary>
+        public static bool PlusDrawn { get; private set; }
+
+        /// <summary>
+        /// What asks the extras' variant for, in words for the log; null: nothing. Each extra is one line here.
+        /// The light inside the clouds is asked by its value OF THE MOMENT (2026-11-17; before, any of its six
+        /// values over 100% asked all day, and a player with only his sunset over 100% paid for the variant at
+        /// noon): on at once when it rises over 100%, off only after it has been at 100% or under for
+        /// <see cref="LightOffDelay"/> seconds (<see cref="LightAskedNow"/>), so it never flaps. The variant at
+        /// that light draws the lean picture (within a half-float step) and was drawn once at the city's load,
+        /// so a switch shows nothing. Softer cumulus has no clock: its row's own value.
+        /// </summary>
+        public static string ExtrasAsked
+        {
+            get
+            {
+                // Light through clouds: "Glow and softer shade" over 100% now (DeepLight.Row, its clock and cloud button
+                // blended), under a style that can draw it (the PICKED style, not the one drawn at the moment: the
+                // Classic style's light has none of it, and the variant would cost it ~14% of its cloud pass for no pixel).
+                string light = null;
+                if (LightAskedNow)
+                    light = DeepLight.Row > 0f
+                        ? "the light inside the clouds is over 100% now (" + (LightThrough.Slider * 100f).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%)"
+                        : "the light inside the clouds was over 100% until " + _lightDelay.Unasked(Time.realtimeSinceStartup).ToString("F1") +
+                          " s ago (held " + LightOffDelay.ToString("F0") + " s before it goes)";
+                string heaps = HeapsAsked ? "Softer cumulus is on" : null;
+                return light != null && heaps != null ? light + " and " + heaps : light ?? heaps;
+            }
+        }
+
+        /// <summary>Softer cumulus asks for the extras' variant: its row over 0 while a style with heaps is picked (Cumulus, Mixed, Auto).</summary>
+        private static bool HeapsAsked
+        {
+            get { return (CloudStyle.IsCumulus || CloudStyle.IsMixed || CloudStyle.IsAuto) && Over(Settings.CumulusSoftness, 0f); }
+        }
+
+        /// <summary>
+        /// Seconds of real time the light inside the clouds must stay at 100% or under before the extras' variant
+        /// lets go of it (a field, so the bench can shorten it).
+        /// </summary>
+        public static float LightOffDelay = 5f;
+
+        private static readonly OffDelay _lightDelay = new OffDelay();
+        private static int _lightFrame = -1;
+
+        /// <summary>
+        /// The light inside the clouds asks for the extras' variant this frame: over 100% now under a style that can
+        /// draw it, or within <see cref="LightOffDelay"/> of having been. Worked out once a frame (the first read),
+        /// so the keyword on every material and every value handed to the shader agree within the frame. Reads the
+        /// row (DeepLight.Row), never DeepLight.Setting (which reads this).
+        /// </summary>
+        public static bool LightAskedNow
+        {
+            get
+            {
+                int frame = Time.frameCount;
+                if (frame != _lightFrame)
+                {
+                    _lightFrame = frame;
+                    _lightDelay.Update(CloudStyle.UsesNoise && DeepLight.Row > 0f, Time.realtimeSinceStartup, LightOffDelay);
+                }
+
+                return _lightDelay.On;
+            }
+        }
+
+        /// <summary>
+        /// An extra asks for the variant (<see cref="ExtrasAsked"/>'s lines, without making its words: this is read
+        /// several times a frame) and this city draws the whole shaders (never under Simpler clouds).
+        /// </summary>
+        public static bool PlusWanted
+        {
+            get { return !Lite && (LightAskedNow || HeapsAsked); }
+        }
+
+        /// <summary>
+        /// The extras' variant is drawn: wanted and both its variants run here. Every material that marches
+        /// the clouds with the whole shader carries the keyword exactly while this is true (CloudVolume), and
+        /// every extra reads this before it hands the shader a value (DeepLight.Setting).
+        /// </summary>
+        public static bool PlusOn
+        {
+            get { return PlusDrawn && PlusWanted; }
+        }
+
+        /// <summary>A setting's own value is over <paramref name="limit"/> (false before the settings exist).</summary>
+        private static bool Over(FloatSetting setting, float limit)
+        {
+            return setting != null && setting.value > limit;
+        }
 
         /// <summary>Why this city draws what it draws, for SystemReport's line.</summary>
         public static string Reason { get; private set; }
@@ -88,7 +196,10 @@ namespace VolumetricClouds.Sky
             Raymarch = null;
             ShadowMap = null;
             FunnelsDrawn = false;
+            PlusDrawn = false;
             Reason = null;
+            _lightDelay.Reset();
+            _lightFrame = -1;
 
             try
             {
@@ -130,6 +241,8 @@ namespace VolumetricClouds.Sky
                 Raymarch = ShaderBundle.Get(ShaderBundle.Raymarch);
                 ShadowMap = Raymarch != null ? ShaderBundle.Get(ShaderBundle.ShadowMap) : null;
                 FunnelsDrawn = Raymarch != null;
+                // Unchecked, the extras stand down: the lean variant is the one every whole-shader city drew before them.
+                PlusDrawn = false;
                 Reason = "the check threw";
                 return Raymarch != null;
             }
@@ -142,7 +255,10 @@ namespace VolumetricClouds.Sky
             Raymarch = null;
             ShadowMap = null;
             FunnelsDrawn = false;
+            PlusDrawn = false;
             Reason = null;
+            _lightDelay.Reset();
+            _lightFrame = -1;
         }
 
         private static bool UseWhole(string shadowName, string reason)
@@ -150,18 +266,28 @@ namespace VolumetricClouds.Sky
             Raymarch = ShaderBundle.Get(ShaderBundle.Raymarch);
             ShadowMap = shadowName != null ? ShaderBundle.Get(shadowName) : null;
             FunnelsDrawn = Runs(ShaderBundle.Raymarch, FunnelsKeyword);
+            // The extras' two variants, whatever the settings ask now (a profile pick can ask mid-city), and the shadow
+            // map's (its density is the clouds': invariant 1) when there are cloud shadows here.
+            PlusDrawn = Runs(ShaderBundle.Raymarch, PlusKeyword) && Runs(ShaderBundle.Raymarch, PlusFunnelsKeywords) &&
+                        (shadowName == null || Runs(shadowName, PlusKeyword));
             Reason = reason;
             Log.Msg("cloud shaders: the whole ones (" + reason + ")" +
                     (ShadowMap == null ? "; no cloud shadows" : "") +
                     (FunnelsDrawn ? "" : "; the waterspouts' variant does not run here (" + Describe(ShaderBundle.Raymarch, FunnelsKeyword) +
                                          "): no waterspouts") +
                     ProbeNote());
+            if (!PlusDrawn)
+                Log.Msg("cloud shaders: the extras' variant does not run here (" + Describe(ShaderBundle.Raymarch, PlusKeyword) + ", " +
+                        Describe(ShaderBundle.Raymarch, PlusFunnelsKeywords) +
+                        (shadowName != null ? ", " + Describe(shadowName, PlusKeyword) : "") + "): the extras stand down -- the light inside the " +
+                        "clouds is drawn as at 100% whatever it is set to, and Softer cumulus as at 0%");
             return Raymarch != null;
         }
 
         private static bool UseLite(string reason)
         {
             Lite = true;
+            PlusDrawn = false;
             Raymarch = ShaderBundle.Get(RaymarchLite);
             ShadowMap = Runs(ShadowMapLite) ? ShaderBundle.Get(ShadowMapLite) : null;
             Reason = reason;
@@ -232,8 +358,10 @@ namespace VolumetricClouds.Sky
             try
             {
                 material.SetFloat(IdProbe, 1f);
+                // One keyword, or several separated by spaces (the extras' variant with the waterspouts').
                 if (keyword != null)
-                    material.EnableKeyword(keyword);
+                    foreach (string one in keyword.Split(' '))
+                        material.EnableKeyword(one);
 
                 // Every 3D texture the pass declares gets a real one (ARGB32: never R8, invariant of the
                 // noise textures) -- nothing is read with the probe on, but nothing is left unbound either.

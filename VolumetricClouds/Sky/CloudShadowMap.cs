@@ -181,21 +181,35 @@ namespace VolumetricClouds.Sky
             // (2026-11-15, performance) Nothing that moves the shadows has moved since the last draw --
             // a paused city: the same drift, sun, cover and pattern -- so drawing again would give the
             // same map: skip it, but still draw once a second, so a slider moved while paused shows.
-            double driftX = CloudWind.X + CloudWind.ShiftX, driftZ = CloudWind.Z + CloudWind.ShiftZ;
+            // (2026-11-17) "Moved" is now "moved the shadows by an eighth of a texel" (ShadowCadence): the
+            // wind, the sun's turn and the cover each measured in what they do to the map since it was drawn;
+            // any setting changed, a new pattern or texture, draws at once.
             float coverage = CloudShaderParams.Coverage;
-            bool same = IsReady && field == _drawnField && driftX == _drawnDriftX && driftZ == _drawnDriftZ &&
-                        coverage == _drawnCoverage && t.forward == _drawnForward && Time.time < _forceRedraw;
+            float depth = ShadowDepth(coverage);
             _nextUpdate = Time.time + UpdateInterval;
-            if (same)
+            string why = IsReady ? WhyDraw(field, noise, t, coverage, depth) : "first";
+            if (why == null)
             {
                 _skipped++;
                 return;
             }
             _drawnField = field;
-            _drawnDriftX = driftX;
-            _drawnDriftZ = driftZ;
+            _drawnVersion = field.Version;
+            _drawnNoise = noise;
+            _drawnCumulus = CloudStyle.Texture;
+            _drawnMix = CloudMixMap.Map;
+            _drawnDetail = CloudDetail.Texture;
+            _drawnRevision = Setting.Revision;
+            _drawnDriftX = CloudWind.X;
+            _drawnDriftZ = CloudWind.Z;
+            _drawnShiftX = CloudWind.ShiftX;
+            _drawnShiftZ = CloudWind.ShiftZ;
             _drawnCoverage = coverage;
+            _drawnDepth = depth;
+            _drawnFrame = new ShadowCadence.Frame(t.right.x, t.right.y, t.right.z, t.up.x, t.up.y, t.up.z, t.forward.x, t.forward.y, t.forward.z);
             _forceRedraw = Time.time + 1f;
+            _drawn++;
+            CountReason(why);
 
             if (!EnsureTexture())
                 return;
@@ -205,6 +219,15 @@ namespace VolumetricClouds.Sky
             // The DAY's density (1.5.0): the density's clock is for the clouds you see; the shadows
             // follow "Shadow darkness" and its own clock.
             CloudShaderParams.Apply(_material, field, noise, Settings.CloudDensityDay);
+            // The slab the map was drawn through, for the sun's measure next time (WhyDraw).
+            _drawnBottom = _material.GetFloat(IdCloudBottom);
+            _drawnTop = _material.GetFloat(IdCloudTop);
+            // The extras' variant exactly while the cloud material has it (CloudShaders.PlusOn, CloudVolume.ApplyExtras):
+            // the shadows fall from the clouds as drawn (Softer cumulus's density). Never on the light shader (it has none).
+            if (CloudShaders.PlusOn && !CloudShaders.Lite)
+                _material.EnableKeyword(CloudShaders.PlusKeyword);
+            else
+                _material.DisableKeyword(CloudShaders.PlusKeyword);
             _material.SetVector(IdLightPos, Anchor);
             _material.SetVector(IdLightRight, t.right);
             _material.SetVector(IdLightUp, t.up);
@@ -233,9 +256,98 @@ namespace VolumetricClouds.Sky
                 _nextProbe = Time.time + ProbeInterval;
                 Probe();
                 int skipped = TakeSkipped();
-                if (skipped > 0)
-                    Log.Detail("cloud shadow map: " + skipped + " draws skipped since the last probe (nothing had moved: a paused city)");
+                Log.Detail("cloud shadow map: " + _drawnSinceProbe + " drawn and " + skipped + " skipped since the last probe " +
+                           "(skipped: nothing had moved the shadows by an eighth of a texel, " +
+                           ShadowCadence.Limit(CookieSize, _resolution).ToString("F1") + " m; drawn for: " + TakeReasons() + ")");
             }
+        }
+
+        // ---- what the map was last drawn from (WhyDraw) ----
+        private static readonly int IdCloudBottom = Shader.PropertyToID("_CloudBottom");
+        private static readonly int IdCloudTop = Shader.PropertyToID("_CloudTop");
+
+        /// <summary>The map's half side: the city's 17.28 km square, whose corners the sun's measure looks at.</summary>
+        private const float MapHalf = 8640f;
+
+        /// <summary>
+        /// The change of the cover the map may lag by. Measured in the cloud bench (his two settings, every style): a
+        /// change of 0.001 moves the map by 0.01-0.24 of a step of 255 on average up to 68% cover, but by 5 near a
+        /// closed deck (Auto at 98%), where the layer's cut moves fast with the cover. So this is small: while the cover
+        /// moves (the weather changing; it settles exactly on its target) the map is drawn at its rate as before, and
+        /// a cover that stands still costs nothing. A field, so the bench can sweep it.
+        /// </summary>
+        public static float CoverStep = 0.00005f;
+
+        /// <summary>The change of the shadows' darkness that moves no texel by more than 0.3 of a step of 255.</summary>
+        private const float DepthStep = 0.3f / 255f;
+
+        private int _drawnVersion = -1;
+        private Texture _drawnNoise, _drawnCumulus, _drawnMix, _drawnDetail;
+        private int _drawnRevision = -1;
+        private double _drawnShiftX, _drawnShiftZ;
+        private float _drawnDepth = -1f;
+        private float _drawnBottom, _drawnTop;
+        private ShadowCadence.Frame _drawnFrame;
+        private int _drawn, _drawnSinceProbe;
+        private int _forFirst, _forInput, _forWind, _forSun, _forCover, _forSecond;
+
+        /// <summary>Draws since the city started (the bench counts them).</summary>
+        public int Drawn
+        {
+            get { return _drawn; }
+        }
+
+        /// <summary>
+        /// Why the map must be drawn again now, in a word (null: it need not). A field, pattern or texture swapped, a
+        /// setting changed, the wind and the sun moved the shadows by an eighth of a texel together (ShadowCadence), or
+        /// the cover or the darkness by as much, or a second has gone by since the last draw.
+        /// </summary>
+        private string WhyDraw(CloudDensityField field, Texture3D noise, Transform sun, float coverage, float depth)
+        {
+            // (The field's own textures follow its Version: a new pattern or size bumps it. Their getters make them,
+            // so they are not asked here.)
+            if (field != _drawnField || field.Version != _drawnVersion || noise != _drawnNoise || CloudStyle.Texture != _drawnCumulus ||
+                CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.Revision != _drawnRevision)
+                return "input";
+
+            // Each as a share of what it may move alone; together they share one budget, so the map's error stays
+            // that of one of them at its limit (measured: about 0.3 of a step of 255 on average) whatever moves.
+            double limit = ShadowCadence.Limit(CookieSize, _resolution);
+            double wind = ShadowCadence.DriftShift(CloudWind.X - _drawnDriftX, CloudWind.Z - _drawnDriftZ, CloudWind.ShiftX - _drawnShiftX,
+                CloudWind.ShiftZ - _drawnShiftZ, CloudWind.NoiseDrift) / limit;
+            Vector3 r = sun.right, u = sun.up, f = sun.forward;
+            var now = new ShadowCadence.Frame(r.x, r.y, r.z, u.x, u.y, u.z, f.x, f.y, f.z);
+            double turned = ShadowCadence.SunShift(_drawnFrame, now, MapHalf, _drawnBottom, _drawnTop, SunLowest) / limit;
+            double cover = Mathf.Abs(coverage - _drawnCoverage) / CoverStep + Mathf.Abs(depth - _drawnDepth) / DepthStep;
+            if (wind + turned + cover >= 1.0)
+                return wind >= turned && wind >= cover ? "wind" : turned >= cover ? "sun" : "cover";
+
+            if (Time.time >= _forceRedraw)
+                return "second";
+
+            return null;
+        }
+
+        private void CountReason(string why)
+        {
+            _drawnSinceProbe++;
+            switch (why)
+            {
+                case "first": _forFirst++; break;
+                case "input": _forInput++; break;
+                case "wind": _forWind++; break;
+                case "sun": _forSun++; break;
+                case "cover": _forCover++; break;
+                default: _forSecond++; break;
+            }
+        }
+
+        private string TakeReasons()
+        {
+            string s = "wind " + _forWind + ", sun " + _forSun + ", cover " + _forCover + ", settings or textures " + (_forInput + _forFirst) +
+                       ", the once-a-second draw " + _forSecond;
+            _forFirst = _forInput = _forWind = _forSun = _forCover = _forSecond = _drawnSinceProbe = 0;
+            return s;
         }
 
         /// <summary>

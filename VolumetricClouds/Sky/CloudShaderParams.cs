@@ -415,14 +415,19 @@ namespace VolumetricClouds.Sky
 
             // The heaps' own repeat (Cumulus size), whatever `lod` was worked out for.
             float heapTile = CloudStyle.NoiseTileNow;
-            float[] c0 = CloudStyle.Cubics[0];
-            float[] c1 = CloudStyle.Cubics[1];
+            // The coverage curve (Rounded cumulus bases: its own; at 0 EVE's, the very numbers it always was).
+            CloudStyle.Shape curve = CloudStyle.ShapeNow;
+            float[] c0 = curve.Cubics[0];
+            float[] c1 = curve.Cubics[1];
 
             // The heaps' coverage: a line in the map's normal scores (its own ranks, so every city
             // gets the same amount at the same slider), no more heaps above HeapCap. Cumulus amount
             // (1.5.0) scales the intensity they are cut at.
             float lineA, lineB;
             CloudStyle.Line(CloudStyle.HeapEdge(CloudStyle.HeapCoverage(Coverage)), out lineA, out lineB);
+            // Rounded cumulus bases and Softer cumulus keep the sky's amount (0 with the rows off: the line as it was).
+            // The empty-sky skip above keeps the untrimmed line: it can only find more cloud than there is, never less.
+            lineA -= CloudStyle.LineTrimNow;
 
             // Cumulus size and height (1.5.0): the noise's repeat and the coverage curve's span.
             material.SetVector(IdCumulusShape, new Vector4(lineA, lineB, CloudStyle.CoverageMax, 1f / CloudStyle.SpanNow));
@@ -438,8 +443,56 @@ namespace VolumetricClouds.Sky
 
             material.SetVector(IdCumulusCurve0, new Vector4(c0[0], c0[1], c0[2], c0[3]));
             material.SetVector(IdCumulusCurve1, new Vector4(c1[0], c1[1], c1[2], c1[3]));
-            material.SetVector(IdCumulusCurveKeys, new Vector4(
-                CloudStyle.CurveTime[0], CloudStyle.CurveTime[1], CloudStyle.CurveTime[2], CloudStyle.CurveValue[2]));
+            material.SetVector(IdCumulusCurveKeys, new Vector4(curve.Time[0], curve.Time[1], curve.Time[2], curve.End));
+
+            // Rounded cumulus bases on the log when it goes on or off (a slider: not on every tick of a drag).
+            int basesOn = curve.Bases > 0f ? 1 : 0;
+            if (basesOn != _basesLogged)
+            {
+                _basesLogged = basesOn;
+                Log.Msg("cumulus bases: " + CloudStyle.DescribeBases());
+            }
+
+            ApplySofterHeaps(material);
+        }
+
+        private static readonly int IdHeapSoft = Shader.PropertyToID("_HeapSoft");
+        private static readonly int IdHeapFray = Shader.PropertyToID("_HeapFray");
+        private static readonly int IdHeapFringe = Shader.PropertyToID("_HeapFringe");
+        private static readonly int IdHeapWarp = Shader.PropertyToID("_HeapWarp");
+        private static int _softLogged = -1;
+
+        /// <summary>
+        /// Softer cumulus (CloudStyle.Softness*): the heaps' soft edge, push, fray and fringe for CumulusDensity's branch,
+        /// which only the extras' variant has (VC_PLUS, on the cloud, air and shadow-map materials while
+        /// CloudShaders.PlusOn). _HeapSoft.x is the row as drawn: 0 (the default, or the variant not drawn) = the heaps
+        /// as they always were, and nothing else of it is read.
+        /// </summary>
+        private static void ApplySofterHeaps(Material material)
+        {
+            float soft = CloudStyle.SoftnessNow;
+            if (soft <= 0f)
+            {
+                material.SetVector(IdHeapSoft, Vector4.zero);
+            }
+            else
+            {
+                float multiple = Mathf.Max(1f, Mathf.Round(CloudStyle.SoftFrayMultiple));
+                material.SetVector(IdHeapSoft, new Vector4(soft, CloudStyle.SoftHardnessAt(soft), CloudStyle.SoftStartAt(soft), CloudStyle.SoftWarp * soft));
+                material.SetVector(IdHeapFray, new Vector4(CloudStyle.SoftFray * soft, multiple, Mathf.Log(multiple, 2f),
+                    1f / Mathf.Max(CloudStyle.SoftFrayHeight * CloudStyle.TallestNow, 1f)));
+                material.SetVector(IdHeapFringe, new Vector4(CloudStyle.SoftFringe * soft, 1f / Mathf.Max(CloudStyle.SoftFringeReach, 1e-4f),
+                    CloudSoft.NoiseMiddle, CloudSoft.NoiseContrast));
+                material.SetVector(IdHeapWarp, new Vector4(CloudSoft.WarpMiddleR, CloudSoft.WarpMiddleG, 1f / Mathf.Max(CloudStyle.SoftSkinFade, 1e-4f), CloudStyle.SoftFrayBias));
+            }
+
+            // On the log when it goes on or off (a slider: not on every tick of a drag).
+            int on = soft > 0f ? 1 : 0;
+            if (on != _softLogged)
+            {
+                _softLogged = on;
+                Log.Msg("softer cumulus: " + CloudStyle.DescribeSoftness());
+            }
         }
 
         /// <summary>
@@ -465,6 +518,7 @@ namespace VolumetricClouds.Sky
 
             float noneA, noneB;
             CloudStyle.Line(CloudMix.NoHeapEdge, out noneA, out noneB);
+            noneA -= CloudStyle.LineTrimNow;
             material.SetVector(IdMixHeaps, new Vector4(noneA, CloudMix.LeanStart(CloudStyle.HeapSkyNow), 1f / CloudMix.LeanWidth, CloudStyle.HeapLightBoost));
 
             // The mix on the detailed log when it moves by a percent of intensity or more.
@@ -692,5 +746,8 @@ namespace VolumetricClouds.Sky
         // And the style's.
         private static string _styleLogged;
         private static string _autoLogged;
+
+        // Rounded cumulus bases: its first state while heaps are drawn is always logged, then each on / off.
+        private static int _basesLogged = -1;
     }
 }

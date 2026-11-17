@@ -44,8 +44,15 @@ namespace VolumetricClouds
             get { return Registry; }
         }
 
+        /// <summary>
+        /// Counts every change of any setting's value (2026-11-17): what reads many of them can tell in one look that
+        /// none has moved (the cloud shadow map, which skips a draw nothing moved for). Main thread only, as the writes.
+        /// </summary>
+        public static int Revision { get; private set; }
+
         protected static void Changed()
         {
+            Revision++;
             SettingsXml.MarkDirty();
         }
     }

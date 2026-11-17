@@ -142,6 +142,9 @@
   <String key="CumulusLayer.Label">Classic layer</String>
   <String key="CumulusSize.Label">Cumulus size</String>
   <String key="CumulusHeight.Label">Cumulus height</String>
+  <String key="CumulusBases.Label">Rounded cumulus bases</String>
+  <String key="CumulusSoftness.Label">Softer cumulus</String>
+  <String key="CumulusSoftness.Tooltip">Gives the heaped clouds soft, wispy edges, like the Soft style's clouds. 0% = sharp edges, as before</String>
   <String key="CumulusAmount.Label">Cumulus amount</String>
 
   <String key="Group.CloudShape">Height and shape</String>
@@ -276,6 +279,8 @@
 
   <String key="RainCurtains.Label">Rain curtains under clouds</String>
 
+  <String key="RainCurtainLight.Label">Rain curtain brightness</String>
+
   <String key="RainStreaks.Label">Rain streaks near camera</String>
 
   <String key="RainStreakHeight.Label">Streaks fade out above</String>
@@ -361,6 +366,9 @@
   <String key="Group.Brightness">Brightness and density</String>
 
   <String key="CloudLight.Label">Cloud brightness</String>
+
+  <String key="CloudLightDifference.Label">Brightness difference between clouds</String>
+  <String key="CloudLightDifference.Tooltip">How much darker the soft clouds are than the big heaped ones in sunlight. 0% = just as bright</String>
 
   <!-- Not in the panel since 1.5.0 (the settings file only): it dims the fog's sunlight. -->
   <String key="MinIllumination.Label">The fog's sunlight dims at full overcast to</String>
@@ -457,6 +465,12 @@
   <String key="CloudDepthOcclusion.Label">Buildings and terrain hide clouds behind them</String>
 
   <String key="SmootherClouds.Label">Smoother clouds (blends frames together: less grain)</String>
+  <String key="SmootherCloudsSize.Label">Cloud drawing size</String>
+  <String key="SmootherCloudsSize.Tooltip">Smoother clouds draws the clouds smaller than the screen and blends them over a few frames. A smaller size is much faster; the finest wisps get softer</String>
+  <String key="SmootherCloudsSize.Half">Half the screen (sharpest)</String>
+  <String key="SmootherCloudsSize.ByScreen">By screen size (half up to 1440p, a third above)</String>
+  <String key="SmootherCloudsSize.Third">A third of the screen</String>
+  <String key="SmootherCloudsSize.Quarter">A quarter of the screen (fastest)</String>
   <String key="SmootherCloudsSharp.Label">Smoother clouds without smearing (test)</String>
   <String key="SmootherCloudsSharp.Tooltip">A new way of blending the frames: cloud edges and tops no longer trail behind when the camera moves. Off = the blend before</String>
 

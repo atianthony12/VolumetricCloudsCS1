@@ -1178,6 +1178,12 @@ namespace VolumetricClouds.UI
             return CloudStyle.IsCumulus || ((CloudStyle.IsAuto || CloudStyle.IsMixed) && !CloudShaders.Lite);
         }
 
+        /// <summary>A style whose sky is a mix of the kinds is picked: Mixed or Auto (not under Simpler clouds, which draws them Classic).</summary>
+        private static bool MixPicked()
+        {
+            return (CloudStyle.IsMixed || CloudStyle.IsAuto) && !CloudShaders.Lite;
+        }
+
         /// <summary>
         /// A style that mixes the Classic layer with clouds of its own is picked: Cumulus, Mixed or Soft
         /// (not Mixed or Soft under Simpler clouds, which draws them Classic).
@@ -1706,6 +1712,36 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.CumulusHeight,
                 Min = 50f, Max = 200f, Step = 5f,
                 Shown = CumulusPicked,
+            });
+
+            // Rounded cumulus bases (2026-11-16): the heaps' undersides formed like their tops. 0% = EVE's flat
+            // bases, the default. Greyed under Simpler clouds, which draws them flat (CloudStyle.BasesNow). No
+            // AfterChange (a slider's runs on every tick of a drag): CloudShaderParams logs it going on and off.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Clouds,
+                Float = Settings.CumulusBases,
+                DefaultFloat = Settings.Defaults.CumulusBases,
+                Min = 0f, Max = 100f, Step = 5f,
+                Shown = CumulusPicked,
+                Enabled = WholeShaders,
+            });
+
+            // Softer cumulus (2026-11-16): the heaps' edges soft and frayed, as the Soft style's puffs. 0% = the heaps as
+            // they were, the default. Wholly an extra (the cloud shader's VC_PLUS variant): greyed under Simpler clouds and
+            // where that variant does not run (CloudShaders.PlusDrawn), where it draws as at 0%. No AfterChange (a
+            // slider's runs on every tick of a drag): CloudShaderParams logs it going on and off.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Clouds,
+                Float = Settings.CumulusSoftness,
+                DefaultFloat = Settings.Defaults.CumulusSoftness,
+                Min = 0f, Max = 100f, Step = 5f,
+                HasTooltip = true,
+                Shown = CumulusPicked,
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
             });
 
             Add(new Row
@@ -2292,6 +2328,20 @@ namespace VolumetricClouds.UI
                 Enabled = RainOn,
             });
 
+            // How bright the curtains are (2026-11-15), with a clock: they stand in the city's light, and
+            // at night that can leave them glowing over a dark city. 100% everywhere = the light as before.
+            Row curtainLight = new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                Float = Settings.RainCurtainLight,
+                DefaultFloat = Settings.Defaults.RainCurtainLight,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = RainOn,
+            };
+            AddTimed(curtainLight, Settings.RainCurtainLightSunset, Settings.Defaults.RainCurtainLightSunset,
+                Settings.RainCurtainLightNight, Settings.Defaults.RainCurtainLightNight, null);
+
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -2698,6 +2748,21 @@ namespace VolumetricClouds.UI
                 light.Overcasts[time].OlderFile = values => OlderLight(values, true, captured);
             }
 
+            // Brightness difference between clouds (2026-11-16, the author: "I do like clouds slightly differentiating
+            // in colors ... but this should be behind a slider"): under Mixed and Auto, soft clouds where the sky does
+            // not lean to heaps are lit at their own, lower level (Sky/CloudStyle.CloudLightScale). 100% = that sky
+            // exactly, the default; 0% = soft clouds and heaps equally bright where the sun reaches them.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Light,
+                Float = Settings.CloudLightDifference,
+                DefaultFloat = Settings.Defaults.CloudLightDifference,
+                Min = 0f, Max = 100f, Step = 5f,
+                HasTooltip = true,
+                Shown = MixPicked,
+            });
+
             // Out of the panel since 1.5.0 (the clouds' overcast is Cloud brightness's now), kept for
             // what it still does -- the fog's sunlight at full overcast -- for the players
             // who lowered it (the author: "keep it since it's an old setting"): in the settings file.
@@ -2746,6 +2811,11 @@ namespace VolumetricClouds.UI
                 Float = Settings.LightInsideClouds,
                 DefaultFloat = Settings.Defaults.LightInsideClouds,
                 Min = 0f, Max = 200f, Step = 5f,
+                // Over 100% is drawn by the cloud shader's extras variant: where it does not run (Sky/CloudShaders
+                // PlusDrawn, its log line) the light is drawn as at 100%, and the readout of the moment says so.
+                NowValue = () => CloudShaders.Raymarch != null && !CloudShaders.Lite && !CloudShaders.PlusDrawn
+                    ? Math.Min(1f, LightThrough.Slider)
+                    : LightThrough.Slider,
             };
             AddTimed(inside, Settings.LightInsideCloudsSunset, Settings.Defaults.LightInsideCloudsSunset,
                 Settings.LightInsideCloudsNight, Settings.Defaults.LightInsideCloudsNight, null);
@@ -2891,6 +2961,24 @@ namespace VolumetricClouds.UI
                 Profiled = false,
                 Enabled = WholeShaders,
                 AfterChange = State("smoother clouds", OnOff(Settings.CloudTemporal)),
+            });
+
+            // 2026-11-17: how large Smoother clouds marches the clouds (Sky/SmootherSize): half the screen each way (the
+            // default, as before), by the screen's size, a third, a quarter. The largest saving there is (a third: the
+            // cloud pass -45% at 4K), the finest wisps softer. The machine's choice: never in a profile. Stored by value,
+            // append-only. CloudTemporal logs the size it makes.
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Options = OptionsPage.General,
+                HasTooltip = true,
+                Int = Settings.SmootherCloudsSize,
+                DefaultInt = Settings.Defaults.SmootherCloudsSize,
+                ChoiceKeys = new[] { "SmootherCloudsSize.Half", "SmootherCloudsSize.ByScreen", "SmootherCloudsSize.Third", "SmootherCloudsSize.Quarter" },
+                ChoiceValues = new[] { SmootherSize.Half, SmootherSize.ByScreen, SmootherSize.Third, SmootherSize.Quarter },
+                Profiled = false,
+                Enabled = () => WholeShaders() && Settings.CloudTemporal != null && Settings.CloudTemporal.value,
+                AfterChange = State("smoother clouds' drawing size", () => SmootherSize.ChoiceName(Settings.SmootherCloudsSize.value)),
             });
 
             // 2026-11-15 (the author: "fix the smearing issue with Smoother clouds"): the new blend --

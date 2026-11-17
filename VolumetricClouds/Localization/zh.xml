@@ -119,6 +119,9 @@
   <String key="CumulusLayer.Label">经典云层</String>
   <String key="CumulusSize.Label">积云大小</String>
   <String key="CumulusHeight.Label">积云高度</String>
+  <String key="CumulusBases.Label">积云圆润底部</String>
+  <String key="CumulusSoftness.Label">更柔和的积云</String>
+  <String key="CumulusSoftness.Tooltip">让积云的边缘柔和、带丝缕，像柔和风格的云一样。0% = 边缘清晰，与以前相同</String>
   <String key="CumulusAmount.Label">积云数量</String>
 
   <String key="Group.CloudShape">高度与形状</String>
@@ -246,7 +249,7 @@
   <String key="RainEnabled.Label">替换游戏的雨雪</String>
 
   <String key="RainCurtains.Label">云下雨幕</String>
-
+  <String key="RainCurtainLight.Label">雨幕亮度</String>
   <String key="RainStreaks.Label">镜头附近雨线</String>
 
   <String key="RainStreakHeight.Label">雨线淡出高度</String>
@@ -332,6 +335,9 @@
   <String key="Group.Brightness">亮度与密度</String>
 
   <String key="CloudLight.Label">云层亮度</String>
+
+  <String key="CloudLightDifference.Label">云朵之间的亮度差异</String>
+  <String key="CloudLightDifference.Tooltip">阳光下柔和的云比大块积云暗多少。0% = 一样亮</String>
 
   <String key="MinIllumination.Label">阴天时雾中阳光最低亮度</String>
 
@@ -427,6 +433,12 @@
   <String key="CloudDepthOcclusion.Label">建筑和地形遮挡后方云层</String>
 
   <String key="SmootherClouds.Label">更平滑的云层（混合多帧画面：减少颗粒感）</String>
+  <String key="SmootherCloudsSize.Label">云层绘制尺寸</String>
+  <String key="SmootherCloudsSize.Tooltip">“更平滑的云层”以小于屏幕的尺寸绘制云层，并在几帧之间混合。尺寸越小速度越快；最细的云丝会变得更柔和</String>
+  <String key="SmootherCloudsSize.Half">屏幕的一半（最清晰）</String>
+  <String key="SmootherCloudsSize.ByScreen">按屏幕尺寸（1440p 及以下为一半，以上为三分之一）</String>
+  <String key="SmootherCloudsSize.Third">屏幕的三分之一</String>
+  <String key="SmootherCloudsSize.Quarter">屏幕的四分之一（最快）</String>
   <String key="SmootherCloudsSharp.Label">更平滑的云层且无拖影（测试）</String>
   <String key="SmootherCloudsSharp.Tooltip">新的帧混合方式：镜头移动时，云的边缘和顶部不再拖影。关闭 = 之前的混合</String>
 

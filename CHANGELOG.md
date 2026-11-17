@@ -32,6 +32,24 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Wet roads and puddles* (Weather tab, new Wet ground group, 100%): in and after rain, roads and ground get
   darker and shiny, mirror the city and the sky, puddles form on flat ground and drops make rings in them.
   *Spray from wheels* (100%): cars throw up spray and a trail of mist from wet roads.
+- *Rain curtain brightness* (Weather tab, Rain, 100%, with a clock): how bright the rain curtains under the
+  clouds are, by day, at sunset and at night, so they can dim a city's lights at night instead of glowing over
+  them. `VolumetricClouds.xml` gains three lines (`RainCurtainLight`, `...Sunset`, `...Night`, all 100%): nobody's
+  rain changes.
+- *Rounded cumulus bases* (Clouds tab, under *Cumulus height*, shown with Cumulus, Mixed and Auto, 0%): the bottoms
+  of the Cumulus heaps form the way their tops do, rounded and uneven from heap to heap, instead of every heap
+  sitting on one flat line, widest right at the bottom. Nothing is cut away or bent: the heaps grow from a rounder
+  shape, about as tall as before, and the sky holds about as much cloud, so their shadows follow by themselves. The flat slabs of the Classic layer among the heaps are not changed. Off under *Simpler clouds*.
+  `VolumetricClouds.xml` gains one line, `CumulusBases` (0%): nobody's clouds change.
+- *Softer cumulus* (Clouds tab, under *Rounded cumulus bases*, shown with Cumulus, Mixed and Auto, 0%): the edges of
+  the Cumulus heaps go soft and wispy, frayed into strands near their bottoms and billows higher up, with a faint
+  see-through fringe, like the Soft style's clouds, instead of hard-edged blocks. Their shadows follow. Off under
+  *Simpler clouds*. `VolumetricClouds.xml` gains one line, `CumulusSoftness` (0%): nobody's clouds change.
+- *Brightness difference between clouds* (Light tab, shown with Mixed and Auto, 100%): under Mixed and Auto the
+  soft clouds where the sky has no heaped clouds are lit more dimly than the heaps beside them; lower it and they
+  get closer, at 0% just as bright where the sun reaches them, while the sky as a whole keeps about its
+  brightness. Near a full overcast it does nothing. `VolumetricClouds.xml` gains one line, `CloudLightDifference`
+  (100%, the sky as it was): nobody's clouds change.
 - *Smoother clouds without smearing* (options page, on, a test row): Smoother clouds blends its frames a new
   way, so cloud edges, sides and tops no longer trail behind a moving camera. Off gives the blend before.
 - Distant clouds (Distant clouds tab) are twice as sharp (cut from 8K photographs instead of 4K), get four more
@@ -40,6 +58,10 @@ below; the mods list shows it after the mod's name, and the first line of
   14 MB, and while distant clouds show they take about 256 MB of graphics memory (43 MB before).
 - Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every player, at its
   middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before.
+- *Cloud drawing size* (options page, under *Smoother clouds*, *Half the screen*): how large Smoother clouds draws
+  the clouds before blending them. *A third of the screen* draws them nearly twice as fast at 4K, *A quarter* faster
+  still, *By screen size* a third above 1440p; the finest wisps get softer. `VolumetricClouds.xml` gains one line,
+  `SmootherCloudsSize` (0, half the screen, as before): nothing changes for existing players.
 - *Flare around lights* (Halos tab, its own group): with the replacement light halos on, street and building lamps
   throw thin rays out from their light, as the eye sees a bright light at night: a few long spikes and many fine
   rays, in the lamp's own colour. The nearer and brighter the lamp, the longer its rays; far lamps get short
@@ -63,6 +85,12 @@ below; the mods list shows it after the mod's name, and the first line of
   sunlit tops are a little dimmer), and thin cloud glows with the sun behind it. Up to 100%, where it is for
   everyone by default, nothing changes. A value over 100% in a settings file or profile now gets this light,
   with the glow and the shade at their 100% look. Not under *Simpler clouds* or the Classic style.
+  Between 100% and 200% the shade inside the clouds is also softer: where one bump of a cloud shades the next,
+  the grey no longer stops on a crisp line against the sunlit white but fades into it, as light scattered
+  through a real cloud does, and the sunlit parts of the clouds get about a third brighter (up to twice as
+  bright looking towards a low sun). It is strongest at 150% and fades out towards 200%, where the light
+  through the clouds is already that soft by itself: 200% looks as before. A closed overcast keeps its light.
+  Up to 100% nothing changes.
 
 ### Fixed
 
