@@ -50,7 +50,8 @@ namespace VolumetricClouds.Lighting
                     // Reported HERE, by the component that resets the counters just below:
                     // HaloOverride logs in the same frame, after this one, and used to print
                     // this count freshly zeroed -- a tripwire that could never fire.
-                    " lampsTagged=" + HaloAdjuster.LampsTagged + (HaloAdjuster.TagLamps ? "" : " (tagging off)") +
+                    " lampsTagged=" + HaloAdjuster.LampsTagged + " vehicleLightsTagged=" + HaloAdjuster.VehiclesTagged +
+                    (HaloAdjuster.TagLamps ? "" : " (tagging off)") +
                     " volumeTrue=" + HaloAdjuster.VolumeTrue +
                     " | observedRange=" + ranges);
 

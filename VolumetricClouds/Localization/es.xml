@@ -355,6 +355,31 @@
 
   <String key="HaloGlareDynamic.Label">Destello: crece con niebla y lluvia</String>
 
+  <String key="Group.Flare">Rayos alrededor de las luces</String>
+
+  <String key="HaloFlareNear.Label">Luces cercanas: intensidad</String>
+
+  <String key="HaloFlareFar.Label">Luces lejanas: intensidad</String>
+
+  <String key="HaloFlareSizeNear.Label">Luces cercanas: tamaño</String>
+
+  <String key="HaloFlareSizeFar.Label">Luces lejanas: tamaño</String>
+
+  <String key="HaloFlareThickness.Label">Grosor de los rayos</String>
+
+  <String key="HaloFlareSpikes.Label">Destellos largos o rayos finos</String>
+  <String key="HaloFlareSpikes.Tooltip">0%: solo los rayos finos. 100%: ambos. 200%: solo los destellos largos.</String>
+
+  <String key="HaloFlareSpikeCount.Label">Destellos largos</String>
+  <String key="HaloFlareSpikeCount.Four">4</String>
+  <String key="HaloFlareSpikeCount.Six">6</String>
+  <String key="HaloFlareSpikeCount.Eight">8</String>
+
+  <String key="HaloFlareVehicles.Label">Vehículos: intensidad</String>
+  <String key="HaloFlareVehicles.Tooltip">Faros y luces traseras. Necesita los halos de luz de reemplazo.</String>
+
+  <String key="HaloFlareSizeVehicles.Label">Vehículos: tamaño</String>
+
   <String key="Group.NearLights">Luces cercanas</String>
 
   <String key="HaloNearLightDistance.Label">Luces cercanas: a menos de</String>

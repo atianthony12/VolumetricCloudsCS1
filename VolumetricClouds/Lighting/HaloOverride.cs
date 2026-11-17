@@ -75,6 +75,15 @@ namespace VolumetricClouds.Lighting
         private static readonly int IdHaloGlareSize = Shader.PropertyToID("_HaloGlareSize");
         private static readonly int IdHaloGlareDistance = Shader.PropertyToID("_HaloGlareDistance");
         private static readonly int IdHaloGlareDynamic = Shader.PropertyToID("_HaloGlareDynamic");
+        private static readonly int IdHaloFlareNear = Shader.PropertyToID("_HaloFlareNear");
+        private static readonly int IdHaloFlareFar = Shader.PropertyToID("_HaloFlareFar");
+        private static readonly int IdHaloFlareSizeNear = Shader.PropertyToID("_HaloFlareSizeNear");
+        private static readonly int IdHaloFlareSizeFar = Shader.PropertyToID("_HaloFlareSizeFar");
+        private static readonly int IdHaloFlareThickness = Shader.PropertyToID("_HaloFlareThickness");
+        private static readonly int IdHaloFlareSpikes = Shader.PropertyToID("_HaloFlareSpikes");
+        private static readonly int IdHaloFlareSpikeCount = Shader.PropertyToID("_HaloFlareSpikeCount");
+        private static readonly int IdHaloFlareVehicles = Shader.PropertyToID("_HaloFlareVehicles");
+        private static readonly int IdHaloFlareSizeVehicles = Shader.PropertyToID("_HaloFlareSizeVehicles");
 
         private class Replacement
         {
@@ -323,6 +332,7 @@ namespace VolumetricClouds.Lighting
                 SetHaloControls(replacement.Material, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
                 SetGlare(replacement.Material, glare, glareSize, glareDistance, glareDynamic);
+                SetFlare(replacement.Material);
             }
 
             // The dynamic material takes the SAME values, from the same place, so a lamp drawn
@@ -333,8 +343,28 @@ namespace VolumetricClouds.Lighting
                 SetHaloControls(_dynamicReplacement, fog, brightness, tightness, radius,
                                 nearDistance, nearBrightness, nearTightness, nearRadius);
                 SetGlare(_dynamicReplacement, glare, glareSize, glareDistance, glareDynamic);
+                SetFlare(_dynamicReplacement);
                 _dynamicReplacement.SetFloat(IdHaloOtherBrightness, OtherLightsBrightness);
             }
+        }
+
+        /// <summary>
+        /// The flare (2026-11-17), every value from <see cref="LampFlare"/> -- the one place other mods
+        /// read it too, so their lights and ours cannot drift apart. Near and far blended in the shader
+        /// over the near lights' distance (_HaloNearDistance, as the near rows; at 0 every lamp is a
+        /// distant one). All strengths 0: none, and no quad grows for it.
+        /// </summary>
+        private static void SetFlare(Material material)
+        {
+            material.SetFloat(IdHaloFlareNear, LampFlare.NearStrength);
+            material.SetFloat(IdHaloFlareFar, LampFlare.FarStrength);
+            material.SetFloat(IdHaloFlareSizeNear, LampFlare.NearSize);
+            material.SetFloat(IdHaloFlareSizeFar, LampFlare.FarSize);
+            material.SetFloat(IdHaloFlareThickness, LampFlare.Thickness);
+            material.SetFloat(IdHaloFlareSpikes, LampFlare.Spikes);
+            material.SetFloat(IdHaloFlareSpikeCount, LampFlare.SpikeCount);
+            material.SetFloat(IdHaloFlareVehicles, LampFlare.VehicleStrength);
+            material.SetFloat(IdHaloFlareSizeVehicles, LampFlare.VehicleSize);
         }
 
         private static void SetGlare(Material material, float glare, float size, float distance, float dynamic)
@@ -540,6 +570,12 @@ namespace VolumetricClouds.Lighting
                     " (core " + (0.25f * Value(Settings.HaloGlareSize, 1f)).ToString("F2") + " m)" +
                     " within " + Value(Settings.HaloGlareDistance, 0f).ToString("F0") + "m" +
                     (Settings.HaloGlareDynamic == null || Settings.HaloGlareDynamic.value ? ", with the fog and rain" : ", any weather alike") +
+                    " | flare near=" + LampFlare.NearStrength.ToString("F2") +
+                    " far=" + LampFlare.FarStrength.ToString("F2") +
+                    " size=" + LampFlare.NearSize.ToString("F2") + "/" + LampFlare.FarSize.ToString("F2") +
+                    " thickness=" + LampFlare.Thickness.ToString("F2") +
+                    " spikes=" + LampFlare.Spikes.ToString("F2") + " x" + LampFlare.SpikeCount +
+                    " vehicles=" + LampFlare.VehicleStrength.ToString("F2") + " size " + LampFlare.VehicleSize.ToString("F2") +
                     " | dynamic=" + (_dynamicReplacement != null
                         ? "PORTED otherBrightness=" + OtherLightsBrightness.ToString("F2") +
                           " (lamps tagged: see the 'dynamic lights' line)"

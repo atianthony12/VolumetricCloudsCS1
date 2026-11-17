@@ -355,6 +355,31 @@
 
   <String key="HaloGlareDynamic.Label">Éclat : grandit dans le brouillard et la pluie</String>
 
+  <String key="Group.Flare">Rayons autour des lumières</String>
+
+  <String key="HaloFlareNear.Label">Lumières proches : intensité</String>
+
+  <String key="HaloFlareFar.Label">Lumières lointaines : intensité</String>
+
+  <String key="HaloFlareSizeNear.Label">Lumières proches : taille</String>
+
+  <String key="HaloFlareSizeFar.Label">Lumières lointaines : taille</String>
+
+  <String key="HaloFlareThickness.Label">Épaisseur des rayons</String>
+
+  <String key="HaloFlareSpikes.Label">Longues branches ou rayons fins</String>
+  <String key="HaloFlareSpikes.Tooltip">0 % : seulement les rayons fins. 100 % : les deux. 200 % : seulement les longues branches.</String>
+
+  <String key="HaloFlareSpikeCount.Label">Longues branches</String>
+  <String key="HaloFlareSpikeCount.Four">4</String>
+  <String key="HaloFlareSpikeCount.Six">6</String>
+  <String key="HaloFlareSpikeCount.Eight">8</String>
+
+  <String key="HaloFlareVehicles.Label">Véhicules : intensité</String>
+  <String key="HaloFlareVehicles.Tooltip">Phares et feux arrière. Nécessite les halos de lumière de remplacement.</String>
+
+  <String key="HaloFlareSizeVehicles.Label">Véhicules : taille</String>
+
   <String key="Group.NearLights">Lumières proches</String>
 
   <String key="HaloNearLightDistance.Label">Lumières proches : moins de</String>

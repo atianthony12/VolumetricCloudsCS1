@@ -3018,6 +3018,103 @@ namespace VolumetricClouds.UI
                 AfterChange = State("dynamic glare", OnOff(Settings.HaloGlareDynamic)),
             });
 
+            // The flare (2026-11-17), its own group (the author: "a lot of options"): near lamps are
+            // the near lights' (closer than "Near lights: closer than"), distant ones past twice
+            // that, blended between -- the strength and the size each have a near and a far row.
+            // NEVER greyed by the halos' switch: these rows also set OTHER mods' flares (the author:
+            // every lighting mod's flare is controlled from here; they read Lighting/LampFlare).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Group = "Flare",
+                Float = Settings.HaloFlareNear,
+                DefaultFloat = Settings.Defaults.HaloFlareNear,
+                Min = 0f, Max = 300f, Step = 5f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloFlareFar,
+                DefaultFloat = Settings.Defaults.HaloFlareFar,
+                Min = 0f, Max = 300f, Step = 5f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloFlareSizeNear,
+                DefaultFloat = Settings.Defaults.HaloFlareSizeNear,
+                Min = 25f, Max = 400f, Step = 5f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloFlareSizeFar,
+                DefaultFloat = Settings.Defaults.HaloFlareSizeFar,
+                Min = 25f, Max = 400f, Step = 5f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloFlareThickness,
+                DefaultFloat = Settings.Defaults.HaloFlareThickness,
+                Min = 50f, Max = 300f, Step = 5f,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                HasTooltip = true,
+                Float = Settings.HaloFlareSpikes,
+                DefaultFloat = Settings.Defaults.HaloFlareSpikes,
+                Min = 0f, Max = 200f, Step = 5f,
+            });
+
+            // Stored by value: the number of spikes itself (append-only, inv. 15).
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Options = OptionsPage.Halos,
+                Int = Settings.HaloFlareSpikeCount,
+                DefaultInt = Settings.Defaults.HaloFlareSpikeCount,
+                ChoiceKeys = new[] { "HaloFlareSpikeCount.Four", "HaloFlareSpikeCount.Six", "HaloFlareSpikeCount.Eight" },
+                ChoiceValues = new[] { 4, 6, 8 },
+                AfterChange = State("flare spikes", () => Settings.HaloFlareSpikeCount.value.ToString()),
+            });
+
+            // Vehicles' lights: drawn in the replacement dynamic halo, so these two DO need the
+            // halos on (the tooltip says so); greyed without them.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                HasTooltip = true,
+                Float = Settings.HaloFlareVehicles,
+                DefaultFloat = Settings.Defaults.HaloFlareVehicles,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = HalosOn,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Halos,
+                Float = Settings.HaloFlareSizeVehicles,
+                DefaultFloat = Settings.Defaults.HaloFlareSizeVehicles,
+                Min = 25f, Max = 400f, Step = 5f,
+                Enabled = HalosOn,
+            });
+
+            // Not greyed either: it also sets where other mods' flares turn from near to distant.
             Add(new Row
             {
                 Kind = RowKind.Value,
@@ -3027,7 +3124,6 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.HaloNearDistance,
                 Min = 0f, Max = 1000f, Step = 10f,
                 Format = NearDistance,
-                Enabled = HalosOn,
             });
 
             Add(new Row

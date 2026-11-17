@@ -26,8 +26,10 @@
 // and no vehicle falls upwards at 40 km/s. Tagged lights get the lamp controls; the rest get
 // _HaloOtherBrightness in place of _HaloBrightness.
 //
-// THE CLOSE GLARE (_HaloGlare*): as in LightHalo.shader, on tagged lamps only -- a vehicle's
-// lights keep the halo alone.
+// THE CLOSE GLARE (_HaloGlare*) and THE FLARE (_HaloFlare*, HaloFlare.cginc): as in
+// LightHalo.shader, on tagged lamps only -- a vehicle's lights keep the halo alone -- except
+// that VEHICLES' lights get the flare too (2026-11-17): HaloAdjuster adds VEHICLE_TAG to the
+// velocity.y of a light drawn while a vehicle renders; their own strength and size, no near / far.
 Shader "VolumetricClouds/LightHaloDynamic"
 {
     SubShader
@@ -49,6 +51,8 @@ Shader "VolumetricClouds/LightHaloDynamic"
 
             #define MAX_LIGHTS 32
             #define LAMP_TAG 40000.0
+            // = HaloAdjuster.VehicleTag: ADDED to a vehicle's light's velocity.y (2026-11-17, its flare).
+            #define VEHICLE_TAG 10000.0
 
             // Set per draw by the game, through its MaterialPropertyBlock.
             float4 _LightPos[MAX_LIGHTS];      // xyz world position, w = range (negative: no halo)
@@ -81,11 +85,15 @@ Shader "VolumetricClouds/LightHaloDynamic"
             float _HaloGlareSize;
             float _HaloGlareDistance;
             float _HaloGlareDynamic;
+            float _HaloFlareNear;
+            float _HaloFlareFar;
 
             // The same as LightHalo.shader's.
             #define GLARE_CORE 0.25
             #define GLARE_REACH 6.0
             #define GLARE_PEAK 0.35
+
+            #include "HaloFlare.cginc"
 
             struct v2f
             {
@@ -97,6 +105,8 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float4 color : COLOR0;
                 float3 velocity : TEXCOORD4;
                 float4 tuning : TEXCOORD5;      // x brightness, y tightness, z glare peak, w 1 / r0^2, for THIS light
+                float3 flare : TEXCOORD6;       // the flare's peak (a share of the colour, 0 none), length, width (px)
+                float2 flareCentre : TEXCOORD7; // the lamp's centre on the screen (0..1)
             };
 
             // x*x*(3-2x): the polynomial half of smoothstep, for an already-saturated x.
@@ -116,6 +126,10 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 bool lamp = velocity.y > LAMP_TAG * 0.5;
                 if (lamp)
                     velocity = 0;
+                // Not in the original: a vehicle's light (its velocity.y + VEHICLE_TAG), for its flare;
+                // the tag comes off again, so its halo and rain streaks keep the real velocity.
+                bool vehicle = !lamp && velocity.y > VEHICLE_TAG * 0.5 && velocity.y < VEHICLE_TAG * 1.5;
+                velocity.y -= vehicle ? VEHICLE_TAG : 0.0;
 
                 float3 toCamera = _WorldSpaceCameraPos - lightPos;
                 float dist2 = dot(toCamera, toCamera);
@@ -149,6 +163,20 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 // the halo's own falloff, is not scaled).
                 float glareReach = GLARE_REACH * glareCore;
                 float glareScale = glarePeak > 0.0001 ? max(1.0, glareReach / max(0.5 * abs(range) * radiusScale, 0.001)) : 1.0;
+
+                // The flare, as in LightHalo.shader: lamps (near / far blended) and vehicles' lights
+                // (their own strength and size); no other light (0 strength: none, no quad growth),
+                // and only a light with a halo at all (a negative range collapses the quad).
+                float4 lampColor = _LightColor[index];
+                float flareLum = max(lampColor.r, max(lampColor.g, lampColor.b));
+                float flareStrength = lamp ? lerp(_HaloFlareFar, _HaloFlareNear, nearness) : (vehicle ? _HaloFlareVehicles : 0.0);
+                flareStrength = range > 0.0 ? flareStrength : 0.0;
+                float flareSize = vehicle ? _HaloFlareSizeVehicles : lerp(_HaloFlareSizeFar, _HaloFlareSizeNear, nearness);
+                float2 flareCentre;
+                float4 flare = FlareSetup(lightPos, dist, flareStrength, flareSize, glareFacing, flareLum, flareCentre);
+                o.flare = flare.xyz;
+                o.flareCentre = flareCentre;
+                glareScale = flare.x > 0.0 ? max(glareScale, flare.w / max(0.5 * abs(range) * radiusScale, 0.001)) : glareScale;
                 float signedRadius = 0.5 * range * radiusScale * glareScale;
                 float radius = abs(signedRadius);
                 float2 cornerFlat = max(signedRadius, 0.0) * vertex.xy;
@@ -287,7 +315,15 @@ Shader "VolumetricClouds/LightHaloDynamic"
                 float glareGain = _HaloGlareDynamic > 0.5 ? max(scatter * 0.001 + epsilon, 0.0) / epsilon : 1.0;
                 glare = min(glare * glareGain, max(i.tuning.z, 1.0));
 
-                return float4((glow + glare) * i.color.rgb, 0.0);
+                // The flare, as in LightHalo.shader.
+                float flare = 0.0;
+                [branch] if (i.flare.x > 0.0)
+                {
+                    float2 q = (i.screenPos.xy / i.screenPos.w - i.flareCentre) * _ScreenParams.xy;
+                    flare = i.flare.x * FlarePattern(q, length(q), 0.0, i.flare.y, i.flare.z);
+                }
+
+                return float4((glow + glare + flare) * i.color.rgb, 0.0);
             }
             ENDCG
         }

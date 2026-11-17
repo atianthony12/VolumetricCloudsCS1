@@ -830,6 +830,48 @@ namespace VolumetricClouds
         /// </summary>
         public static BoolSetting HaloGlareDynamic { get; private set; }
 
+        /// <summary>
+        /// The flare round lamps nearer than <see cref="HaloNearLightDistance"/> (2026-11-17): thin
+        /// rays out from each lamp in screen pixels, as another mod's warning lights have. 1 = the designed
+        /// strength, 0 = none. Blended to <see cref="HaloFlareFar"/> by twice that distance, as the
+        /// near rows are. Replacement shader only (LightHalo.shader's header has the shape).
+        /// </summary>
+        public static FloatSetting HaloFlareNear { get; private set; }
+
+        /// <summary>The flare round lamps further than twice the near lights' distance; 0 = none.</summary>
+        public static FloatSetting HaloFlareFar { get; private set; }
+
+        /// <summary>
+        /// The flare's size on near lamps: its rays' length, against the designed 4 px of a 1080-line
+        /// view (1). Blended to <see cref="HaloFlareSizeFar"/> as the strengths are.
+        /// </summary>
+        public static FloatSetting HaloFlareSizeNear { get; private set; }
+
+        /// <summary>The flare's size on distant lamps (1 = the designed length).</summary>
+        public static FloatSetting HaloFlareSizeFar { get; private set; }
+
+        /// <summary>How thick each ray is, against the designed 0.5 px sigma (1).</summary>
+        public static FloatSetting HaloFlareThickness { get; private set; }
+
+        /// <summary>
+        /// The long spikes against the fine rays: 0 only the fine rays, 1 both as designed, 2 only the
+        /// spikes (each side at full up to 1, then the other fades out).
+        /// </summary>
+        public static FloatSetting HaloFlareSpikes { get; private set; }
+
+        /// <summary>How many long spikes: 4, 6 (as designed) or 8. Stored as the number itself.</summary>
+        public static IntSetting HaloFlareSpikeCount { get; private set; }
+
+        /// <summary>
+        /// The flare on VEHICLES' lights (2026-11-17), drawn in the replacement dynamic halo: lights drawn while
+        /// Vehicle.RenderInstance runs (Lighting/HaloPatches.cs). 1 = the designed strength, 0 = none. Not
+        /// near/far blended: a vehicle is never far enough to need it (they are drawn to a few hundred metres).
+        /// </summary>
+        public static FloatSetting HaloFlareVehicles { get; private set; }
+
+        /// <summary>The vehicles' rays' length, against the designed 4 px (1).</summary>
+        public static FloatSetting HaloFlareSizeVehicles { get; private set; }
+
         // REMOVED in 1.1.1, both on the Halos tab; their element names stay retired, never reuse
         // them:
         // - "Adjust dynamic lights (vehicles)" (HaloAdjustEnabled) with HaloRangeScale,
@@ -1258,6 +1300,24 @@ namespace VolumetricClouds
 
             /// <summary>The author, 2026-10-29: "make it by default dynamic ... affected by fog basically just as the light halo".</summary>
             public const bool HaloGlareDynamic = true;
+
+            // The flare (2026-11-17). Like the glare, it reaches existing players who opted into
+            // the halos (the halos stay off until asked for): at the designed strength near and far.
+            public const float HaloFlareNear = 1f;
+            public const float HaloFlareFar = 1f;
+
+            // Its shape (2026-11-17, the author: "more control over flares, especially size"):
+            // each at the designed look.
+            public const float HaloFlareSizeNear = 1f;
+            public const float HaloFlareSizeFar = 1f;
+            public const float HaloFlareThickness = 1f;
+            public const float HaloFlareSpikes = 1f;
+            public const int HaloFlareSpikeCount = 6;
+
+            // Vehicles' lights (2026-11-17, "add the flare onto vehicle lights"): slight by default, the
+            // author's brief -- half the strength, three quarters of the length.
+            public const float HaloFlareVehicles = 0.5f;
+            public const float HaloFlareSizeVehicles = 0.75f;
         }
 
         private static bool _initialised;
@@ -1509,6 +1569,15 @@ namespace VolumetricClouds
                 HaloGlareSize = new FloatSetting("HaloGlareSize", Defaults.HaloGlareSize);
                 HaloGlareDistance = new FloatSetting("HaloGlareDistance", Defaults.HaloGlareDistance);
                 HaloGlareDynamic = new BoolSetting("HaloGlareDynamic", Defaults.HaloGlareDynamic);
+                HaloFlareNear = new FloatSetting("HaloFlareNear", Defaults.HaloFlareNear);
+                HaloFlareFar = new FloatSetting("HaloFlareFar", Defaults.HaloFlareFar);
+                HaloFlareSizeNear = new FloatSetting("HaloFlareSizeNear", Defaults.HaloFlareSizeNear);
+                HaloFlareSizeFar = new FloatSetting("HaloFlareSizeFar", Defaults.HaloFlareSizeFar);
+                HaloFlareThickness = new FloatSetting("HaloFlareThickness", Defaults.HaloFlareThickness);
+                HaloFlareSpikes = new FloatSetting("HaloFlareSpikes", Defaults.HaloFlareSpikes);
+                HaloFlareSpikeCount = new IntSetting("HaloFlareSpikeCount", Defaults.HaloFlareSpikeCount);
+                HaloFlareVehicles = new FloatSetting("HaloFlareVehicles", Defaults.HaloFlareVehicles);
+                HaloFlareSizeVehicles = new FloatSetting("HaloFlareSizeVehicles", Defaults.HaloFlareSizeVehicles);
 
                 HaloNearLightDistance = new FloatSetting("HaloNearLightDistance", Defaults.HaloNearDistance);
                 HaloNearLightBrightness = new FloatSetting("HaloNearLightBrightness", Defaults.HaloNearBrightness);

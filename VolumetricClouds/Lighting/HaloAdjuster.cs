@@ -23,6 +23,22 @@ namespace VolumetricClouds.Lighting
         public const float LampTag = 40000f;
 
         /// <summary>
+        /// Must equal VEHICLE_TAG in LightHaloDynamic.shader (2026-11-17, the flare on vehicles' lights).
+        /// A vehicle's light is submitted with this ADDED to its velocity's y; the shader reads y in
+        /// (5000, 15000) as a vehicle and subtracts it again (a real velocity is under ~100, the lamp
+        /// tag's band starts at 20000). The halo keeps the velocity to the float's precision there (~1 mm/s).
+        /// </summary>
+        public const float VehicleTag = 10000f;
+
+        /// <summary>
+        /// Depth of Vehicle.RenderInstance calls under way (HaloPatches' VehicleRenderPatch): over 0, a
+        /// light reaching DrawLight is a vehicle's. A counter, not a flag, so a nested call cannot clear it early.
+        /// </summary>
+        public static int InVehicle;
+
+        public static int VehiclesTagged;
+
+        /// <summary>
         /// True while the ported dynamic halo shader is in place (set each frame by
         /// HaloOverride). The tag must NEVER reach the game's own shader, which would read it
         /// as a velocity and fling that light's rain streaks away.
@@ -64,6 +80,12 @@ namespace VolumetricClouds.Lighting
                 vel = new Vector3(0f, LampTag, 0f);
                 LampsTagged++;
             }
+            else if (TagLamps && InVehicle > 0)
+            {
+                // A vehicle's light, for its flare (the replacement shader only: TagLamps).
+                vel.y += VehicleTag;
+                VehiclesTagged++;
+            }
 
             if (volume)
                 VolumeTrue++;
@@ -87,6 +109,7 @@ namespace VolumetricClouds.Lighting
         {
             LongCalls = 0;
             LampsTagged = 0;
+            VehiclesTagged = 0;
             DataCalls = 0;
             VolumeTrue = 0;
             ObservedMinRange = float.MaxValue;

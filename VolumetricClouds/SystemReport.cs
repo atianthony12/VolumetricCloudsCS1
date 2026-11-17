@@ -107,6 +107,15 @@ namespace VolumetricClouds
                         " lightHalos=" + On(Settings.HaloEnabled, false) +
                         " lampGlare=" + Percent(Settings.HaloGlare, Settings.Defaults.HaloGlare) +
                         " glareDynamic=" + On(Settings.HaloGlareDynamic, Settings.Defaults.HaloGlareDynamic) +
+                        " lampFlare=" + Percent(Settings.HaloFlareNear, Settings.Defaults.HaloFlareNear) +
+                        "/" + Percent(Settings.HaloFlareFar, Settings.Defaults.HaloFlareFar) + " (near/far)" +
+                        " flareSize=" + Percent(Settings.HaloFlareSizeNear, Settings.Defaults.HaloFlareSizeNear) +
+                        "/" + Percent(Settings.HaloFlareSizeFar, Settings.Defaults.HaloFlareSizeFar) +
+                        " flareThickness=" + Percent(Settings.HaloFlareThickness, Settings.Defaults.HaloFlareThickness) +
+                        " flareSpikes=" + Percent(Settings.HaloFlareSpikes, Settings.Defaults.HaloFlareSpikes) +
+                        " x" + (Settings.HaloFlareSpikeCount != null ? Settings.HaloFlareSpikeCount.value : Settings.Defaults.HaloFlareSpikeCount) +
+                        " vehicleFlare=" + Percent(Settings.HaloFlareVehicles, Settings.Defaults.HaloFlareVehicles) +
+                        " size " + Percent(Settings.HaloFlareSizeVehicles, Settings.Defaults.HaloFlareSizeVehicles) +
                         " | overrides: weather=" + On(Settings.CoverageOverride, false) +
                         " fog=" + On(Settings.FogOverride, false) +
                         " lightning=" + On(Settings.LightningOverride, false) +

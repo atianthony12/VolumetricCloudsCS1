@@ -40,6 +40,20 @@ below; the mods list shows it after the mod's name, and the first line of
   14 MB, and while distant clouds show they take about 256 MB of graphics memory (43 MB before).
 - Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every player, at its
   middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before.
+- *Flare around lights* (Halos tab, its own group): with the replacement light halos on, street and building lamps
+  throw thin rays out from their light, as the eye sees a bright light at night: a few long spikes and many fine
+  rays, in the lamp's own colour. The nearer and brighter the lamp, the longer its rays; far lamps get short
+  sparkles. A lamp hidden behind a building throws none. Its rows: *strength* and *size* each for near lights
+  (closer than *Near lights: closer than*) and for distant ones, *Ray thickness*, *Long spikes or fine rays*
+  (0% only the fine rays, 200% only the spikes) and how many *Long spikes* (4, 6 or 8). Vehicles' headlights and
+  tail lights get a slight flare too (*Vehicles: strength* 50%, *Vehicles: size* 75%). These rows can be set with
+  the replacement halos off as well (except the two for vehicles): other mods that draw a flare round their own
+  lights can take theirs from here, so one set of rows controls every flare.
+  `VolumetricClouds.xml` gains nine lines: `HaloFlareNear` and `HaloFlareFar` (both 100%), `HaloFlareSizeNear`,
+  `HaloFlareSizeFar`, `HaloFlareThickness`, `HaloFlareSpikes` (all 100%), `HaloFlareSpikeCount` (6),
+  `HaloFlareVehicles` (50%) and `HaloFlareSizeVehicles` (75%). Players who use the replacement halos see the flare
+  at once; 0% on the three strengths gives their lights exactly as before. Players without the replacement halos
+  see no change. *Near lights: closer than* is no longer greyed with the halos off.
 
 ### Changed
 

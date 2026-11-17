@@ -399,6 +399,31 @@
 
   <String key="HaloGlareDynamic.Label">Glare: grows in fog and rain</String>
 
+  <String key="Group.Flare">Flare around lights</String>
+
+  <String key="HaloFlareNear.Label">Near lights: strength</String>
+
+  <String key="HaloFlareFar.Label">Distant lights: strength</String>
+
+  <String key="HaloFlareSizeNear.Label">Near lights: size</String>
+
+  <String key="HaloFlareSizeFar.Label">Distant lights: size</String>
+
+  <String key="HaloFlareThickness.Label">Ray thickness</String>
+
+  <String key="HaloFlareSpikes.Label">Long spikes or fine rays</String>
+  <String key="HaloFlareSpikes.Tooltip">0%: only the fine rays. 100%: both. 200%: only the long spikes.</String>
+
+  <String key="HaloFlareSpikeCount.Label">Long spikes</String>
+  <String key="HaloFlareSpikeCount.Four">4</String>
+  <String key="HaloFlareSpikeCount.Six">6</String>
+  <String key="HaloFlareSpikeCount.Eight">8</String>
+
+  <String key="HaloFlareVehicles.Label">Vehicles: strength</String>
+  <String key="HaloFlareVehicles.Tooltip">Headlights and tail lights. Needs the replacement light halos.</String>
+
+  <String key="HaloFlareSizeVehicles.Label">Vehicles: size</String>
+
   <String key="Group.NearLights">Near lights</String>
 
   <String key="HaloNearLightDistance.Label">Near lights: closer than</String>

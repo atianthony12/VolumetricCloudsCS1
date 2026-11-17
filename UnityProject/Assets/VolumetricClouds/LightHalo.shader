@@ -36,6 +36,27 @@
 //                    + epsilon over epsilon: x1 clear, x3 in full fog, more in rain's streaks),
 //                    capped at the halo's full colour, and its core wider by the halo's exponent
 //                    (1 / (1 - 0.2 fog)). 0: the same in any weather.
+//   _HaloFlare*      THE FLARE (not in the original; 2026-11-17, the author: the same flare as
+//                    another mod's warning lights): thin rays out from the lamp in SCREEN pixels, as the
+//                    eye sees a bright point at night -- the ciliary corona's fine radial lines
+//                    (Spencer, Shirley, Zimmerman and Greenberg, "Physically-Based Glare Effects
+//                    for Digital Images", SIGGRAPH 1995; Ritschel et al., "Temporal Glare",
+//                    Eurographics 2009) -- and a camera's few long aperture spikes (six blades,
+//                    six spikes). One fixed pattern on the screen for every lamp (Flare()); each
+//                    ray a Gaussian line FLARE_WIDTH px wide fading as e^(-x / FLARE_LENGTH px),
+//                    both counted in a 1080-line view's pixels of the target drawn INTO
+//                    (_ScreenParams: Dynamic Resolution and Lumina keep the look). Its peak, in
+//                    the lamp's colour, is FLARE_PEAK of the halo's full colour, held to
+//                    FLARE_HOLD metres and falling as 1/d past it (held at every distance, a
+//                    far district would be one smudge), times the player's strength: near lamps'
+//                    (_HaloFlareNear) blended to distant lamps' (_HaloFlareFar) over the near
+//                    lights' distance, as the near rows are. The brighter, the longer its rays
+//                    reach over the floor; the quad grows to that reach. Seen only if the lamp
+//                    is: the depth at and round its centre against its own (vertex program), the
+//                    glare's facing for a spotlight seen from behind. Added, independent of the
+//                    halo's and the glare's settings. Both strengths 0 = none, the old picture.
+//                    Its shape (HaloFlare.cginc's uniforms): size near / far (the rays' length,
+//                    blended as the strengths), thickness, spikes against fine rays, spike count.
 //
 // Batched light mesh vertex layout (written by LightEffect.PopulateGroupData):
 //   POSITION   a corner of the light's bounding quad, in group space
@@ -93,12 +114,16 @@ Shader "VolumetricClouds/LightHalo"
             float _HaloGlareSize;
             float _HaloGlareDistance;
             float _HaloGlareDynamic;
+            float _HaloFlareNear;
+            float _HaloFlareFar;
 
             // The close glare's shape at _HaloGlareSize 1: its core radius r0 in metres, where it
             // ends (in cores), and its peak as a share of the halo's full-colour core.
             #define GLARE_CORE 0.25
             #define GLARE_REACH 6.0
             #define GLARE_PEAK 0.35
+
+            #include "HaloFlare.cginc"
 
             // { rampStart, rampEnd, fallEnd, period } per blink pattern.
             static const float4 kBlink[7] =
@@ -133,6 +158,8 @@ Shader "VolumetricClouds/LightHalo"
                 float4 color : COLOR0;
                 float2 colorUV : TEXCOORD4;
                 float4 tuning : TEXCOORD5;      // x brightness, y tightness, z glare peak, w 1 / r0^2, for THIS light
+                float3 flare : TEXCOORD6;       // the flare's peak (a share of the colour, 0 none), length, width (px)
+                float2 flareCentre : TEXCOORD7; // the lamp's centre on the screen (0..1)
             };
 
             // x*x*(3-2x): the polynomial half of smoothstep, for an already-saturated x.
@@ -193,7 +220,22 @@ Shader "VolumetricClouds/LightHalo"
                 float3 offset = (world - v.lightPos) * radiusScale;
                 float haloRadius = max(offset.z * 0.5, 0.001);
                 float glareReach = GLARE_REACH * glareCore;
-                offset *= glarePeak > 0.0001 ? max(1.0, glareReach / haloRadius) : 1.0;
+
+                // Not in the original: the flare for THIS light (see the header): near lamps'
+                // strength blended to distant lamps' as the near rows are, the glare's facing,
+                // the lamp's brightest channel as drawn. Its quad, too, at least as wide as the
+                // flare's reach (in metres at the lamp's distance).
+                float flareLum = bright * max(v.color.r, max(v.color.g, v.color.b));
+                float2 flareCentre;
+                float4 flare = FlareSetup(v.lightPos, dist, lerp(_HaloFlareFar, _HaloFlareNear, nearness),
+                                          lerp(_HaloFlareSizeFar, _HaloFlareSizeNear, nearness),
+                                          glareFacing, flareLum, flareCentre);
+                o.flare = flare.xyz;
+                o.flareCentre = flareCentre;
+
+                float quadScale = glarePeak > 0.0001 ? max(1.0, glareReach / haloRadius) : 1.0;
+                quadScale = flare.x > 0.0 ? max(quadScale, flare.w / haloRadius) : quadScale;
+                offset *= quadScale;
                 float3 groupTranslation = world - local;
                 float cornerX = offset.x * 0.5;
                 float cornerY = offset.y * 0.5;
@@ -339,8 +381,18 @@ Shader "VolumetricClouds/LightHalo"
                 float glareGain = _HaloGlareDynamic > 0.5 ? max(scatter * 0.001 + epsilon, 0.0) / epsilon : 1.0;
                 glare = min(glare * glareGain, max(i.tuning.z, 1.0));
 
+                // Not in the original: the flare, in screen pixels from the lamp's centre. An if,
+                // not ?:, so lamps without one (and the screen-covering quads of a lamp the camera
+                // stands in) never pay for the pattern.
+                float flare = 0.0;
+                [branch] if (i.flare.x > 0.0)
+                {
+                    float2 q = (i.screenPos.xy / i.screenPos.w - i.flareCentre) * _ScreenParams.xy;
+                    flare = i.flare.x * FlarePattern(q, length(q), 0.0, i.flare.y, i.flare.z);
+                }
+
                 float buildingState = tex2D(_ObjectColorMap, i.colorUV).a;
-                return float4((glow + glare) * i.color.rgb * buildingState, 0.0);
+                return float4((glow + glare + flare) * i.color.rgb * buildingState, 0.0);
             }
             ENDCG
         }

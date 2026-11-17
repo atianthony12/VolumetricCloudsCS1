@@ -369,6 +369,31 @@
 
   <String key="HaloGlareDynamic.Label">眩光：随雾和雨增强</String>
 
+  <String key="Group.Flare">灯光的光芒</String>
+
+  <String key="HaloFlareNear.Label">近处灯光：强度</String>
+
+  <String key="HaloFlareFar.Label">远处灯光：强度</String>
+
+  <String key="HaloFlareSizeNear.Label">近处灯光：大小</String>
+
+  <String key="HaloFlareSizeFar.Label">远处灯光：大小</String>
+
+  <String key="HaloFlareThickness.Label">光线粗细</String>
+
+  <String key="HaloFlareSpikes.Label">长光芒或细光线</String>
+  <String key="HaloFlareSpikes.Tooltip">0%：只有细光线。100%：两者都有。200%：只有长光芒。</String>
+
+  <String key="HaloFlareSpikeCount.Label">长光芒数量</String>
+  <String key="HaloFlareSpikeCount.Four">4</String>
+  <String key="HaloFlareSpikeCount.Six">6</String>
+  <String key="HaloFlareSpikeCount.Eight">8</String>
+
+  <String key="HaloFlareVehicles.Label">车辆：强度</String>
+  <String key="HaloFlareVehicles.Tooltip">前灯和尾灯。需要启用替换光晕。</String>
+
+  <String key="HaloFlareSizeVehicles.Label">车辆：大小</String>
+
   <String key="Group.NearLights">近处灯光</String>
 
   <String key="HaloNearLightDistance.Label">近处灯光：距离小于</String>
