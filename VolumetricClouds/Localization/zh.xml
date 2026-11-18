@@ -284,6 +284,12 @@
   <String key="WetGround.Label">湿路面和水洼</String>
   <String key="WetGround.Tooltip">雨中和雨后，道路和地面变暗发亮，映出城市和天空，平地上积起水洼。0% = 关闭</String>
 
+  <String key="WetTerrain.Label">湿草地和泥土</String>
+  <String key="WetTerrain.Tooltip">雨中和雨后裸露地面变湿的程度：草地、泥土、农田和沙地。道路和铺装地面跟随“湿路面和水洼”。0% = 保持干燥</String>
+
+  <String key="WetTrees.Label">湿树木</String>
+  <String key="WetTrees.Tooltip">雨中和雨后树木变湿的程度：树叶略微变暗并发亮。0% = 保持干燥</String>
+
   <String key="WheelSpray.Label">车轮溅水</String>
   <String key="WheelSpray.Tooltip">汽车在湿路上溅起水花和水雾，车速越快越多。0% = 关闭</String>
 
@@ -338,8 +344,8 @@
 
   <String key="CloudLight.Label">云层亮度</String>
 
-  <String key="CloudLightDifference.Label">云朵之间的亮度差异</String>
-  <String key="CloudLightDifference.Tooltip">阳光下柔和的云比大块积云暗多少。0% = 一样亮</String>
+  <String key="CloudLightGap.Label">云朵之间的亮度差异</String>
+  <String key="CloudLightGap.Tooltip">阳光下柔和的云比大块积云暗多少。0% = 一样亮</String>
 
   <String key="MinIllumination.Label">阴天时雾中阳光最低亮度</String>
 

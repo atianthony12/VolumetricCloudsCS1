@@ -179,7 +179,7 @@ foreach ($k in [Enum]::GetValues($kindType)) {
     $allOk = $true; $landOk = $true; $pathOk = $true; $ribbons = 0
     foreach ($seed in 1..40) {
         $list = [Activator]::CreateInstance($listType)
-        [object[]]$a = $k, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list
+        [object[]]$a = $k, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $null
         [void]$build.Invoke($null, $a)
         $ribbons += $list.Count
         if ($list.Count -lt 1) { $allOk = $false; continue }
@@ -201,6 +201,54 @@ foreach ($k in [Enum]::GetValues($kindType)) {
     Check "$k : path positions inside 0..1 and increasing along a ribbon" $pathOk
     Check "$k : a ground kind lands exactly on the ground point (a game strike's fire is there)" $landOk
 }
+
+# The sideways kinds (2026-11-18): in the cloud base, never hanging in the air under it, and only under cloud.
+$crawler = [Enum]::Parse($kindType, "Crawler")
+$bow = [Enum]::Parse($kindType, "CloudToCloud")
+$low = [single]$shapeType.GetField("BelowBaseMost").GetValue($null)
+$high = [single]$shapeType.GetField("AboveBaseMost").GetValue($null)
+# Cloud only where x < 1500 (the strike leaves the cloud at x 0).
+$cloudy = [Func[UnityEngine.Vector3, bool]] { param($p) $p.x -lt 1500 }
+$inBase = $true; $branchesIn = $true; $underCloud = $true; $bowOk = $true; $bowUnder = $true; $longest = 0.0
+foreach ($seed in 1..60) {
+    $list = [Activator]::CreateInstance($listType)
+    [object[]]$a = $crawler, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $null
+    [void]$build.Invoke($null, $a)
+    foreach ($p in $list[0].Points) { if ($p.y -lt $base - $low - 0.01 -or $p.y -gt $base + $high + 0.01) { $inBase = $false } }
+    # Ribbons that run sideways (branches) stay in the base too; tendrils (going down) may hang under it.
+    foreach ($r in $list) {
+        $first = $r.Points[0]; $last = $r.Points[$r.Points.Count - 1]
+        if (($first.y - $last.y) -lt 90 -and $r -ne $list[0]) {
+            foreach ($p in $r.Points) { if ($p.y -lt $base - $low - 0.01) { $branchesIn = $false } }
+        }
+    }
+
+    $list = [Activator]::CreateInstance($listType)
+    [object[]]$a = $crawler, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $cloudy
+    [void]$build.Invoke($null, $a)
+    $end = $list[0].Points[$list[0].Points.Count - 1]
+    $longest = [math]::Max($longest, [double]$end.x)
+    # The straight line is checked every 200 m: its end lies within one step past the cloud's edge; the
+    # displacement pushes the channel sideways by a few hundred metres at most.
+    if ($end.x -gt 1500 + 200 + 1) { $underCloud = $false }
+
+    $list = [Activator]::CreateInstance($listType)
+    [object[]]$a = $bow, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $null
+    [void]$build.Invoke($null, $a)
+    foreach ($r in $list[0..1]) { foreach ($p in $r.Points) { if ($p.y -lt $base - 160 - 60 - 0.01 -or $p.y -gt $base + $high + 0.01) { $bowOk = $false } } }
+
+    $list = [Activator]::CreateInstance($listType)
+    [object[]]$a = $bow, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $cloudy
+    [void]$build.Invoke($null, $a)
+    $bEnd = $list[1].Points[$list[1].Points.Count - 1]
+    if ($bEnd.x -gt 1500 + 200 + 1) { $bowUnder = $false }
+}
+"  crawler with cloud only to x 1500: its far end reaches x $([math]::Round($longest)) at most"
+Check "Crawler: the channel stays in the base ($low m under it .. $high m into it)" $inBase
+Check "Crawler: its sideways branches never hang under the base" $branchesIn
+Check "Crawler: runs only under cloud (its end within a test step of the cloud's edge)" $underCloud
+Check "CloudToCloud: the bow dips at most 220 m under the base and stays out of the cloud's upper part" $bowOk
+Check "CloudToCloud: both ends under cloud" $bowUnder
 
 $pick = $shapeType.GetMethod("Pick", $flags)
 $counts = @{}

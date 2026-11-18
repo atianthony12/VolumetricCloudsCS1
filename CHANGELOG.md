@@ -5,7 +5,7 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## 1.5.4 — unreleased
+## 1.6.0 — unreleased
 
 ### Added
 
@@ -15,8 +15,8 @@ below; the mods list shows it after the mod's name, and the first line of
   factors no longer change our wind; gusts still roll across the map and small trees still move less.
   `VolumetricClouds.xml` gains one line, `TreeWindEverywhere` (off): nobody's trees change.
 - *Lightning variety* (Weather tab, Lightning, 100%): bolts come in many shapes (forked into limbs that land
-  apart, heavy single strokes, thin bushy ones, strokes that die in the air, crawlers running along the cloud
-  base, bows from cloud to cloud), a faint leader crawls down before most strokes flash, colours range from
+  apart, heavy single strokes, thin bushy ones, strokes that die in the air, crawlers running in the cloud base,
+  short bows from cloud to cloud, both only where there is cloud overhead), a faint leader crawls down before most strokes flash, colours range from
   blue-white to violet, pink and warm white, far strikes look dimmer and pinker, strikes come in bursts and
   twins, and thunder cracks up close and rumbles far off. 0% gives every player's strikes exactly as before.
   This is on for everyone.
@@ -31,8 +31,9 @@ below; the mods list shows it after the mod's name, and the first line of
   the edges). *Storm mist* (100%): in heavy rain and a strong wind, mist rolls low along the streets with the wind.
 - *Wet roads and puddles* (Weather tab, new Wet ground group, 100%): in and after rain, roads and ground get
   darker and shiny, mirror the city and the sky, puddles form on flat ground and drops make rings in them.
-  Bare terrain (grass, soil, fields, sand) gets only a tenth of the wetness, so the countryside keeps its colour;
-  roads, paved and gravel lots and everything built stay fully wet.
+  Bare ground and trees have their own sliders, *Wet grass and soil* and *Wet trees* (both 10%), so the
+  countryside and the trees keep their colour while roads, paved and gravel lots and everything built get fully
+  wet; wet leaves darken a little and shine instead of turning gray.
   *Spray from wheels* (100%): cars throw up spray and a trail of mist from wet roads.
 - *Rain curtain brightness* (Weather tab, Rain, 100%, with a clock): how bright the rain curtains under the
   clouds are, by day, at sunset and at night, so they can dim a city's lights at night instead of glowing over
@@ -52,11 +53,12 @@ below; the mods list shows it after the mod's name, and the first line of
   than before and the sky holds about as much cloud; their shadows follow. It shapes the Classic clouds wherever they
   are drawn: the Classic style, and the Classic clouds beside the other styles' clouds. Off under *Simpler clouds*.
   `VolumetricClouds.xml` gains one line, `ClassicShape` (0%): nobody's clouds change.
-- *Brightness difference between clouds* (Light tab, shown with Mixed and Auto, 100%): under Mixed and Auto the
-  soft clouds where the sky has no heaped clouds are lit more dimly than the heaps beside them; lower it and they
-  get closer, at 0% just as bright where the sun reaches them, while the sky as a whole keeps about its
-  brightness. Near a full overcast it does nothing. `VolumetricClouds.xml` gains one line, `CloudLightDifference`
-  (100%, the sky as it was): nobody's clouds change.
+- *Brightness difference between clouds* (Light tab, shown with Mixed and Auto, 0%): under Mixed and Auto the soft
+  clouds were lit about half as brightly as the heaped clouds beside them, so they looked dark gray next to them.
+  Now they are just as bright where the sun reaches them, while the sky as a whole keeps about its brightness (at
+  low cloud cover the heaped clouds get a little dimmer to keep it). Raise the row for the difference back; 100% is
+  the sky as it was. Near a full overcast it does nothing. This changes every Mixed and Auto sky.
+  `VolumetricClouds.xml` gains one line, `CloudLightGap` (0%).
 - *Smoother clouds without smearing* (options page, on, a test row): Smoother clouds blends its frames a new
   way, so cloud edges, sides and tops no longer trail behind a moving camera. Off gives the blend before.
 - Distant clouds (Distant clouds tab) are twice as sharp (cut from 8K photographs instead of 4K), get four more
@@ -130,6 +132,9 @@ below; the mods list shows it after the mod's name, and the first line of
 - A long profile name with an emoji in it could stop the game from drawing any new text until a restart (the
   profile list cut it short in the middle of the emoji); names are now never cut through one. A profile file
   whose name holds a broken emoji is no longer listed: the log says so, rename the file.
+- A lightning bolt no longer shows dark lines in the rain and clouds behind it. Its faint parts (thin branches,
+  the flicker between strokes) cut out the lit rain and cloud behind them; now only as much of the bolt does as
+  is bright enough to be seen, so the clouds behind a faint part stay as they are.
 
 ## 1.5.3 — 2026-11-07
 

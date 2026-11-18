@@ -107,6 +107,8 @@ namespace VolumetricClouds.Sky
         private Material _boltMaterial;
         private BoltMap _boltMap;
         private readonly List<Mesh> _drawnBolts = new List<Mesh>();
+        // How bright each of them is drawn, for the bolt map (BoltMap.Draw): leader, flicker x colour, forks' fade.
+        private readonly List<Vector4> _drawnLooks = new List<Vector4>();
         private Material _invisible;
         private Material _gameBoltMaterial;
         private bool _gameBoltHidden;
@@ -709,7 +711,8 @@ namespace VolumetricClouds.Sky
             if (_boltMaterial != null && source.y > ground.y + 50f)
             {
                 if (kind >= 0)
-                    strike.Bolt = LightningBoltMesh.Build((LightningBoltShape.Kind)kind, source, ground, bottom, random);
+                    strike.Bolt = LightningBoltMesh.Build((LightningBoltShape.Kind)kind, source, ground, bottom, random,
+                                                          _field != null ? (Func<Vector3, bool>)(p => CloudAt(p) > CloudUnderBolt) : null);
                 else if (withBolt)
                     strike.Bolt = LightningBoltMesh.Build(source, ground, random);
             }
@@ -718,6 +721,13 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>Cloud amount above a point, 0..1, from the same field and wind as the clouds.</summary>
+        /// <summary>
+        /// How much cloud (CloudAt) a crawler or a cloud-to-cloud bow needs over its path (2026-11-18: they ran on
+        /// past the cloud's edge, under clear sky). A little under the 0.45 a strike's spot needs: a channel may
+        /// reach into a thinner stretch of the same cloud.
+        /// </summary>
+        private const float CloudUnderBolt = 0.3f;
+
         private float CloudAt(Vector3 position)
         {
             float tile = _field.Tile;
@@ -903,6 +913,7 @@ namespace VolumetricClouds.Sky
             bool replaceGame = _gameBoltHidden;
             bool drawn = false;
             _drawnBolts.Clear();
+            _drawnLooks.Clear();
             LightningBolts.Begin(_boltMaterial);
 
             foreach (Strike strike in _active)
@@ -936,6 +947,9 @@ namespace VolumetricClouds.Sky
                 _block.SetVector(IdBoltLeader, new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal), 0f, forkFade));
                 Graphics.DrawMesh(strike.Bolt, Matrix4x4.identity, _boltMaterial, 0, null, 0, _block);
                 _drawnBolts.Add(strike.Bolt);
+                // How bright it is drawn, against a full stroke at Lightning brightness 100% (22 x a white tint).
+                _drawnLooks.Add(new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal),
+                                            intensity * colour.maxColorComponent / 22f, forkFade));
                 // The same bolt for other mods' reflections (LightningBolts: Real Glass's water).
                 LightningBolts.Add(strike.Bolt, new Vector4(colour.r, colour.g, colour.b, 0f), intensity,
                                    new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal), 0f, forkFade),
@@ -944,7 +958,7 @@ namespace VolumetricClouds.Sky
             }
 
             // Where they are, for the cloud pass to stop just behind them (none: it stops reading).
-            _boltMap.Draw(_camera, _drawnBolts, pixelAngle);
+            _boltMap.Draw(_camera, _drawnBolts, _drawnLooks, pixelAngle);
 
             // Once per queue a bolt is drawn at, read back from the material (1.3.0's line said
             // "after the clouds" while a copied queue had really put the bolt in theirs).

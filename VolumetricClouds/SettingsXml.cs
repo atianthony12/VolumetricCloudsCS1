@@ -914,12 +914,15 @@ namespace VolumetricClouds
         /// (the author's call: it became the faster way to draw the clouds). Its old value is NOT carried over.
         /// 2026-11-11: "LightThroughClouds" and its five (Sunset, Night, Overcast, SunsetOvercast, NightOvercast),
         /// a trial row never released (only dev builds wrote them), now the top half of "LightInsideClouds".
+        /// 2026-11-18: "CloudLightDifference", Brightness difference between clouds at its first default (100%, soft
+        /// clouds half as bright as heaps), never released; now "CloudLightGap", default 0% (even). Not carried over.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "ShowInUnifiedUI",
             "CloudsToHorizon",
             "CloudTemporal",
+            "CloudLightDifference",
             "LightThroughClouds", "LightThroughCloudsSunset", "LightThroughCloudsNight",
             "LightThroughCloudsOvercast", "LightThroughCloudsSunsetOvercast", "LightThroughCloudsNightOvercast",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",

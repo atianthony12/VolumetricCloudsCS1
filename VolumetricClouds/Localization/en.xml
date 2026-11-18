@@ -315,6 +315,12 @@
   <String key="WetGround.Label">Wet roads and puddles</String>
   <String key="WetGround.Tooltip">In and after rain, roads and ground get darker and shiny, mirror the city and the sky, and puddles form on flat ground. 0% = off</String>
 
+  <String key="WetTerrain.Label">Wet grass and soil</String>
+  <String key="WetTerrain.Tooltip">How wet bare ground gets in and after rain: grass, soil, fields and sand. Roads and paved ground follow Wet roads and puddles. 0% = stays dry</String>
+
+  <String key="WetTrees.Label">Wet trees</String>
+  <String key="WetTrees.Tooltip">How wet trees get in and after rain: their leaves turn a little darker and shine. 0% = stay dry</String>
+
   <String key="WheelSpray.Label">Spray from wheels</String>
   <String key="WheelSpray.Tooltip">Cars throw up spray and mist from wet roads, more the faster they go. 0% = off</String>
 
@@ -369,8 +375,8 @@
 
   <String key="CloudLight.Label">Cloud brightness</String>
 
-  <String key="CloudLightDifference.Label">Brightness difference between clouds</String>
-  <String key="CloudLightDifference.Tooltip">How much darker the soft clouds are than the big heaped ones in sunlight. 0% = just as bright</String>
+  <String key="CloudLightGap.Label">Brightness difference between clouds</String>
+  <String key="CloudLightGap.Tooltip">How much darker the soft clouds are than the big heaped ones in sunlight. 0% = just as bright</String>
 
   <!-- Not in the panel since 1.5.0 (the settings file only): it dims the fog's sunlight. -->
   <String key="MinIllumination.Label">The fog's sunlight dims at full overcast to</String>

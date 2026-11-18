@@ -31,14 +31,26 @@ Shader "VolumetricClouds/LightningBoltMap"
             // at 0.35 the glow is down to a twentieth of the centre's brightness.
             #define BOLT_MAP_CORE 0.35
 
+            // (2026-11-18, the author: the bolt's "black part is very visible") Only as much of the core counts
+            // as the bolt is bright there: a part drawn dimmer than BOLT_MAP_FLOOR (faded forks, the path the
+            // leader has not reached, the flicker's dim frames) stops nothing, from there the core widens to
+            // all of BOLT_MAP_CORE at BOLT_MAP_FULL. Before, every part cut the lit rain and cloud behind it
+            // whatever its brightness, and a dim one showed as a dark line.
+            #define BOLT_MAP_FLOOR 0.05
+            #define BOLT_MAP_FULL 0.6
+
             float4x4 _BoltMapGPUVP;  // the camera's view-projection for drawing into a texture (GL.GetGPUProjectionMatrix)
             float _PixelAngle;       // radians one pixel subtends
+            // Per bolt (Sky/BoltMap.cs): x, y, w = its _BoltLeader (leader on, revealed share, the forks' fade),
+            // z = how bright it is drawn against a full stroke (its flicker x its colour's strength).
+            float4 _BoltMapLook;
 
             struct appdata
             {
                 float4 vertex : POSITION;      // world space: the mesh is drawn with the identity matrix
                 float3 tangent : NORMAL;
                 float2 shape : TEXCOORD0;
+                float3 branch : TEXCOORD1;     // x brightness, y along, z path position (as LightningBolt.shader)
             };
 
             struct v2f
@@ -46,6 +58,7 @@ Shader "VolumetricClouds/LightningBoltMap"
                 float4 pos : SV_POSITION;
                 float3 world : TEXCOORD0;
                 float across : TEXCOORD1;
+                float seen : TEXCOORD2;        // how bright the bolt is drawn here, as LightningBolt.shader works it out
             };
 
             v2f vert(appdata v)
@@ -55,12 +68,17 @@ Shader "VolumetricClouds/LightningBoltMap"
                 o.pos = mul(_BoltMapGPUVP, float4(world, 1.0));
                 o.world = world;
                 o.across = v.shape.x;
+
+                float level = v.branch.x * (v.branch.x < 0.6 ? 1.0 - _BoltMapLook.w : 1.0);
+                float shown = RibbonShown(v.branch.z, float4(_BoltMapLook.xy, 0.0, 0.0));
+                o.seen = level * shown * _BoltMapLook.z;
                 return o;
             }
 
             float4 frag(v2f i) : SV_Target
             {
-                clip(BOLT_MAP_CORE - abs(i.across));
+                float core = BOLT_MAP_CORE * saturate((i.seen - BOLT_MAP_FLOOR) / (BOLT_MAP_FULL - BOLT_MAP_FLOOR));
+                clip(core - abs(i.across) - 1e-4);
                 return float4(distance(i.world, _VCBoltMapEye.xyz), 0, 0, 0);
             }
             ENDCG

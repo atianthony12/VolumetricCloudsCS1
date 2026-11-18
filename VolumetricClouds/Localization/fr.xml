@@ -270,6 +270,12 @@
   <String key="WetGround.Label">Routes mouillées et flaques</String>
   <String key="WetGround.Tooltip">Pendant et après la pluie, routes et sol s'assombrissent et brillent, reflètent la ville et le ciel, et des flaques se forment sur le sol plat. 0 % = désactivé</String>
 
+  <String key="WetTerrain.Label">Herbe et terre mouillées</String>
+  <String key="WetTerrain.Tooltip">À quel point le sol nu se mouille pendant et après la pluie : herbe, terre, champs et sable. Les routes et le sol pavé suivent Routes mouillées et flaques. 0 % = reste sec</String>
+
+  <String key="WetTrees.Label">Arbres mouillés</String>
+  <String key="WetTrees.Tooltip">À quel point les arbres se mouillent pendant et après la pluie : leurs feuilles s'assombrissent un peu et brillent. 0 % = restent secs</String>
+
   <String key="WheelSpray.Label">Projections des roues</String>
   <String key="WheelSpray.Tooltip">Les voitures soulèvent de l'eau et de la brume sur les routes mouillées, d'autant plus qu'elles roulent vite. 0 % = désactivé</String>
 
@@ -324,8 +330,8 @@
 
   <String key="CloudLight.Label">Luminosité des nuages</String>
 
-  <String key="CloudLightDifference.Label">Écart de luminosité entre les nuages</String>
-  <String key="CloudLightDifference.Tooltip">À quel point les nuages doux sont plus sombres que les gros cumulus au soleil. 0% = aussi lumineux</String>
+  <String key="CloudLightGap.Label">Écart de luminosité entre les nuages</String>
+  <String key="CloudLightGap.Tooltip">À quel point les nuages doux sont plus sombres que les gros cumulus au soleil. 0% = aussi lumineux</String>
 
   <String key="MinIllumination.Label">Assombrir le soleil dans le brouillard à ciel couvert à</String>
 

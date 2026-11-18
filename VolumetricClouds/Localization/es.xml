@@ -270,6 +270,12 @@
   <String key="WetGround.Label">Carreteras mojadas y charcos</String>
   <String key="WetGround.Tooltip">Durante y después de la lluvia, las carreteras y el suelo se oscurecen y brillan, reflejan la ciudad y el cielo, y se forman charcos en el suelo llano. 0% = desactivado</String>
 
+  <String key="WetTerrain.Label">Hierba y tierra mojadas</String>
+  <String key="WetTerrain.Tooltip">Cuánto se moja el suelo descubierto durante y después de la lluvia: hierba, tierra, campos y arena. Las carreteras y el suelo pavimentado siguen a Carreteras mojadas y charcos. 0% = se queda seco</String>
+
+  <String key="WetTrees.Label">Árboles mojados</String>
+  <String key="WetTrees.Tooltip">Cuánto se mojan los árboles durante y después de la lluvia: sus hojas se oscurecen un poco y brillan. 0% = se quedan secos</String>
+
   <String key="WheelSpray.Label">Salpicaduras de las ruedas</String>
   <String key="WheelSpray.Tooltip">Los coches levantan agua y neblina de las carreteras mojadas, más cuanto más rápido van. 0% = desactivado</String>
 
@@ -324,8 +330,8 @@
 
   <String key="CloudLight.Label">Brillo de las nubes</String>
 
-  <String key="CloudLightDifference.Label">Diferencia de brillo entre nubes</String>
-  <String key="CloudLightDifference.Tooltip">Cuánto más oscuras son las nubes suaves que las grandes nubes de cúmulo bajo el sol. 0% = igual de brillantes</String>
+  <String key="CloudLightGap.Label">Diferencia de brillo entre nubes</String>
+  <String key="CloudLightGap.Tooltip">Cuánto más oscuras son las nubes suaves que las grandes nubes de cúmulo bajo el sol. 0% = igual de brillantes</String>
 
   <String key="MinIllumination.Label">Con cielo cubierto, la luz del sol en la niebla baja a</String>
 

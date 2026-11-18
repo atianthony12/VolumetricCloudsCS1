@@ -65,12 +65,7 @@ namespace VolumetricClouds.Sky
         private static readonly int IdPlaces = Shader.PropertyToID("_VWWetPlaces");
         private static readonly int IdTerrainMap = Shader.PropertyToID("_VWWetTerrainMap");
         private static readonly int IdTerrain = Shader.PropertyToID("_VWWetTerrain");
-
-        /// <summary>
-        /// Bare terrain's share of the wetness (2026-11-18, the author: "terrain only gets around 10% of the
-        /// wetness value"): roads, paved and gravel lots, roofs and everything standing keep all of it.
-        /// </summary>
-        public const float TerrainShare = 0.1f;
+        private static readonly int IdKinds = Shader.PropertyToID("_VWWetKinds");
 
         private readonly WetTerrainMap _terrain = new WetTerrainMap();
 
@@ -90,14 +85,26 @@ namespace VolumetricClouds.Sky
             get { return Settings.WetGround != null ? Mathf.Clamp(Settings.WetGround.value, 0f, 2f) : Settings.Defaults.WetGround; }
         }
 
+        private static float TerrainRow
+        {
+            get { return Settings.WetTerrain != null ? Mathf.Clamp(Settings.WetTerrain.value, 0f, 2f) : Settings.Defaults.WetTerrain; }
+        }
+
+        private static float TreesRow
+        {
+            get { return Settings.WetTrees != null ? Mathf.Clamp(Settings.WetTrees.value, 0f, 2f) : Settings.Defaults.WetTrees; }
+        }
+
         private void LateUpdate()
         {
             float row = Row;
+            float terrainRow = TerrainRow;
+            float treesRow = TreesRow;
             Camera camera = GameCamera.Get();
             float wetness = GroundWetness;
 
             string why = null;
-            if (row <= 0f) why = "the row is at 0%";
+            if (row <= 0f && terrainRow <= 0f && treesRow <= 0f) why = "the three wet rows are at 0%";
             else if (!Settings.WeatherShown) why = "the weather is hidden";
             else if (CloudRain.IsSnow) why = "a winter map (snow, not rain)";
             else if (wetness <= 0.01f) why = "the ground is dry";
@@ -131,22 +138,26 @@ namespace VolumetricClouds.Sky
             }
             _material.SetFloat(IdWaterOn, water ? 1f : 0f);
 
-            // Bare terrain at a tenth: where the camera looks, the game's own surface (WetTerrainMap).
-            // Until its first build is in, everything is wet as before.
+            // Bare terrain and trees each by their own row (Wet grass and soil, Wet trees): where the camera looks,
+            // the game's own surface tells terrain from roads (WetTerrainMap), the normals' alpha trees from the rest.
+            // Until the map's first build is in, terrain is wet as a road.
             CameraController controller = GameCamera.Controller;
             _terrain.Update(controller != null ? controller.m_currentPosition : camera.transform.position);
             Texture terrainMap = _terrain.Texture;
             if (terrainMap != null)
                 _material.SetTexture(IdTerrainMap, terrainMap);
-            _material.SetVector(IdTerrain, new Vector4(_terrain.Centre.x, _terrain.Centre.y, _terrain.BaseHeight,
-                                                       terrainMap != null ? TerrainShare : 1f));
+            _material.SetVector(IdTerrain, new Vector4(_terrain.Centre.x, _terrain.Centre.y, _terrain.BaseHeight, terrainMap != null ? 1f : 0f));
+            float terrainWet = Mathf.Clamp01(wetness * terrainRow);
+            float treesWet = Mathf.Clamp01(wetness * treesRow);
+            _material.SetVector(IdKinds, new Vector4(terrainWet, treesWet, 0f, 0f));
             Shader.SetGlobalVector(IdPublished, new Vector4(1f, drawn, 1f, 0f));
 
             if (Log.Detailed && Time.time >= _nextLog)
             {
                 _nextLog = Time.time + 5f;
                 Log.Detail("wet ground: wetness " + (wetness * 100f).ToString("F0") + "% x row " + (row * 100f).ToString("F0") +
-                           "% = " + (drawn * 100f).ToString("F0") + "%, puddles on up to " + (PuddleShare(drawn) * 100f).ToString("F0") +
+                           "% = " + (drawn * 100f).ToString("F0") + "% on roads, terrain " + (terrainWet * 100f).ToString("F0") +
+                           "%, trees " + (treesWet * 100f).ToString("F0") + "%, puddles on up to " + (PuddleShare(drawn) * 100f).ToString("F0") +
                            "% of level hard ground, rain at the camera " + CloudRain.LocalRain(camera.transform.position).ToString("F2"));
             }
         }
@@ -164,10 +175,14 @@ namespace VolumetricClouds.Sky
             return p.y - ground;
         }
 
-        /// <summary>The share of level hard ground puddles may cover: 35% at 100%, more above.</summary>
+        /// <summary>
+        /// The share of level hard ground puddles cover: rising with the wetness to 30% from 40% wet at 100%, more
+        /// above. 2026-11-18 (his "puddles need to be more obvious"): the shader takes THIS share (until then it
+        /// re-curved it and drew none below 30% wet; his rain runs 20-60%).
+        /// </summary>
         public static float PuddleShare(float drawn)
         {
-            return Mathf.Clamp01(0.35f * Mathf.Max(1f, Row) * Mathf.Clamp01(drawn * 1.5f));
+            return Mathf.Clamp01(0.3f * Mathf.Max(1f, Row) * Mathf.Clamp01(drawn * 2.5f));
         }
 
         private bool EnsureMaterial()
@@ -259,8 +274,7 @@ namespace VolumetricClouds.Sky
             if (!paused)
                 _clock = (_clock + Time.deltaTime * Mathf.Min(2, Mathf.Max(1, simulation.FinalSimulationSpeed))) % 3600.0;
 
-            _material.SetVector(IdWet, new Vector4(drawn, PuddleShare(drawn) / Mathf.Max(Mathf.Clamp01(drawn * 1.5f), 1e-3f),
-                                                   (float)_clock, TraceLevel()));
+            _material.SetVector(IdWet, new Vector4(drawn, PuddleShare(drawn), (float)_clock, TraceLevel()));
 
             bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
             DayNightProperties properties = DayNightProperties.instance;

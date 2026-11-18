@@ -48,7 +48,9 @@ namespace VolumetricClouds.Sky
         private static readonly int IdVCBoltMapVP = Shader.PropertyToID("_VCBoltMapVP");
         private static readonly int IdVCBoltMapEye = Shader.PropertyToID("_VCBoltMapEye");
         private static readonly int IdVCBoltMapParams = Shader.PropertyToID("_VCBoltMapParams");
+        private static readonly int IdBoltMapLook = Shader.PropertyToID("_BoltMapLook");
 
+        private MaterialPropertyBlock _block;
         private bool _failed;
         private Material _material;
         private CommandBuffer _buffer;
@@ -84,9 +86,15 @@ namespace VolumetricClouds.Sky
 
         /// <summary>
         /// Draws this frame's bolts (the meshes LightningBolt.shader draws, in world space) into the map
-        /// and hands it to the cloud pass; with none, the cloud pass stops reading it.
+        /// and hands it to the cloud pass; with none, the cloud pass stops reading it. <paramref name="looks"/>
+        /// has one value per bolt, how bright it is drawn: x, y, w = its _BoltLeader (leader on, revealed share,
+        /// the forks' fade), z = its flicker times its colour's strength against the full bolt (1 = a full
+        /// stroke at Lightning brightness 100%). A part drawn dim stops the clouds behind it on a thinner core,
+        /// one not drawn not at all (2026-11-18, the author: the bolt's "black part is very visible": faded
+        /// forks, the path the leader had not reached and the flicker's dim frames all cut the lit rain and
+        /// cloud behind them, which showed as dark lines).
         /// </summary>
-        public void Draw(Camera camera, List<Mesh> bolts, float pixelAngle)
+        public void Draw(Camera camera, List<Mesh> bolts, List<Vector4> looks, float pixelAngle)
         {
             if (bolts.Count == 0 || camera == null || !Create())
             {
@@ -116,8 +124,15 @@ namespace VolumetricClouds.Sky
             _buffer.Clear();
             _buffer.SetRenderTarget(_map);
             _buffer.ClearRenderTarget(false, true, new Color(Cleared, 0f, 0f, 0f));
-            foreach (Mesh bolt in bolts)
-                _buffer.DrawMesh(bolt, Matrix4x4.identity, _material, 0, 0);
+            if (_block == null)
+                _block = new MaterialPropertyBlock();
+            for (int i = 0; i < bolts.Count; i++)
+            {
+                // The buffer keeps a copy of the block's values as it records each draw.
+                _block.Clear();
+                _block.SetVector(IdBoltMapLook, i < looks.Count ? looks[i] : new Vector4(0f, 0f, 1f, 0f));
+                _buffer.DrawMesh(bolts[i], Matrix4x4.identity, _material, 0, 0, _block);
+            }
             Graphics.ExecuteCommandBuffer(_buffer);
 
             // Published in the same frame as the map is drawn: the cloud pass can never read it with

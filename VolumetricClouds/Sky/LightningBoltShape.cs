@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -19,7 +20,11 @@ namespace VolumetricClouds.Sky
     ///   Staccato      thin and bushy: many short fine branches, several return strokes
     ///   AirDischarge  leaves the base and dies in the air in a spray of forks (never lands)
     ///   Crawler       along the cloud base for kilometres, tendrils hanging from it
-    ///   CloudToCloud  a bow between two points of the base, dipping under it
+    ///   CloudToCloud  a bow between two points of the base, dipping a little under it
+    /// The two that run sideways stay IN the base (2026-11-18, the author: horizontal ones "rendering under
+    /// the clouds ... should only be within or right under but touching the clouds"): their level is a little
+    /// above the altitude setting (the drawn base: the layer fades in over its bottom), and they run only
+    /// where the weather map has cloud (the caller's test), shortened where it ends.
     /// PATH POSITION: 0 where the channel leaves the cloud, 1 at its furthest tip; a fork continues
     /// its parent's value, so a leader revealed up to a path position shows the forks it has passed
     /// (LightningRibbon.cginc RibbonShown).
@@ -112,10 +117,11 @@ namespace VolumetricClouds.Sky
         /// Grows a bolt of <paramref name="kind"/> into <paramref name="ribbons"/> (cleared first).
         /// <paramref name="top"/> is where it leaves the cloud, <paramref name="ground"/> where a
         /// ground kind lands; <paramref name="cloudBase"/> the height of the cloud base (crawlers and
-        /// bows hang under it).
+        /// bows run in it). <paramref name="cloudy"/>: whether there is cloud over a point (x, z), so the
+        /// sideways kinds stay under it; null = cloud everywhere.
         /// </summary>
         public static void Build(Kind kind, Vector3 top, Vector3 ground, float cloudBase, System.Random random,
-            List<Ribbon> ribbons)
+            List<Ribbon> ribbons, Func<Vector3, bool> cloudy)
         {
             ribbons.Clear();
             switch (kind)
@@ -124,8 +130,8 @@ namespace VolumetricClouds.Sky
                 case Kind.Heavy: BuildHeavy(top, ground, random, ribbons); break;
                 case Kind.Staccato: BuildStaccato(top, ground, random, ribbons); break;
                 case Kind.AirDischarge: BuildAirDischarge(top, ground, random, ribbons); break;
-                case Kind.Crawler: BuildCrawler(top, cloudBase, random, ribbons); break;
-                case Kind.CloudToCloud: BuildCloudToCloud(top, cloudBase, random, ribbons); break;
+                case Kind.Crawler: BuildCrawler(top, cloudBase, random, ribbons, cloudy); break;
+                case Kind.CloudToCloud: BuildCloudToCloud(top, cloudBase, random, ribbons, cloudy); break;
                 default: BuildClassic(top, ground, random, ribbons); break;
             }
         }
@@ -214,25 +220,92 @@ namespace VolumetricClouds.Sky
             }
         }
 
-        private static void BuildCrawler(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons)
+        /// <summary>How far into the base (above the altitude setting) the sideways kinds run: the drawn base.</summary>
+        public const float InBaseLow = 20f, InBaseHigh = 90f;
+
+        /// <summary>Their channel never strays further than this from the base: under it, or up into the cloud.</summary>
+        public const float BelowBaseMost = 5f, AboveBaseMost = 160f;
+
+        /// <summary>
+        /// The longest run from <paramref name="start"/> along one of a few headings that stays under cloud
+        /// (checked every <see cref="CloudStep"/> m), at most <paramref name="length"/>: the heading picked and how
+        /// far it goes. Without a test, the first heading and the whole length.
+        /// </summary>
+        private static float CloudyRun(Vector3 start, float length, System.Random random, Func<Vector3, bool> cloudy,
+            out Vector3 heading)
         {
-            // Along the cloud base, a little under it, for 2-6 km, wandering sideways.
-            float under = Mathf.Lerp(30f, 90f, Next(random));
-            float y = cloudBase - under;
+            heading = Horizontal(random);
+            if (cloudy == null)
+                return length;
+
+            float best = -1f;
+            Vector3 bestHeading = heading;
+            for (int tryHeading = 0; tryHeading < 6; tryHeading++)
+            {
+                Vector3 h = tryHeading == 0 ? heading : Horizontal(random);
+                float run = 0f;
+                while (run < length && cloudy(start + h * Mathf.Min(length, run + CloudStep)))
+                    run += CloudStep;
+                run = Mathf.Min(run, length);
+                if (run > best)
+                {
+                    best = run;
+                    bestHeading = h;
+                }
+                if (run >= length)
+                    break;
+            }
+            heading = bestHeading;
+            return best;
+        }
+
+        private static void ClampHeight(List<Vector3> points, float lowest, float highest)
+        {
+            for (int i = 0; i < points.Count; i++)
+            {
+                Vector3 p = points[i];
+                p.y = Mathf.Clamp(p.y, lowest, highest);
+                points[i] = p;
+            }
+        }
+
+        /// <summary>The spacing of the cloud test along a sideways channel, metres.</summary>
+        private const float CloudStep = 200f;
+
+        /// <summary><paramref name="to"/>, pulled back towards <paramref name="from"/> until it is under cloud (at most to a fifth of the way).</summary>
+        private static Vector3 UnderCloud(Vector3 from, Vector3 to, Func<Vector3, bool> cloudy)
+        {
+            if (cloudy == null)
+                return to;
+            for (float t = 1f; t > 0.2f; t -= 0.2f)
+            {
+                Vector3 p = Vector3.Lerp(from, to, t);
+                if (cloudy(p))
+                    return p;
+            }
+            return Vector3.Lerp(from, to, 0.2f);
+        }
+
+        private static void BuildCrawler(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons,
+            Func<Vector3, bool> cloudy)
+        {
+            // Along the cloud base, in its lowest part, for 2-6 km (less where the cloud ends), wandering sideways.
+            float y = cloudBase + Mathf.Lerp(InBaseLow, InBaseHigh, Next(random));
             Vector3 start = new Vector3(top.x, y, top.z);
-            Vector3 heading = Horizontal(random);
-            float length = Mathf.Lerp(2000f, 6000f, Next(random));
+            float wanted = Mathf.Lerp(2000f, 6000f, Next(random));
+            Vector3 heading;
+            float length = Mathf.Max(600f, CloudyRun(start, wanted, random, cloudy, out heading));
             Vector3 end = start + heading * length;
 
             List<Vector3> main = Channel(start, end, MainLevels, 0.12f, random);
-            // Keep it flat-ish and under the base: the displacement pushed it in 3D.
+            // Keep it flat-ish and in the base: the displacement pushed it in 3D.
             for (int i = 0; i < main.Count; i++)
             {
                 Vector3 p = main[i];
                 p.y = y + (p.y - y) * 0.25f;
-                p.y = Mathf.Min(p.y, cloudBase - 10f);
                 main[i] = p;
             }
+            ClampHeight(main, cloudBase - BelowBaseMost, cloudBase + AboveBaseMost);
 
             float weight = Mathf.Lerp(0.8f, 1.3f, Next(random));
             Add(ribbons, main, MainWidth * weight, 0.9f, 0.6f, 0f, 1f);
@@ -246,8 +319,10 @@ namespace VolumetricClouds.Sky
                 Vector3 side = Vector3.Cross(heading, Vector3.up) * (random.NextDouble() < 0.5 ? -1f : 1f);
                 Vector3 dir = (heading * Next(random) + side).normalized;
                 Vector3 to = main[from] + dir * Mathf.Lerp(400f, 1500f, Next(random));
-                to.y = y - Mathf.Lerp(0f, 60f, Next(random));
+                to.y = Mathf.Max(y - Mathf.Lerp(0f, 60f, Next(random)), cloudBase - BelowBaseMost);
+                to = UnderCloud(main[from], to, cloudy);
                 List<Vector3> branch = Channel(main[from], to, ForkLevels, 0.15f, random);
+                ClampHeight(branch, cloudBase - BelowBaseMost, cloudBase + AboveBaseMost);
                 Add(ribbons, branch, ForkWidth * weight, 0.55f, 0.15f, path, Mathf.Min(1f, path + 0.3f));
             }
 
@@ -263,18 +338,24 @@ namespace VolumetricClouds.Sky
             }
         }
 
-        private static void BuildCloudToCloud(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons)
+        private static void BuildCloudToCloud(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons,
+            Func<Vector3, bool> cloudy)
         {
-            // A bow between two points of the base 1-3 km apart, dipping 150-400 m under it.
-            Vector3 heading = Horizontal(random);
-            float span = Mathf.Lerp(1000f, 3000f, Next(random));
-            float dip = Mathf.Lerp(150f, 400f, Next(random));
-            Vector3 a = new Vector3(top.x, cloudBase + 20f, top.z) - heading * (span * 0.5f);
+            // A bow between two points in the base 1-3 km apart (both under cloud), dipping 40-160 m under it.
+            float wanted = Mathf.Lerp(1000f, 3000f, Next(random));
+            float dip = Mathf.Lerp(40f, 160f, Next(random));
+            float level = cloudBase + Mathf.Lerp(InBaseLow, InBaseHigh, Next(random));
+            Vector3 a = new Vector3(top.x, level, top.z);
+            Vector3 heading;
+            float span = Mathf.Max(500f, CloudyRun(a, wanted, random, cloudy, out heading));
             Vector3 b = a + heading * span;
             Vector3 mid = (a + b) * 0.5f + Vector3.down * dip + Horizontal(random) * (span * 0.1f);
 
             List<Vector3> first = Channel(a, mid, MainLevels - 1, 0.14f, random);
             List<Vector3> second = Channel(mid, b, MainLevels - 1, 0.14f, random);
+            // The displacement pushes in 3D: never deeper under the base than the dip and a little, nor high into the cloud.
+            ClampHeight(first, cloudBase - dip - 60f, cloudBase + AboveBaseMost);
+            ClampHeight(second, cloudBase - dip - 60f, cloudBase + AboveBaseMost);
             float weight = Mathf.Lerp(0.8f, 1.3f, Next(random));
             Add(ribbons, first, MainWidth * weight, 1f, 1f, 0f, 0.5f);
             Add(ribbons, second, MainWidth * weight, 1f, 1f, 0.5f, 1f);

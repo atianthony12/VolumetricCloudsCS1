@@ -2508,6 +2508,30 @@ namespace VolumetricClouds.UI
                 AfterChange = State("wet ground", () => (Settings.WetGround.value * 100f).ToString("F0") + "%"),
             });
 
+            // 2026-11-18 (the author: their own sliders, "decoupling them from Wet Roads and Puddles"): how wet bare
+            // terrain and trees get, each its own share of the ground's wetness. 0% = dry, as before the wet pass.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.WetTerrain,
+                DefaultFloat = Settings.Defaults.WetTerrain,
+                Min = 0f, Max = 200f, Step = 5f,
+                AfterChange = State("wet terrain", () => (Settings.WetTerrain.value * 100f).ToString("F0") + "%"),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Options = OptionsPage.Weather,
+                HasTooltip = true,
+                Float = Settings.WetTrees,
+                DefaultFloat = Settings.Defaults.WetTrees,
+                Min = 0f, Max = 200f, Step = 5f,
+                AfterChange = State("wet trees", () => (Settings.WetTrees.value * 100f).ToString("F0") + "%"),
+            });
+
             // 2026-11-15 (the author: "car wheels effects during rain"): spray and mist off wet roads
             // (Sky.WheelSpray). 0% = nothing runs.
             Add(new Row
@@ -2766,7 +2790,8 @@ namespace VolumetricClouds.UI
             // Brightness difference between clouds (2026-11-16, the author: "I do like clouds slightly differentiating
             // in colors ... but this should be behind a slider"): under Mixed and Auto, soft clouds where the sky does
             // not lean to heaps are lit at their own, lower level (Sky/CloudStyle.CloudLightScale). 100% = that sky
-            // exactly, the default; 0% = soft clouds and heaps equally bright where the sun reaches them.
+            // exactly (1.5.3's); 0% = soft clouds and heaps equally bright where the sun reaches them, the default since
+            // 2026-11-18 (the author: soft clouds "super dark compared to other clouds"), stored as "CloudLightGap".
             Add(new Row
             {
                 Kind = RowKind.Percent,

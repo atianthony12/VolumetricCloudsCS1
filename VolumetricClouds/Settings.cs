@@ -226,6 +226,16 @@ namespace VolumetricClouds
         /// </summary>
         public static FloatSetting WetGround { get; private set; }
 
+        /// <summary>
+        /// (2026-11-18, the author: "give their own slider for both trees and terrain, decoupling them from Wet Roads
+        /// and Puddles") "Wet terrain", 0..2: the share of the ground's wetness bare terrain (grass, soil, fields,
+        /// sand) takes, on its own: 0.1 = the 10% it had under Wet roads at 100%. Sky.WetGround.
+        /// </summary>
+        public static FloatSetting WetTerrain { get; private set; }
+
+        /// <summary>(2026-11-18) "Wet trees", 0..2: the share of the ground's wetness trees take, on their own. Sky.WetGround.</summary>
+        public static FloatSetting WetTrees { get; private set; }
+
         /// <summary>(2026-11-15) "Spray from wheels", 0..3: cars throw spray and mist off wet roads (Sky.WheelSpray). 0 = nothing runs.</summary>
         public static FloatSetting WheelSpray { get; private set; }
 
@@ -765,7 +775,9 @@ namespace VolumetricClouds
         /// <summary>
         /// "Brightness difference between clouds" (2026-11-16, Sky.CloudStyle.CloudLightScale), 0..1, under Mixed and
         /// Auto only: 1 = the sky as before (soft clouds where the sky does not lean to heaps lit at their own lower
-        /// level), 0 = soft clouds and heaps equally bright where the sun reaches them.
+        /// level), 0 = soft clouds and heaps equally bright where the sun reaches them. Stored as "CloudLightGap"
+        /// since 2026-11-18 (default 0, even): its first name, "CloudLightDifference" (default 100%), only dev builds
+        /// wrote, and it is retired (SettingsXml.Retired) so the even sky reaches the files that hold 100%.
         /// </summary>
         public static FloatSetting CloudLightDifference { get; private set; }
 
@@ -1171,8 +1183,11 @@ namespace VolumetricClouds
             /// <summary>1 = off. Dims the fog's sunlight at full overcast (never the clouds' since 1.5.0).</summary>
             public const float MinIllumination = 1f;
 
-            /// <summary>Brightness difference between clouds (2026-11-16): 100%, the sky as before, so a new row changes nobody's sky.</summary>
-            public const float CloudLightDifference = 1f;
+            /// <summary>
+            /// Brightness difference between clouds: 0%, soft clouds as bright as the heaps beside them (2026-11-18, the
+            /// author: soft clouds "super dark compared to other clouds"). It was 100% (the sky of 1.5.3) under its first name.
+            /// </summary>
+            public const float CloudLightDifference = 0f;
 
             /// <summary>
             /// 0 (1.5.0): by day the far clouds fade into the sky behind them, as they always have.
@@ -1247,6 +1262,8 @@ namespace VolumetricClouds
             public const bool RainDetail = true;
             public const float StormMist = 1f;
             public const float WetGround = 1f;
+            public const float WetTerrain = 0.1f;
+            public const float WetTrees = 0.1f;
             public const float WheelSpray = 1f;
             public const bool RainLocalised = true;
 
@@ -1447,6 +1464,8 @@ namespace VolumetricClouds
                 RainDetail = new BoolSetting("RainDetail", Defaults.RainDetail);
                 StormMist = new FloatSetting("StormMist", Defaults.StormMist);
                 WetGround = new FloatSetting("WetGround", Defaults.WetGround);
+                WetTerrain = new FloatSetting("WetTerrain", Defaults.WetTerrain);
+                WetTrees = new FloatSetting("WetTrees", Defaults.WetTrees);
                 WheelSpray = new FloatSetting("WheelSpray", Defaults.WheelSpray);
                 RainLocalised = new BoolSetting("RainLocalised", Defaults.RainLocalised);
                 Rainbows = new FloatSetting("Rainbows", Defaults.Rainbows);
@@ -1595,7 +1614,7 @@ namespace VolumetricClouds
                 CloudLightOvercast = new FloatSetting("CloudLightOvercast", Defaults.LightOvercast);
                 CloudLightSunsetOvercast = new FloatSetting("CloudLightSunsetOvercast", Defaults.LightSunsetOvercast);
                 CloudLightNightOvercast = new FloatSetting("CloudLightNightOvercast", Defaults.LightNightOvercast);
-                CloudLightDifference = new FloatSetting("CloudLightDifference", Defaults.CloudLightDifference);
+                CloudLightDifference = new FloatSetting("CloudLightGap", Defaults.CloudLightDifference);
                 CloudQuality = new FloatSetting("CloudQuality", Defaults.Quality);
                 CloudDepthOcclusion = new BoolSetting("CloudDepthOcclusion", Defaults.DepthOcclusion);
                 // Stored as "SmootherClouds" since 2026-11-07: a new name so every existing file reads as on once

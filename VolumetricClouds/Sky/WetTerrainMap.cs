@@ -200,8 +200,7 @@ namespace VolumetricClouds.Sky
                 Log.Msg("wet ground: terrain map built round (" + Centre.x.ToString("F0") + ", " + Centre.y.ToString("F0") + ") in " +
                         _pendingMs.ToString("F0") + " ms on a worker, uploaded in " + uploadMs.ToString("F1") +
                         " ms on the main thread: " + (_pendingBare * 100f).ToString("F0") +
-                        "% of the near " + NearSpan.ToString("F0") + " m is bare terrain (wet at " + (WetGround.TerrainShare * 100f).ToString("F0") +
-                        "%), the rest roads, lots and paving; far map " + FarSpan.ToString("F0") + " m");
+                        "% of the near " + NearSpan.ToString("F0") + " m is bare terrain (Wet grass and soil), the rest roads, lots and paving; far map " + FarSpan.ToString("F0") + " m");
             }
             else if (Log.Detailed)
             {

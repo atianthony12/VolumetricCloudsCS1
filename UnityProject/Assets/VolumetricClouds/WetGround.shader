@@ -5,8 +5,9 @@
 // what the water reflects. The game's own fog (an opaque image effect) comes after and fogs it.
 //
 // Per pixel:
-//   how wet   the ground's wetness (the game's m_groundWetness, x the row) x how level it lies, x a tenth
-//             on bare terrain (2026-11-18: the game's surface, unclipped by roads and unpaved; WetTerrainMap)
+//   how wet   the ground's wetness (the game's m_groundWetness) x its kind's row x how level it lies: roads
+//             and everything built (Wet roads and puddles), bare terrain (Wet grass and soil: the game's
+//             surface, unclipped by roads and unpaved; WetTerrainMap), trees (Wet trees: normals' alpha 0)
 //   what      hard (grey asphalt, concrete), porous (saturated: soil, brick) or leaves (green, or a tree's
 //             thin pixel: the normals' alpha under 0.5), from its colour over the light's hue
 //   darker    hard ground keeps 60%, porous ground by Lekner and Dorf (1988) per channel, leaves half that
@@ -58,10 +59,12 @@ Shader "VolumetricClouds/WetGround"
             #define WET_MAP_SIZE 17280.0
             // Bare terrain (Sky/WetTerrainMap: the game's surface, unclipped and unpaved, round where the camera
             // looks): rg near (4 m cells over 2048 m: height above _VWWetTerrain.z, bare share), ba far (16 m
-            // over 8192 m). _VWWetTerrain: xy the maps' centre (world xz), z their base height, w bare
-            // terrain's share of the wetness (1 = no map yet: everything as wet as before).
+            // over 8192 m). _VWWetTerrain: xy the maps' centre (world xz), z their base height, w 1 = the map is
+            // there (0: no terrain told apart yet, wet as a road).
             sampler2D _VWWetTerrainMap;
             float4 _VWWetTerrain;
+            float4 _VWWetKinds;   // x bare terrain's wetness (Wet grass and soil), y trees' (Wet trees), 0..1
+            // (_VWWet.x is the roads' and everything built: Wet roads and puddles; _VWWet.y the puddles' share)
             #define WET_NEAR_SPAN 2048.0
             #define WET_FAR_SPAN 8192.0
 
@@ -116,15 +119,18 @@ Shader "VolumetricClouds/WetGround"
             }
 
             // 1 under a puddle: the world pattern (about 7 m across, 2-3 m detail) filled from its lowest
-            // as the wetness rises toward the share puddles may cover. `low` (0..1) is how much this spot
-            // lies at the low side of its slope: puddles gather there first.
-            float Puddle(float3 wpos, float wet, float low)
+            // until `share` of the level hard ground is under water (C#'s PuddleShare, as given). `low` (0..1)
+            // is how much this spot lies at the low side of its slope: puddles gather there first.
+            float Puddle(float3 wpos, float share, float low)
             {
                 float field = 0.65 * WetNoise(wpos.xz / 7.0) + 0.35 * WetNoise(wpos.xz / 2.3 + 17.0);
                 // The pattern's high values are its "hollows" (they fill first); the flattest spots lean in.
-                field = saturate(field + 0.18 * (low - 0.5));
-                float from = 1.0 - _VWWet.y * smoothstep(0.3, 1.0, wet);
-                return smoothstep(from, from + 0.05, field);
+                field += 0.18 * (low - 0.5);
+                // The pattern's spread made even (about a bell round 0.5, sd ~0.15: a logistic of that sd), so
+                // that `share` of the ground lies above 1 - share.
+                float even = 1.0 / (1.0 + exp(-(field - 0.5) / 0.085));
+                float from = 1.0 - share;
+                return share > 0.001 ? smoothstep(from, from + 0.04, even) : 0.0;
             }
 
             // What the ground is: x porous, y leaves (x >= y).
@@ -297,8 +303,17 @@ Shader "VolumetricClouds/WetGround"
                 float3 n = WorldNormal(uv);
                 float3 v = normalize(_WorldSpaceCameraPos - wpos);
 
-                // Level and open surfaces most, walls a little.
-                float wet = saturate(_VWWet.x) * lerp(0.12, 1.0, smoothstep(0.3, 0.8, n.y));
+                // Trees: the normals' alpha (trees write 0, everything else 1).
+                float thin = step(tex2Dlod(_CameraNormalsTexture, float4(uv, 0.0, 0.0)).a, 0.5);
+                // Bare terrain (the game's surface, unclipped and unpaved, on the ground).
+                float bare = 0.0;
+                UNITY_BRANCH
+                if (_VWWetTerrain.w > 0.5)
+                    bare = BareTerrain(wpos, eye) * (1.0 - thin);
+                // Each kind its own row (2026-11-18): roads and everything built (Wet roads and puddles), bare
+                // terrain (Wet grass and soil), trees (Wet trees). Level and open surfaces most, walls a little.
+                float kindWet = lerp(lerp(_VWWet.x, _VWWetKinds.x, bare), _VWWetKinds.y, thin);
+                float wet = saturate(kindWet) * lerp(0.12, 1.0, smoothstep(0.3, 0.8, n.y));
                 // Not under the water: the seabed, the river bed (dry again over 0.5 m above its surface).
                 // Only where there is water near (the map's g): on land the 67 m map's height is the ground
                 // smoothed, which a road cut or a slope lies under, and that must stay wet.
@@ -309,19 +324,10 @@ Shader "VolumetricClouds/WetGround"
                     float surface = tex2Dlod(_VWWetWater, float4(muv, 0.0, 0.0)).r;
                     wet *= lerp(1.0, smoothstep(-0.3, 0.5, wpos.y - surface), smoothstep(0.02, 0.15, waterNear));
                 }
-                // Bare terrain keeps a tenth of the wetness (it washed the grass and soil out), no puddles.
-                float bare = 0.0;
-                UNITY_BRANCH
-                if (_VWWetTerrain.w < 1.0)
-                {
-                    bare = BareTerrain(wpos, eye);
-                    wet *= lerp(1.0, _VWWetTerrain.w, bare);
-                }
                 if (wet <= 0.002)
                     return float4(0, 0, 0, 1);
 
                 float3 dry = tex2Dlod(_VWWetScene, float4(uv, 0.0, 0.0)).rgb;
-                float thin = step(tex2Dlod(_CameraNormalsTexture, float4(uv, 0.0, 0.0)).a, 0.5);
 
                 // Its colour over the light's hue, its brightest channel taken as a mid albedo.
                 float3 hue = _VWWetHue.rgb + 0.2 * dot(_VWWetHue.rgb, float3(0.2126, 0.7152, 0.0722)) + 1e-4;
@@ -335,7 +341,8 @@ Shader "VolumetricClouds/WetGround"
                 float slope = rise / max(run, 1e-3);
                 float low = saturate(1.0 - slope * 25.0);
 
-                float puddle = n.y > 0.97 ? Puddle(wpos, saturate(_VWWet.x), low) * (1.0 - porous) * (1.0 - bare) : 0.0;
+                // Puddles: level hard ground only, never on bare terrain or trees.
+                float puddle = smoothstep(0.95, 0.98, n.y) * Puddle(wpos, _VWWet.y, low) * (1.0 - porous) * (1.0 - bare) * (1.0 - thin);
 
                 // Raindrops' rings in the puddles, where it rains now.
                 float3 nw = normalize(lerp(n, float3(0, 1, 0), puddle));
@@ -355,8 +362,10 @@ Shader "VolumetricClouds/WetGround"
                 // Rough: a hard surface's film 0.2, porous ground 0.45, a puddle 0.03.
                 float rough = lerp(lerp(0.2, 0.45, porous), 0.03, puddle);
                 float alphaW = rough * rough;
-                // The share of it a film of water covers: all on hard ground and in a puddle.
-                float film = lerp(1.0, lerp(0.55, 0.3, leaves), porous * (1.0 - puddle));
+                // The share of it a film of water covers: all on hard ground and in a puddle. Leaves hold only
+                // droplets (2026-11-18, his "trees, when wet, look very washed out, like they lose all colour":
+                // at 0.3 the sky they mirrored greyed them): they darken and keep their colour, a faint sheen.
+                float film = lerp(1.0, lerp(0.55, 0.08, leaves), porous * (1.0 - puddle));
 
                 float3 r = reflect(-v, nw);
                 float3 reflected = SkyLight(r);
@@ -371,7 +380,9 @@ Shader "VolumetricClouds/WetGround"
                     reflected = lerp(reflected, traced.rgb, traced.a * traceWeight);
                 }
 
-                float share = Fresnel(nv, rough) * film;
+                // A puddle mirrors at least an eighth of what it faces, seen from above too (the camera mostly
+                // looks down, where water's own Fresnel, 2-4%, left puddles hard to tell from a wet road).
+                float share = max(Fresnel(nv, rough) * film, 0.12 * puddle);
 
                 // The sun's glint on the water (GGX), when the sun is out.
                 float3 l = normalize(_VWWetSunDir.xyz);
@@ -384,15 +395,17 @@ Shader "VolumetricClouds/WetGround"
                 float3 glint = _VWWetSun.rgb * (ggx * nl * 0.02 * film * _VWWetSun.w / max(4.0 * nv, 0.1));
 
                 // What the surface keeps of its own light: hard ground 60%, porous by Lekner and Dorf, leaves
-                // half of that darkening, a puddle 45%.
+                // half of that darkening, a puddle 35% (the dark pool round the mirrored sky).
                 float3 ground = lerp(LeknerDorf(albedo), 1.0, 0.5 * leaves);
-                float3 keep = lerp(lerp((0.6).xxx, ground, porous), (0.45).xxx, puddle);
+                float3 keep = lerp(lerp((0.6).xxx, ground, porous), (0.35).xxx, puddle);
                 float least = min(keep.r, min(keep.g, keep.b));
 
                 // The blend scales what is there by one number (alpha); the rest of each channel's share is
                 // added from the copy.
                 float4 wetResult = float4(reflected * share + glint + dry * (keep - least) * (1.0 - share), least * (1.0 - share));
-                return lerp(float4(0, 0, 0, 1), wetResult, wet);
+                // A puddle is water wherever it stands: whole, not at the film's strength (it is only there once
+                // the ground is wet, and never where the water's check dried the ground).
+                return lerp(float4(0, 0, 0, 1), wetResult, max(wet, puddle * saturate(wet * 4.0)));
             }
             ENDCG
         }
