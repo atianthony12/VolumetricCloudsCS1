@@ -1071,6 +1071,16 @@ namespace VolumetricClouds.Sky
         /// <summary>The cloud's inside (cg) over which the skin and the fringe come in: so a heap's top and its foot still thin to nothing where cg does.</summary>
         public static float SoftSkinFade = 0.05f;
 
+        /// <summary>
+        /// (2026-11-18) With the row on, a thin step of the march (the soft skin, the fringe) that comes right after a
+        /// thin step that worked out its light takes that light, while the march's steps are no longer than this many
+        /// metres (0: never): every other thin step of a run looks at the sun. In the bench 86% of the steps in cloud
+        /// were thin ones, each with five looks at the sun. OFF (0): measured at 80 m it saved nothing (Auto 81%,
+        /// 6.8-7.75 ms with it, 6.55-7.85 without: thin steps seldom come two in a row) for a picture 0.05-0.24/255
+        /// off. The shader's branch is dead at 0; take it out with the next bundle build.
+        /// </summary>
+        public static float SoftThinHold = 0f;
+
         /// <summary>Metres the noise lookup is pushed about by the 64^3 noise at 100% (Soft's own: <see cref="CloudSoft.Warp"/>).</summary>
         public static float SoftWarp = 250f;
 

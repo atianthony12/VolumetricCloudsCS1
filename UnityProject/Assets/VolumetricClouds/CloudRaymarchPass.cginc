@@ -53,6 +53,10 @@ float _VCProbe;         // 1: write PROBE_COLOUR and nothing else (Sky/CloudShad
 #define HEAP_THIN_LIGHT 0.5
 #define HEAP_DEEP_LIGHT 0.2
 #ifdef VC_PLUS
+// (2026-11-18) A thin step right after a thin step that worked out its light takes that light, while the march's
+// steps are no longer than this many metres (CloudStyle.SoftThinHold; 0: never): every other thin step of a run
+// looks at the sun.
+float _HeapThinHold;
 static bool heapThinLight = false;  // this step's light is a thin step's (set by the march around CloudRadiance)
 static bool heapAboveKept = false;  // the ray has had a thick lit step: heapAbove is its cloud above
 static float heapAbove = 0.0;
@@ -105,6 +109,16 @@ float _TemporalJitter;      // mode 1: this frame's shift of the march's jitter,
 float4x4 _TemporalPrevVP;   // mode 2: last frame's view-projection
 float4 _TemporalParams;     // mode 2: x = how much of the last frames is kept (0: none), yz = how far
                             // the clouds drifted since then (m, x and z)
+// THE SMALLER MARCH (2026-11-18, Sky/CloudTemporal.cs UpFactor): the march's target smaller than the blend's by
+// _TemporalUp.z each way (1: the same size, and everything below as it was). Each frame's march is moved by a
+// different part of one of its texels (the R2 walk it always had), so over a few frames its rays land on every
+// pixel of the blend in turn: a pixel takes much of a ray that lands on it and little of one that lands beside it,
+// and the blend builds up the detail of a march of its own size from marches a quarter of the pixels.
+float4 _TemporalUp;         // mode 2: xy = this frame's shift of the march, in its texels; z = the factor; w = how
+                            // many times the usual share of this frame a ray right on the pixel gives
+float4 _TemporalUp2;        // mode 2: x = how fast that falls with the ray's distance from the pixel (exp(-x d^2), d
+                            // in the blend's pixels), y = the least of it (a ray far off), z = the variance clip's
+                            // width, times the usual
 
 float3 _SunColor;      // (_SunDir, towards the light, is in CloudMedia)
 float3 _AmbientColor;
@@ -296,6 +310,9 @@ float SunDepth(float3 p, float lod, bool far)
     int detailedLooks = far ? 0 : 3;
 #endif
 
+    // (2026-11-18, tried and taken out: a thin step's five looks as two over the same reach. The undersides came out
+    // lit -- 5.7/255 on average looking up, 40% of the pixels off by over 2/255: one look per 800 m misses the cloud's
+    // body above.)
     [loop]
     for (int k = first; k < 7; k++)
     {
@@ -769,6 +786,9 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
     float thinUnder = heapSoftOn ? HEAP_THIN_LIGHT * _CumulusNoise.w : -1.0;
     float deepLight = heapSoftOn ? HEAP_DEEP_LIGHT : DEEP_LIGHT;
     heapAboveKept = false;
+    // The last thin step that worked out its own light (_HeapThinHold): -9, none yet.
+    int thinLitAt = -9;
+    bool thinHolds = stepLen <= _HeapThinHold;
 #endif
 
     // 192: the Quality setting's 96 at most, twice that under Cumulus (CloudStyle.StepFactor).
@@ -833,11 +853,15 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
             // and the heaps drawn: at 0 the extras' program lights every step as the lean one does.
             heapThinLight = d < thinUnder;
             bool farLight = t > FAR_LIGHT || heapThinLight;
+            // (2026-11-18) Every other thin step of a run: the thin step right before this one worked out its light.
+            bool thinHeld = heapThinLight && thinHolds && thinLitAt == s - 1;
+            if (heapThinLight && !thinHeld && transmittance >= deepLight)
+                thinLitAt = s;
 #endif
             // Deep in a cloud the step before's light will do (a ray is only under DEEP_LIGHT after a lit step).
             [branch]
 #ifdef VC_PLUS
-            if (transmittance >= deepLight)
+            if (transmittance >= deepLight && !thinHeld)
 #else
             if (transmittance >= DEEP_LIGHT)
 #endif
@@ -999,9 +1023,26 @@ float2 TemporalWas(float3 eye, float3 dir, float t)
 // march noise alive: at every sub-texel resample its sharpening handed the grain back, and the far
 // clouds turned to pixel grain while the camera turned -- 2.7x the old blend's in the cloud bench.)
 
-float4 TemporalResolve(float2 uv, float3 worldPos)
+float4 TemporalResolve(float2 uvPixel, float3 worldPos)
 {
     float2 texel = _TemporalSize.zw;
+
+    // The smaller march (_TemporalUp): the march's texel whose ray landed nearest this pixel, how far from it (in
+    // the blend's pixels), and what the march gives at the pixel itself, between its rays (`soft`).
+    bool smaller = _TemporalUp.z > 1.5;
+    float2 uv = uvPixel;
+    float2 off = float2(0.0, 0.0);
+    float4 soft = float4(0.0, 0.0, 0.0, 0.0);
+    UNITY_BRANCH
+    if (smaller)
+    {
+        float2 marchPos = uvPixel * _TemporalSize.xy - _TemporalUp.xy;
+        float2 nearest = floor(marchPos) + 0.5;
+        off = (nearest - marchPos) * _TemporalUp.z;
+        uv = nearest * texel;
+        soft = tex2Dlod(_TemporalTex, float4(marchPos * texel, 0, 0));
+    }
+
     float4 now = tex2Dlod(_TemporalTex, float4(uv, 0, 0));
     float4 low = now;
     float4 high = now;
@@ -1098,7 +1139,7 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
     tent /= 16.0;
 
     // No guess lands on last frame's view: this frame's march alone, softened.
-    result = TemporalUntoned(tent);
+    result = smaller ? soft : TemporalUntoned(tent);
     if (best.x >= 0.0)
     {
     // How sure the reprojection is: how far apart the three guesses land, in texels. A turn of the
@@ -1106,10 +1147,15 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
     // spreads them, and the more it does, the less the history is trusted. (Screen motion itself is
     // no measure: cutting the history on it left the turning camera's far clouds grainy.)
     float spread = length((wasHigh - wasLow) * _TemporalSize.xy);
+    // (The smaller march: in the blend's pixels, as it always was.)
+    if (smaller)
+        spread *= _TemporalUp.z;
 
     // The history read (bilinear), then clipped toward the mean into what this frame's neighbourhood
     // allows (variance clip, Salvi 2016), inside its min/max: tighter when the guesses disagree.
     float gamma = lerp(1.25, 0.75, saturate((spread - 2.0) / 6.0));
+    if (smaller)
+        gamma *= _TemporalUp2.z;
     float4 history = TemporalToned(max(tex2Dlod(_BowTex, float4(best, 0, 0)), 0.0));
     float4 boxLow = max(mean - gamma * sigma, TemporalToned(low));
     float4 boxHigh = min(mean + gamma * sigma, TemporalToned(high));
@@ -1122,6 +1168,18 @@ float4 TemporalResolve(float2 uv, float3 worldPos)
     float keep = _TemporalParams.x * lerp(1.0, 0.55, saturate(spread / 6.0)) * (1.0 - 0.2 * saturate(moved * 6.0));
     float givenUp = 1.0 - keep / max(_TemporalParams.x, 1e-3);
     float4 blendedT = lerp(lerp(nowT, tent, givenUp), clipped, keep);
+    UNITY_BRANCH
+    if (smaller)
+    {
+        // The smaller march. How much this frame's ray is this pixel's own: all when it landed on it, little when it
+        // landed a pixel off. The pixel takes that much of the usual share (times _TemporalUp.w: a ray lands on a pixel
+        // only every few frames), from the ray itself as far as it is its own and the history is trusted, and from the
+        // march read between its rays for the rest.
+        float own = exp(-dot(off, off) * _TemporalUp2.x);
+        float take = saturate((1.0 - keep) * _TemporalUp.w * max(own, _TemporalUp2.y));
+        float4 softT = TemporalToned(soft);
+        blendedT = lerp(clipped, lerp(softT, nowT, own * (1.0 - givenUp)), take);
+    }
     result = TemporalUntoned(blendedT);
     }
     }

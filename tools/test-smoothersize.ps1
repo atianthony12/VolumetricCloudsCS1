@@ -18,6 +18,23 @@ function Check([string]$name, [bool]$ok, [string]$detail = "") {
     else { Write-Host "FAIL  $name  $detail"; $script:failed++ }
 }
 
+# ---- never of more lines than the screen has (2026-11-18) --------------------------------------------------
+function Basis([int]$rw, [int]$rh, [int]$screen) { $w = 0; $h = 0; $S::Basis($rw, $rh, $screen, [ref]$w, [ref]$h); "${w}x${h}" }
+Check "render = screen: the render" ((Basis 3840 2160 2160) -eq "3840x2160")
+Check "render under the screen (dynamic resolution 75%): the render" ((Basis 2880 1620 2160) -eq "2880x1620")
+Check "render at twice the screen: the screen's lines, shape kept" ((Basis 7680 4320 2160) -eq "3840x2160")
+Check "render at 150%: the screen's lines" ((Basis 5760 3240 2160) -eq "3840x2160")
+Check "another shape keeps its shape (21:9 at 200% on 1440 lines)" ((Basis 6880 2880 1440) -eq "3440x1440")
+Check "screen unknown (0): the render" ((Basis 7680 4320 0) -eq "7680x4320")
+Check "never 0 wide" ((Basis 1 4000 100) -eq "1x100")
+$bad = 0
+foreach ($f in 100..400) {
+    $rw = [int][math]::Round(3840 * $f / 100); $rh = [int][math]::Round(2160 * $f / 100)
+    $w = 0; $h = 0; $S::Basis($rw, $rh, 2160, [ref]$w, [ref]$h)
+    if ($h -ne 2160 -or [math]::Abs($w - 3840) -gt 1) { $bad++ }
+}
+Check "every factor from 100% to 400% on a 4K screen marches for 4K" ($bad -eq 0) "($bad differ)"
+
 # ---- the default is the old size, bit for bit -------------------------------------------------------------
 $bad = 0
 foreach ($h in 1..5000) {

@@ -686,6 +686,11 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
             float fragShape = FragmentShape(p, weather, hFrag);
             fragWeight = saturate((fragShape - shaped) / 0.1);
             shaped = max(shaped, fragShape);
+#ifdef VC_PLUS
+            // A fragment keeps its own edge (2026-11-18): Natural Classic clouds' soft rim is the big clouds' only.
+            // Without it every fragment point (outside the big clouds, where the rim is widest) got the soft edge too.
+            classicEdge = lerp(classicEdge, 1.0, fragWeight);
+#endif
         }
     }
 

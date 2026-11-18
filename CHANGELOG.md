@@ -103,6 +103,19 @@ below; the mods list shows it after the mod's name, and the first line of
   softer shade* over 100%, the sunlit sides of the clouds under Auto come out 2 to 3% darker.
 - *Softer cumulus* costs 20 to 33% less than when it was added: the faint fringe and skin of the heaps take a
   simpler light. The clouds it draws are the same.
+- With a mod that renders the game larger than the screen (Dynamic Resolution over 100%), *Smoother clouds* now
+  draws the clouds for the screen's size, not for the larger render: at 200% it drew four times the pixels of
+  any other player's clouds, to have them scaled back down. The clouds cost about a third of what they did there
+  (and, with the next change, about an eighth: Auto with *Softer cumulus* at 4K and 200%, 71 to 94 ms a frame
+  became 9 to 11), and their finest wisps are as soft as they are for everyone else. At 100% and under nothing
+  changes.
+- On a 4K screen (1600 lines or more), *Smoother clouds* now marches a quarter of the pixels it did and builds
+  the picture up over a few frames, each frame's rays landing on other pixels. The clouds cost about a third of
+  what they did there (Auto with *Softer cumulus* at 4K: 20 to 26 ms a frame became 7 to 9; Classic 4 to 8
+  became 1 to 2). Cloud edges keep their detail, still and with the camera moving; the smallest holes of a far
+  layer are a little softer, and after a jump of the camera the clouds sharpen over a few frames. Smaller
+  screens draw as before. Unticking *Smoother clouds without smearing (test)* gives the blend and the cost from
+  before. The smaller sizes of *Cloud drawing size* are smaller again there (a third: 640 x 360 at 4K).
 
 ### Fixed
 

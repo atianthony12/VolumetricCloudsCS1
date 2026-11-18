@@ -461,6 +461,7 @@ namespace VolumetricClouds.Sky
         private static readonly int IdHeapFray = Shader.PropertyToID("_HeapFray");
         private static readonly int IdHeapFringe = Shader.PropertyToID("_HeapFringe");
         private static readonly int IdHeapWarp = Shader.PropertyToID("_HeapWarp");
+        private static readonly int IdHeapThinHold = Shader.PropertyToID("_HeapThinHold");
         private static int _softLogged = -1;
 
         /// <summary>
@@ -485,6 +486,7 @@ namespace VolumetricClouds.Sky
                 material.SetVector(IdHeapFringe, new Vector4(CloudStyle.SoftFringe * soft, 1f / Mathf.Max(CloudStyle.SoftFringeReach, 1e-4f),
                     CloudSoft.NoiseMiddle, CloudSoft.NoiseContrast));
                 material.SetVector(IdHeapWarp, new Vector4(CloudSoft.WarpMiddleR, CloudSoft.WarpMiddleG, 1f / Mathf.Max(CloudStyle.SoftSkinFade, 1e-4f), CloudStyle.SoftFrayBias));
+                material.SetFloat(IdHeapThinHold, CloudStyle.SoftThinHold);
             }
 
             // On the log when it goes on or off (a slider: not on every tick of a drag).

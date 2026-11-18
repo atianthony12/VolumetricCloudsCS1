@@ -9,8 +9,11 @@ namespace VolumetricClouds.Sky
     /// <remarks>
     /// Measured in the cloud bench (Auto at 68% cover, 4K): the cloud pass 18-19 ms at half the screen, 10-10.6 at a
     /// third, 6.6-7.3 at a quarter, with no more grain at any size; the finest wisps get softer. The size is taken
-    /// from the size the camera renders at (its pixelWidth / pixelHeight), never the screen's: a mod that renders the
-    /// game's camera into its own target of another size (a dynamic resolution) gets the march for THAT size.
+    /// from the size the camera renders at (its pixelWidth / pixelHeight): a mod that renders the game's camera into
+    /// its own SMALLER target (a dynamic resolution under 100%) gets the march for that size. But never from more
+    /// lines than the screen has (<see cref="Basis"/>, 2026-11-18): with the camera rendering at twice the screen
+    /// each way (supersampling at 200%) the march was half of THAT, four times the pixels of any other player's, for
+    /// clouds that are scaled back down to the screen: Auto at 81% cover, 4K screen, 67-80 ms a frame against 20-22.
     /// </remarks>
     public static class SmootherSize
     {
@@ -29,7 +32,23 @@ namespace VolumetricClouds.Sky
         /// <summary>"By the screen's size" marches at half size up to this many lines (1440p), at a third above.</summary>
         public const int ByScreenLines = 1440;
 
-        /// <summary>What the render's size is divided by, each way, for a choice and the render's height in pixels.</summary>
+        /// <summary>
+        /// The size the divisor is taken of: the render's own, or, when the camera renders more lines than the screen
+        /// has (a mod supersampling the game), that render scaled down to the screen's lines (its shape kept). A
+        /// screen height of 0 or less (unknown): the render's own.
+        /// </summary>
+        public static void Basis(int renderWidth, int renderHeight, int screenHeight, out int width, out int height)
+        {
+            width = renderWidth;
+            height = renderHeight;
+            if (screenHeight > 0 && renderHeight > screenHeight)
+            {
+                height = screenHeight;
+                width = (int)Math.Max(1L, ((long)renderWidth * screenHeight + renderHeight / 2) / renderHeight);
+            }
+        }
+
+        /// <summary>What the size is divided by, each way, for a choice and the height in pixels it is taken of (<see cref="Basis"/>).</summary>
         public static int Divisor(int choice, int renderHeight)
         {
             switch (choice)
