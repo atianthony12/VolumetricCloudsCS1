@@ -45,6 +45,18 @@ float _VCProbe;         // 1: write PROBE_COLOUR and nothing else (Sky/CloudShad
 // MARCH_STOP: the march ends with this much of the ray left (MarchCloudsRaw stretches it to 0).
 #define FAR_LIGHT 8000.0
 #define DEEP_LIGHT 0.1
+// MIN_STEP (2026-11-17; not the light shader): the march's shortest step, in metres.
+#define MIN_STEP 15.0
+// Softer cumulus (2026-11-17, extras' program only, with the row on): a lit step under this share of the heaps' full
+// density takes the far light and the sky's look of the last thick lit step (see the march); and from this much of
+// the ray's light left a step takes the step before's light (DEEP_LIGHT's 0.1 otherwise).
+#define HEAP_THIN_LIGHT 0.5
+#define HEAP_DEEP_LIGHT 0.2
+#ifdef VC_PLUS
+static bool heapThinLight = false;  // this step's light is a thin step's (set by the march around CloudRadiance)
+static bool heapAboveKept = false;  // the ray has had a thick lit step: heapAbove is its cloud above
+static float heapAbove = 0.0;
+#endif
 #ifdef VC_LITE
 #define MARCH_STOP 0.02
 #else
@@ -267,13 +279,22 @@ float DetailPhase(float cosTheta, float c)
 // the layer's thickness from the big shape only. Under Soft and Mixed only the first is read
 // with the detail (their cost, 2026-10-17: offline under 0.5/255 from all three, at 100%).
 // `far` (past FAR_LIGHT): the first three stretches as one, from the big shape only.
+// 2026-11-17: everywhere but the light shader the first three stretches are one look (0-24 m, at 12 m), read with the
+// detail unless far. The picture moved under 0.02/255 on average at Glow 100 and under 0.5/255 at 150 (Classic, Cumulus,
+// Soft, Auto; day, a low sun, night), for a third of the sun's looks fewer. Simpler clouds keep the three.
 float SunDepth(float3 p, float lod, bool far)
 {
     float tau = 0.0;
     float prev = 0.0;
+#ifdef VC_LITE
     float s = far ? 24.0 : 6.0;
     int first = far ? 2 : 0;
     int detailedLooks = far ? 0 : (_CloudStyle > 1.5 ? 1 : 3);
+#else
+    float s = 24.0;
+    int first = 2;
+    int detailedLooks = far ? 0 : 3;
+#endif
 
     [loop]
     for (int k = first; k < 7; k++)
@@ -496,6 +517,10 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far, float bodyLit)
 float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
 #endif
 {
+#ifdef VC_PLUS
+    // Softer cumulus: the looks below read the heaps without their fray (CloudCommon heapLightLook).
+    heapLightLook = true;
+#endif
     bool detail = _DetailAmount > 0.0;
     bool cumulus = _CloudStyle > 0.5;
 
@@ -537,12 +562,29 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
 #endif
 
         // The sky light is blocked by the cloud above: two looks straight up (one, for both, when far).
+        // 2026-11-17: everywhere but the light shader one look, at 60 m, for both (as far did): the picture moved under
+        // 0.25/255 on average, worst 8 px block 1.8/255 (Classic, Cumulus, Soft, Auto; day, a low sun, night).
+#ifdef VC_PLUS
+        // Softer cumulus: a thin step takes the cloud above of the last thick lit step of its ray (heapThinLight).
+        float above = heapAbove;
+        [branch]
+        if (!(heapThinLight && heapAboveKept))
+            above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 90.0;
+        if (!heapThinLight)
+        {
+            heapAbove = above;
+            heapAboveKept = true;
+        }
+#elif !defined(VC_LITE)
+        float above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 90.0;
+#else
         float above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 60.0;
         [branch]
         if (far)
             above *= 1.5;
         else
             above += SampleDensityLod(p + float3(0.0, 15.0, 0.0), false, lod) * 30.0;
+#endif
         radiance = sunColor * sunLit + ShadeSky(hSky) * exp(-above * _Absorption * _DetailLight2.x);
         if (_ShadeLight.y > 0.0)
             radiance += sunColor * (_ShadeLight.y * (1.0 - hSky) * (1.0 - hSky));
@@ -564,9 +606,14 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
         }
         float sunLit = r.octaves.x * exp(-tau) + r.octaves.y * octave1T + r.octaves.z * octave2T;
 
-        // The sky light is blocked by the cloud above: two looks straight up.
+        // The sky light is blocked by the cloud above: two looks straight up (2026-11-17: one, at 60 m, but in the
+        // light shader; as the heaps' above).
+#ifdef VC_LITE
         float above = SampleDensityLod(p + float3(0.0, 15.0, 0.0), false, lod) * 30.0
                     + SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 60.0;
+#else
+        float above = SampleDensityLod(p + float3(0.0, 60.0, 0.0), false, lod) * 90.0;
+#endif
         radiance = sunColor * sunLit + ShadeSky(hSky) * exp(-above * _Absorption * _DetailLight2.x);
         if (_ShadeLight.y > 0.0)
             radiance += sunColor * (_ShadeLight.y * (1.0 - hSky) * (1.0 - hSky));
@@ -587,6 +634,9 @@ float3 CloudRadiance(float3 p, float lod, RayLight r, bool far)
     // It comes from below: strongest on the base, gone by the top.
     radiance += _NightGlow * ((1.0 - h) * (1.0 - h));
 
+#ifdef VC_PLUS
+    heapLightLook = false;
+#endif
     return radiance;
 }
 
@@ -686,6 +736,11 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
         return float4(0, 0, 0, 1);
 
     float steps = max(_Steps, 8.0);
+#ifndef VC_LITE
+    // No step shorter than MIN_STEP metres (2026-11-17): a short stretch of slab (looking down through a thin layer)
+    // takes fewer, longer steps instead of the full count.
+    steps = clamp(ceil((tExit - tEnter) / MIN_STEP), 8.0, steps);
+#endif
     float stepLen = (tExit - tEnter) / steps;
 
     // Per-pixel jitter trades banding for fine noise, which reads as softness.
@@ -708,11 +763,24 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
     // their ring (FarLookAt): it never skips past where the ray leaves the ring (1e10: none).
     float tRing = _Curve.w > 0.0 ? CurveRing(origin, dir) : 1e10;
 #endif
+#ifdef VC_PLUS
+    // Softer cumulus's light savings (below): only with the row on and the heaps drawn.
+    bool heapSoftOn = _HeapSoft.x > 0.0 && _CloudStyle > 0.5 && _CloudStyle < 2.5;
+    float thinUnder = heapSoftOn ? HEAP_THIN_LIGHT * _CumulusNoise.w : -1.0;
+    float deepLight = heapSoftOn ? HEAP_DEEP_LIGHT : DEEP_LIGHT;
+    heapAboveKept = false;
+#endif
 
     // 192: the Quality setting's 96 at most, twice that under Cumulus (CloudStyle.StepFactor).
     [loop]
     for (int s = 0; s < 192; s++)
     {
+#ifndef VC_LITE
+        // Each step's place from its number (2026-11-17), not added up step by step: the empty-sky skip below jumps
+        // whole steps, and with t added up the jump's rounding put the later steps a hair elsewhere than the plain
+        // march (up to 0.019 on pixels where a threshold flipped). Now skipping or not, the same steps.
+        t = tEnter + stepLen * ((float)s + jitter);
+#endif
         if ((float)s >= steps || transmittance < MARCH_STOP || t > tStop)
             break;
 
@@ -756,11 +824,25 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
         if (d > 0.001)
         {
 #ifndef VC_LITE
+#ifdef VC_PLUS
+            // Softer cumulus (2026-11-17): a thin step -- under HEAP_THIN_LIGHT of the heaps' full density, the soft
+            // skin and the fringe -- takes the far light (the sun's looks from 24 m) and the cloud above of the ray's
+            // last thick lit step; and the step before's light will do from HEAP_DEEP_LIGHT of the ray's light left.
+            // With the row on the thin steps were three quarters of the lit ones and most of its cost; the light moved
+            // under 0.21/255 on average (worst 8 px block 2.8/255), the cloud drawn not at all. Only with the row on
+            // and the heaps drawn: at 0 the extras' program lights every step as the lean one does.
+            heapThinLight = d < thinUnder;
+            bool farLight = t > FAR_LIGHT || heapThinLight;
+#endif
             // Deep in a cloud the step before's light will do (a ray is only under DEEP_LIGHT after a lit step).
             [branch]
+#ifdef VC_PLUS
+            if (transmittance >= deepLight)
+#else
             if (transmittance >= DEEP_LIGHT)
+#endif
 #ifdef VC_DEEP
-                radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT, bodyHere);
+                radiance = CloudRadiance(p, lod, rayLight, farLight, bodyHere);
 #else
                 radiance = CloudRadiance(p, lod, rayLight, t > FAR_LIGHT);
 #endif
@@ -776,6 +858,9 @@ float4 MarchCloudsRaw(float3 origin, float3 dir, float tEnter, float tExit, floa
 
         t += stepLen;
     }
+#ifdef VC_PLUS
+    heapThinLight = false;
+#endif
 
     // The march stops at MARCH_STOP, and 5% of an HDR star is still a star.
     // Stretch what is left so that "stopped early" means opaque.

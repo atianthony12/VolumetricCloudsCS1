@@ -545,6 +545,11 @@ float4 _HeapWarp;       // xy = the 64^3 noise's R and G middles, as read (sRGB-
 // The read (`detailed`) and its mip level before the heaps' own clamp (`lodHere`): for the fray only.
 #define HEAP_PLUS_IN , bool detailed, float lodHere
 #define HEAP_PLUS(d, l) , d, l
+// True while the cloud pass works out a step's light (CloudRaymarchPass CloudRadiance sets it around its looks;
+// nothing else does, so the march's own reads and the shadow map never see it). 2026-11-17: the light's looks
+// read the heaps without the fray -- its fine strands are drawn, but the light they cast on themselves changed
+// the picture by under 0.1/255 on average and cost a fine read in each of the sun's near looks.
+static bool heapLightLook = false;
 #else
 #define HEAP_PLUS_IN
 #define HEAP_PLUS(d, l)
@@ -580,7 +585,7 @@ float CumulusDensity(float3 p, float lod, float score, float heapLine HEAP_PLUS_
         // The fray: strands at the base (the fine read's middles carved), billows higher.
         float wisps = 0.0;
         float f = 0.0;
-        if (detailed)
+        if (detailed && !heapLightLook)
         {
             float fineLod = lodHere + _HeapFray.z;
             wisps = saturate(1.0 - fineLod * 0.5);
@@ -624,6 +629,20 @@ float CumulusDensity(float3 p, float lod, float score, float heapLine HEAP_PLUS_
 #endif
 }
 
+// NATURAL CLASSIC CLOUDS (2026-11-17, the row "Natural Classic clouds", Sky/ClassicShape.cs is its C# twin): the layer's
+// clouds shaped as clouds rather than one slab. HeightShape gave every cloud the same thickness out to its edge. With the
+// row on, how far inside its cloud a point is (c, from the map, over a span wider than _Softness) sets how tall the cloud
+// stands there: thin at the edge, a dome over the middle, the underside rounding up at the rim, widest _ClassicShape.w of
+// the way up (Soft's body). Never over HeightShape at any height: no cloud grows taller, no core is pushed up, the base
+// stays. And near the rim the detail's edge ramps in over a deeper skin (x 1 + _ClassicRim (1 - c); the core keeps its
+// edge; none over a closed deck, C# fades it), so a cloud thins to its edge instead of ending in a wall. Behind the row, in
+// the extras' variant only (VC_PLUS: the cloud pass and the shadow map share it); 0 = the layer exactly as it always was.
+#ifdef VC_PLUS
+float4 _ClassicShape;   // x = the row as drawn (0: off), y = 1 / the span over which c reaches 1 (map units), z = c's gain,
+                        // w = the widest level (share of the layer)
+float _ClassicRim;      // how much wider the detail's edge is right at the rim (0: as before)
+#endif
+
 // THE CLASSIC LAYER at p: `h` its height through the layer (0 at the base, 1 at the top), `weather`
 // the map there, `lod` cloud detail's mip level, `threshold` the map value it starts at (_Threshold,
 // except under Mixed, whose type varies it across the sky). The layer the mod has always drawn; the
@@ -638,6 +657,22 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
     // The big clouds' shape. (Zero exactly when coverage is, so with fragments off this returns
     // in the same cases, with the same numbers, as before they existed.)
     float shaped = coverage * HeightShape(h);
+
+#ifdef VC_PLUS
+    // Natural Classic clouds (above). Off, the slab as it always was, and the detail's edge times exactly 1.
+    float classicEdge = 1.0;
+    [branch]
+    if (_ClassicShape.x > 0.0)
+    {
+        float c = saturate((weather - threshold) * _ClassicShape.y);
+        classicEdge = 1.0 + _ClassicRim * (1.0 - c);
+        float mid = _ClassicShape.w;
+        float off = h < mid ? (mid - h) / mid : (h - mid) / (1.0 - mid);
+        off = h < mid ? off * off : off;
+        float natural = min(saturate(c * _ClassicShape.z - off), HeightShape(h));
+        shaped = lerp(shaped, natural, _ClassicShape.x);
+    }
+#endif
 
     // Fragments: where both are present the larger shape wins, so the big clouds are untouched.
     // fragWeight says how much of this point is fragment rather than big cloud (a soft blend,
@@ -714,9 +749,15 @@ float LayerDensity(float3 p, bool detailed, float lod, float h, float weather, f
         // inside made of noise. Then the density curve: denser tops, softer bases.
 #ifdef VC_DEEP
         bodyOut = saturate(d * _DeepBody.z);
-        // A light's look at the big shape sees a softer edge (_DeepSoft); off, the softness itself.
-        float edge = soft > 0.0 ? _DetailParams.y * (1.0 + soft * _DeepSoft.w) : _DetailParams.y;
+        // A light's look at the big shape sees a softer edge (_DeepSoft); off, the softness itself. Natural Classic clouds'
+        // soft rim (classicEdge, 1 with it off) on the drawn edge; a light's look takes the softer of the two, never both.
+        float edge = _DetailParams.y * classicEdge;
+        if (soft > 0.0)
+            edge = max(edge, _DetailParams.y * (1.0 + soft * _DeepSoft.w));
         d = saturate(d / edge);
+#elif defined(VC_PLUS)
+        // The shadow map's extras variant: the same soft rim as the clouds (invariant 1).
+        d = saturate(d / (_DetailParams.y * classicEdge));
 #else
         d = saturate(d / _DetailParams.y);
 #endif

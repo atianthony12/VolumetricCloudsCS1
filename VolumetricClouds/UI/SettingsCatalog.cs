@@ -1779,6 +1779,21 @@ namespace VolumetricClouds.UI
                 Format = Metres,
             });
 
+            // Natural Classic clouds (2026-11-17): the layer's clouds thin to their edges, domed on top, wherever the layer is
+            // drawn. 0% = the layer as it was, the default. Wholly an extra (the cloud shader's VC_PLUS variant): greyed under
+            // Simpler clouds and where that variant does not run (CloudShaders.PlusDrawn), where it draws as at 0%. No
+            // AfterChange (a slider's runs on every tick of a drag): CloudShaderParams logs it going on and off.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Clouds,
+                Float = Settings.ClassicShape,
+                DefaultFloat = Settings.Defaults.ClassicShape,
+                Min = 0f, Max = 100f, Step = 5f,
+                HasTooltip = true,
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
+            });
+
             // Crisp edges, puffy billows and the light that shows them (Sky.CloudDetail); 0 is
             // the soft look from before, exactly. No AfterChange (a slider's runs per drag tick):
             // CloudShaderParams logs it going on and off.

@@ -1210,6 +1210,40 @@ namespace VolumetricClouds.Sky
                    (SoftFringe * s).ToString("F2", c) + ", line trimmed " + (SoftTrim * s).ToString("F3", c);
         }
 
+        // ---- natural Classic clouds (2026-11-17, the row "Natural Classic clouds", ClassicShape) ------------
+
+        /// <summary>The "Natural Classic clouds" row, 0..1 (its default without one).</summary>
+        public static float ClassicShapeRow
+        {
+            get { return Clamp(Settings.ClassicShape != null ? Settings.ClassicShape.value : Settings.Defaults.ClassicShape, 0f, 1f); }
+        }
+
+        /// <summary>
+        /// The row as drawn (Sky.ClassicShape): only while the cloud shader's extras variant is (CloudShaders.PlusOn: never
+        /// under Simpler clouds, nor where that variant does not run); 0 otherwise, and the shader gets the layer as it always was.
+        /// </summary>
+        public static float ClassicShapeNow
+        {
+            get
+            {
+                float row = ClassicShapeRow;
+                return row > 0f && CloudShaders.PlusOn ? row : 0f;
+            }
+        }
+
+        /// <summary>For the log: the row and what it draws.</summary>
+        public static string DescribeClassicShape()
+        {
+            CultureInfo c = CultureInfo.InvariantCulture;
+            float s = ClassicShapeNow;
+            if (s <= 0f)
+                return ClassicShapeRow > 0f ? "off: the cloud shader's extras variant is not drawn (Simpler clouds, or it does not run here)" : "off (the layer's slab as before)";
+            return "on " + (s * 100f).ToString("F0", c) + "% -- the layer's clouds domed over " + ClassicShape.Span.ToString("0.##", c) +
+                   "x the old edge in from their edge (gain " + ClassicShape.Gain.ToString("0.##", c) + "), widest " + (ClassicShape.Middle * 100f).ToString("F0", c) +
+                   "% up, never over the old slab; the rim's edge up to " + (1f + ClassicShape.RimSoftness * s).ToString("0.##", c) + "x as soft, none over a closed deck (" +
+                   (ClassicShape.DeckFrom * 100f).ToString("F0", c) + "-" + (ClassicShape.DeckTo * 100f).ToString("F0", c) + "% cover)";
+        }
+
         // ---- the light ------------------------------------------------------------------------
 
         /// <summary>

@@ -45,6 +45,11 @@ below; the mods list shows it after the mod's name, and the first line of
   the Cumulus heaps go soft and wispy, frayed into strands near their bottoms and billows higher up, with a faint
   see-through fringe, like the Soft style's clouds, instead of hard-edged blocks. Their shadows follow. Off under
   *Simpler clouds*. `VolumetricClouds.xml` gains one line, `CumulusSoftness` (0%): nobody's clouds change.
+- *Natural Classic clouds* (Clouds tab, under *Layer thickness*, 0%): the Classic clouds get thinner toward their edges,
+  rounded on top and underneath, instead of flat slabs as thick at their edge as in their middle. No cloud gets taller
+  than before and the sky holds about as much cloud; their shadows follow. It shapes the Classic clouds wherever they
+  are drawn: the Classic style, and the Classic clouds beside the other styles' clouds. Off under *Simpler clouds*.
+  `VolumetricClouds.xml` gains one line, `ClassicShape` (0%): nobody's clouds change.
 - *Brightness difference between clouds* (Light tab, shown with Mixed and Auto, 100%): under Mixed and Auto the
   soft clouds where the sky has no heaped clouds are lit more dimly than the heaps beside them; lower it and they
   get closer, at 0% just as bright where the sun reaches them, while the sky as a whole keeps about its
@@ -91,6 +96,13 @@ below; the mods list shows it after the mod's name, and the first line of
   bright looking towards a low sun). It is strongest at 150% and fades out towards 200%, where the light
   through the clouds is already that soft by itself: 200% looks as before. A closed overcast keeps its light.
   Up to 100% nothing changes.
+- The clouds draw faster for everyone, with the picture the same to the eye: the sun's light inside a cloud is
+  worked out from fewer looks, the sky's from one, and a short way through a thin layer takes fewer steps. At
+  4K the cloud pass is about 5 to 17% faster under Cumulus, Soft, Mixed and Auto, and about 18 to 36% faster
+  under Classic at the mod's defaults. No setting changes; *Simpler clouds* draws as before. With *Glow and
+  softer shade* over 100%, the sunlit sides of the clouds under Auto come out 2 to 3% darker.
+- *Softer cumulus* costs 20 to 33% less than when it was added: the faint fringe and skin of the heaps take a
+  simpler light. The clouds it draws are the same.
 
 ### Fixed
 

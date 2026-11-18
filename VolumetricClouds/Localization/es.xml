@@ -114,6 +114,8 @@
   <String key="CloudAltitude.Label">Altitud de nubes</String>
 
   <String key="CloudThickness.Label">Grosor de capa</String>
+  <String key="ClassicShape.Label">Nubes clásicas naturales</String>
+  <String key="ClassicShape.Tooltip">Da a las nubes clásicas la forma de nubes reales: más finas hacia los bordes, redondeadas por arriba y por abajo, en lugar de losas planas. Funciona en todos los estilos de nubes. 0% = las nubes clásicas como antes</String>
 
   <String key="CloudDetail.Label">Detalle de nubes (suave a esculpido)</String>
 

@@ -128,6 +128,8 @@
   <String key="CloudAltitude.Label">云层高度</String>
 
   <String key="CloudThickness.Label">云层厚度</String>
+  <String key="ClassicShape.Label">自然的经典云</String>
+  <String key="ClassicShape.Tooltip">让经典云的形状像真实的云：越到边缘越薄，顶部和底部都是圆的，而不是平平的板块。适用于所有云的风格。0% = 经典云与以前相同</String>
 
   <String key="CloudDetail.Label">云层细节（柔和→立体）</String>
 

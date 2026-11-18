@@ -105,8 +105,21 @@ namespace VolumetricClouds.Sky
                         : "the light inside the clouds was over 100% until " + _lightDelay.Unasked(Time.realtimeSinceStartup).ToString("F1") +
                           " s ago (held " + LightOffDelay.ToString("F0") + " s before it goes)";
                 string heaps = HeapsAsked ? "Softer cumulus is on" : null;
-                return light != null && heaps != null ? light + " and " + heaps : light ?? heaps;
+                string classic = ClassicAsked ? "Natural Classic clouds is on" : null;
+                string asked = light != null && heaps != null ? light + " and " + heaps : light ?? heaps;
+                return asked != null && classic != null ? asked + " and " + classic : asked ?? classic;
             }
+        }
+
+        /// <summary>
+        /// Natural Classic clouds asks for the extras' variant: its row over 0 (2026-11-17). Every style draws the Classic
+        /// layer (Soft and Auto only from a cover up), so no style is left out. Under the Classic style this puts the player
+        /// on the extras' program, which also carries the light inside the clouds' code (the Classic light has none of it):
+        /// the price of the new look, measured in the bench.
+        /// </summary>
+        private static bool ClassicAsked
+        {
+            get { return Over(Settings.ClassicShape, 0f); }
         }
 
         /// <summary>Softer cumulus asks for the extras' variant: its row over 0 while a style with heaps is picked (Cumulus, Mixed, Auto).</summary>
@@ -151,7 +164,7 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static bool PlusWanted
         {
-            get { return !Lite && (LightAskedNow || HeapsAsked); }
+            get { return !Lite && (LightAskedNow || HeapsAsked || ClassicAsked); }
         }
 
         /// <summary>
@@ -280,7 +293,7 @@ namespace VolumetricClouds.Sky
                 Log.Msg("cloud shaders: the extras' variant does not run here (" + Describe(ShaderBundle.Raymarch, PlusKeyword) + ", " +
                         Describe(ShaderBundle.Raymarch, PlusFunnelsKeywords) +
                         (shadowName != null ? ", " + Describe(shadowName, PlusKeyword) : "") + "): the extras stand down -- the light inside the " +
-                        "clouds is drawn as at 100% whatever it is set to, and Softer cumulus as at 0%");
+                        "clouds is drawn as at 100% whatever it is set to, and Softer cumulus and Natural Classic clouds as at 0%");
             return Raymarch != null;
         }
 

@@ -114,6 +114,8 @@
   <String key="CloudAltitude.Label">Altitude des nuages</String>
 
   <String key="CloudThickness.Label">Épaisseur de couche</String>
+  <String key="ClassicShape.Label">Nuages classiques naturels</String>
+  <String key="ClassicShape.Tooltip">Donne aux nuages classiques la forme de vrais nuages : plus minces vers leurs bords, arrondis dessus et dessous, au lieu de dalles plates. Fonctionne dans tous les styles de nuages. 0% = les nuages classiques comme avant</String>
 
   <String key="CloudDetail.Label">Détail des nuages (doux à sculptés)</String>
 

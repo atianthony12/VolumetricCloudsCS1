@@ -641,6 +641,15 @@ namespace VolumetricClouds
         public static FloatSetting CloudThickness { get; private set; }
 
         /// <summary>
+        /// 2026-11-17, the author: the Classic clouds need their look improved "a LOT", kept as a style of their own.
+        /// NATURAL CLASSIC CLOUDS (Sky.ClassicShape), 0..1: the Classic layer's clouds thin towards their edges, domed
+        /// on top, their undersides rounding up at the rim, instead of one slab of the same thickness to the edge;
+        /// wherever the layer is drawn (Classic, and beside the other styles' clouds). Drawn by the cloud shader's
+        /// extras variant only. 0 = the layer exactly as it was (the default: nobody's sky changes).
+        /// </summary>
+        public static FloatSetting ClassicShape { get; private set; }
+
+        /// <summary>
         /// CLOUD DETAIL (Sky.CloudDetail, 1.2): how sculpted the clouds are, 0..1 -- crisp edges,
         /// puffy billows and the light and shade that show them. 0 is off: the soft look from
         /// before, exactly. On with the update for everyone (the author's call, 2026-09-26).
@@ -1024,6 +1033,9 @@ namespace VolumetricClouds
 
             public const float Altitude = 750f;
             public const float Thickness = 400f;
+
+            /// <summary>Natural Classic clouds (2026-11-17): off, the layer's slab as it was, so a new row changes nobody's sky.</summary>
+            public const float ClassicShape = 0f;
             /// <summary>
             /// ON, at full: players asked for it, and the author chose to give it to everyone
             /// with the update. A new row, so its default reaches every existing file too (a
@@ -1556,6 +1568,7 @@ namespace VolumetricClouds
                 CumulusSoftness = new FloatSetting("CumulusSoftness", Defaults.CumulusSoftness);
                 CumulusAmount = new FloatSetting("CumulusAmount", Defaults.CumulusAmount);
                 CloudThickness = new FloatSetting("CloudThickness", Defaults.Thickness);
+                ClassicShape = new FloatSetting("ClassicShape", Defaults.ClassicShape);
                 CloudDensity = new FloatSetting("CloudDensity", Defaults.Density);
                 CloudDensitySunset = new FloatSetting("CloudDensitySunset", Defaults.DensitySunset);
                 CloudDensityNight = new FloatSetting("CloudDensityNight", Defaults.DensityNight);

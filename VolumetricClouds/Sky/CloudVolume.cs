@@ -998,7 +998,7 @@ namespace VolumetricClouds.Sky
             else if (asked != null)
                 why = asked + ", but the extras' variant does not run on this graphics driver";
             else
-                why = "nothing asks for one (the light inside the clouds is at 100% or under now, at this time of day and cover, or the Classic style is picked; Softer cumulus at 0% or no style with heaps picked)";
+                why = "nothing asks for one (the light inside the clouds is at 100% or under now, at this time of day and cover, or the Classic style is picked; Softer cumulus at 0% or no style with heaps picked; Natural Classic clouds at 0%)";
             Log.Msg("cloud shader: extras " + (plus ? "on" : "off") + ", because " + why);
         }
 

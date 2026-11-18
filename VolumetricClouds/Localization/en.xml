@@ -151,6 +151,8 @@
   <String key="CloudAltitude.Label">Cloud altitude</String>
 
   <String key="CloudThickness.Label">Layer thickness</String>
+  <String key="ClassicShape.Label">Natural Classic clouds</String>
+  <String key="ClassicShape.Tooltip">Shapes the Classic clouds like real ones: thinner toward their edges, rounded on top and underneath, instead of flat slabs. Works in every cloud style. 0% = the Classic clouds as before</String>
 
   <String key="CloudDetail.Label">Cloud detail (soft to sculpted)</String>
 

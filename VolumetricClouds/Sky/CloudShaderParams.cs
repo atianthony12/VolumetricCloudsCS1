@@ -235,6 +235,7 @@ namespace VolumetricClouds.Sky
             // its detail too. Under Cumulus the heaps come on top, under Soft and Mixed the puffs (ApplyStyle).
             ApplyStyle(material, field, thickness, detailScale, density);
             ApplyFragments(material, field, weatherTile, thickness);
+            ApplyClassicShape(material);
             ApplyDetail(material, detailScale);
             ApplyEmptySky(material, field);
         }
@@ -492,6 +493,34 @@ namespace VolumetricClouds.Sky
             {
                 _softLogged = on;
                 Log.Msg("softer cumulus: " + CloudStyle.DescribeSoftness());
+            }
+        }
+
+        private static readonly int IdClassicShape = Shader.PropertyToID("_ClassicShape");
+        private static readonly int IdClassicRim = Shader.PropertyToID("_ClassicRim");
+        private static int _classicLogged = -1;
+
+        /// <summary>
+        /// Natural Classic clouds (Sky.ClassicShape): the layer's new shape for LayerDensity's branch, which only the extras'
+        /// variant has (VC_PLUS). x = the row as drawn (0: the layer's slab as it always was, nothing else of it read),
+        /// y = 1 / the span over which a cloud reaches its full height (in the map's units), z = the gain, w = the widest level.
+        /// Every material that marches the clouds (cloud, air, shadow map) gets it here, so the shadows follow (invariant 1).
+        /// </summary>
+        private static void ApplyClassicShape(Material material)
+        {
+            float row = CloudStyle.ClassicShapeNow;
+            material.SetVector(IdClassicShape, row > 0f
+                ? new Vector4(row, 1f / (CloudDensityField.EdgeSoftness * ClassicShape.Span), ClassicShape.Gain, ClassicShape.Middle)
+                : Vector4.zero);
+            // The soft rim, gone as the sky closes into a deck (ClassicShape.RimAt).
+            material.SetFloat(IdClassicRim, row > 0f ? ClassicShape.RimAt(row, Coverage) : 0f);
+
+            // On the log when it goes on or off (a slider: not on every tick of a drag).
+            int on = row > 0f ? 1 : 0;
+            if (on != _classicLogged)
+            {
+                _classicLogged = on;
+                Log.Msg("natural classic clouds: " + CloudStyle.DescribeClassicShape());
             }
         }
 
