@@ -903,6 +903,7 @@ namespace VolumetricClouds.Sky
             bool replaceGame = _gameBoltHidden;
             bool drawn = false;
             _drawnBolts.Clear();
+            LightningBolts.Begin(_boltMaterial);
 
             foreach (Strike strike in _active)
             {
@@ -935,6 +936,10 @@ namespace VolumetricClouds.Sky
                 _block.SetVector(IdBoltLeader, new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal), 0f, forkFade));
                 Graphics.DrawMesh(strike.Bolt, Matrix4x4.identity, _boltMaterial, 0, null, 0, _block);
                 _drawnBolts.Add(strike.Bolt);
+                // The same bolt for other mods' reflections (LightningBolts: Real Glass's water).
+                LightningBolts.Add(strike.Bolt, new Vector4(colour.r, colour.g, colour.b, 0f), intensity,
+                                   new Vector4(reveal >= 0f ? 1f : 0f, Mathf.Max(0f, reveal), 0f, forkFade),
+                                   IdBoltColor, IdBoltIntensity, IdBoltLeader);
                 drawn = true;
             }
 
@@ -1017,6 +1022,7 @@ namespace VolumetricClouds.Sky
         private void OnDestroy()
         {
             Clear();
+            LightningBolts.Clear();
 
             if (Singleton<WeatherManager>.exists)
                 HideGameBolt(false);

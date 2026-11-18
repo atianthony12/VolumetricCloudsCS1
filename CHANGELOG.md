@@ -31,6 +31,8 @@ below; the mods list shows it after the mod's name, and the first line of
   the edges). *Storm mist* (100%): in heavy rain and a strong wind, mist rolls low along the streets with the wind.
 - *Wet roads and puddles* (Weather tab, new Wet ground group, 100%): in and after rain, roads and ground get
   darker and shiny, mirror the city and the sky, puddles form on flat ground and drops make rings in them.
+  Bare terrain (grass, soil, fields, sand) gets only a tenth of the wetness, so the countryside keeps its colour;
+  roads, paved and gravel lots and everything built stay fully wet.
   *Spray from wheels* (100%): cars throw up spray and a trail of mist from wet roads.
 - *Rain curtain brightness* (Weather tab, Rain, 100%, with a clock): how bright the rain curtains under the
   clouds are, by day, at sunset and at night, so they can dim a city's lights at night instead of glowing over
@@ -81,6 +83,8 @@ below; the mods list shows it after the mod's name, and the first line of
   `HaloFlareVehicles` (50%) and `HaloFlareSizeVehicles` (75%). Players who use the replacement halos see the flare
   at once; 0% on the three strengths gives their lights exactly as before. Players without the replacement halos
   see no change. *Near lights: closer than* is no longer greyed with the halos off.
+- Lightning bolts for other mods' reflections: a mod that draws its own reflection of the sky (Real Glass &
+  Water's water) can now draw our bolts into it, so strikes reflect in the water.
 
 ### Changed
 

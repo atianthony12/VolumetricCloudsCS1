@@ -63,6 +63,16 @@ namespace VolumetricClouds.Sky
         private static readonly int IdWater = Shader.PropertyToID("_VWWetWater");
         private static readonly int IdWaterOn = Shader.PropertyToID("_VWWetWaterOn");
         private static readonly int IdPlaces = Shader.PropertyToID("_VWWetPlaces");
+        private static readonly int IdTerrainMap = Shader.PropertyToID("_VWWetTerrainMap");
+        private static readonly int IdTerrain = Shader.PropertyToID("_VWWetTerrain");
+
+        /// <summary>
+        /// Bare terrain's share of the wetness (2026-11-18, the author: "terrain only gets around 10% of the
+        /// wetness value"): roads, paved and gravel lots, roofs and everything standing keep all of it.
+        /// </summary>
+        public const float TerrainShare = 0.1f;
+
+        private readonly WetTerrainMap _terrain = new WetTerrainMap();
 
         /// <summary>The ground's wetness as the game has it, 0..1 (0 with no weather manager).</summary>
         public static float GroundWetness
@@ -120,6 +130,16 @@ namespace VolumetricClouds.Sky
                 _material.SetTexture(IdPlaces, TerrainHeightMap.Places);
             }
             _material.SetFloat(IdWaterOn, water ? 1f : 0f);
+
+            // Bare terrain at a tenth: where the camera looks, the game's own surface (WetTerrainMap).
+            // Until its first build is in, everything is wet as before.
+            CameraController controller = GameCamera.Controller;
+            _terrain.Update(controller != null ? controller.m_currentPosition : camera.transform.position);
+            Texture terrainMap = _terrain.Texture;
+            if (terrainMap != null)
+                _material.SetTexture(IdTerrainMap, terrainMap);
+            _material.SetVector(IdTerrain, new Vector4(_terrain.Centre.x, _terrain.Centre.y, _terrain.BaseHeight,
+                                                       terrainMap != null ? TerrainShare : 1f));
             Shader.SetGlobalVector(IdPublished, new Vector4(1f, drawn, 1f, 0f));
 
             if (Log.Detailed && Time.time >= _nextLog)
@@ -286,6 +306,7 @@ namespace VolumetricClouds.Sky
         {
             Detach("the city closes");
             Shader.SetGlobalVector(IdPublished, Vector4.zero);
+            _terrain.Destroy();
             if (_material != null)
                 Destroy(_material);
             if (_quad != null)
