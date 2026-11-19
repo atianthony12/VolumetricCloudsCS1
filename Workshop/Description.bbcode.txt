@@ -1,5 +1,5 @@
-[h1]Version 1.5.3[/h1]
-Smoother clouds now on by default with improved performance (if you notice smearing when moving the camera, uncheck the option in the Pause Menu > Options > Volumetric Weather). New cloud style "Auto" that follows the weather. Curved clouds can change with the time of day and the weather. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
+[h1]Version 1.6: wet streets, storms and new cloud shapes[/h1]
+Rain that leans with the wind, wet roads and puddles, travelling storms with more varied lightning, softer and more varied cumulus, and much faster clouds on 4K screens. New mod defaults for new installs: existing players keep their sky and get a one-time message offering to try them. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
@@ -11,8 +11,6 @@ If something stopped working after the update, please let me know.
 [*][b]Press Shift+F4[/b] to toggle the clouds/fog (useful when building, detailing, etc.). Both keys can be changed in the mod's options.
 [/olist]
 
-To see more tabs in the in-game UI like the screenshots above, go to the mod's options in the Pause Menu, then toggle "Show advanced options in the in-game panel".
-
 [hr][/hr]
 [h1]Features[/h1]
 [h3]Clouds[/h3]
@@ -21,11 +19,14 @@ To see more tabs in the in-game UI like the screenshots above, go to the mod's o
 [*]5 cloud styles: Classic, Cumulus, Soft, Mixed and Auto (new in v1.5.3)
 [*]Distant clouds: HDRI skies from [url=https://polyhaven.com]Poly Haven[/url]
 [*]Curved clouds to the horizon (new in v1.5.2)
+[*]Cloud variety, Softer cumulus, Rounded cumulus bases and Natural Classic clouds (new in v1.6)
 [/list]
 [h3]Weather[/h3]
 [list]
 [*]Follows the game's weather, or set it yourself
 [*]Rain, lightning, rainbows and waterspouts
+[*]Wind on the rain, Finer rain, Wet roads and puddles, Spray from wheels and Travelling storms (new in v1.6)
+[*]Flare around lights (new in v1.6)
 [*]Volumetric fog and smaller light halos (optional)
 [*]Trees that move in the wind (new in v1.5.2, experimental)
 [/list]

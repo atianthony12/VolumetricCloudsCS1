@@ -375,24 +375,14 @@ namespace VolumetricClouds.UI
         }
 
         /// <summary>
-        /// In the in-game panel: <see cref="Shown"/>, and on a basic tab (Now, Clouds, Fog, Light) a
-        /// row that would be greyed out (<see cref="Enabled"/>) is hidden instead, unless "Show
-        /// advanced options in the in-game panel" is ticked -- then it is shown greyed, as before
-        /// 1.4.0 (the author: "let's hide the rows instead of disabling them. They can just show when
-        /// advanced settings are on"). The advanced tabs grey their rows as they always did.
+        /// In the in-game panel: <see cref="Shown"/>. A row that is greyed out (<see cref="Enabled"/>)
+        /// is shown greyed. (1.4.0 to 1.5.3 hid a basic tab's greyed rows unless "Show advanced options
+        /// in the in-game panel" was ticked; the switch went in 1.6.0, the author's call: the panel is
+        /// always the advanced one.)
         /// </summary>
         public bool IsShownInPanel
         {
-            get
-            {
-                if (!IsShown)
-                    return false;
-
-                if (Panel == PanelPage.None || IsEnabled)
-                    return true;
-
-                return Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
-            }
+            get { return IsShown; }
         }
 
         /// <summary>On the game's options page: <see cref="Shown"/>, and <see cref="OptionsPageShown"/> there.</summary>
@@ -698,8 +688,7 @@ namespace VolumetricClouds.UI
 
             SettingsXml.SaveNow();
             Log.Msg("settings: RESET to defaults (" + Rows.Count + " rows; volumetric fog = " +
-                    OnOff(Settings.FogEnabled)() + ", advanced panel = " + OnOff(Settings.ShowAdvancedInPanel)() +
-                    ", quality preset = " + PresetName(Settings.QualityPreset != null ? Settings.QualityPreset.value : Settings.Defaults.Preset) +
+                    OnOff(Settings.FogEnabled)() + ", quality preset = " + PresetName(Settings.QualityPreset != null ? Settings.QualityPreset.value : Settings.Defaults.Preset) +
                     ", profile = none" + (profile.Length > 0 ? " ('" + profile + "' let go first; its file is kept)" : "") + ")");
         }
 
@@ -3471,19 +3460,8 @@ namespace VolumetricClouds.UI
                 Profiled = false,
             });
 
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Options = OptionsPage.General,
-                Bool = Settings.ShowAdvancedInPanel,
-                DefaultBool = Settings.Defaults.ShowAdvancedInPanel,
-                Profiled = false,
-                AfterChange = () =>
-                {
-                    Log.Msg("setting: advanced options in the in-game panel = " + OnOff(Settings.ShowAdvancedInPanel)());
-                    ModController.RebuildPanel();
-                },
-            });
+            // (Until 1.6.0 "Show advanced options in the in-game panel" was here; the author took it out,
+            // 2026-11-19: every tab always. Its name is retired in SettingsXml.Retired.)
 
             // The panel's look (1.5.0, ModsLibCS1). Stored by value, append only; listed with the
             // default (Frosted glass) first and the old look last. A change rebuilds the panel where

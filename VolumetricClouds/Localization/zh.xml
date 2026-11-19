@@ -465,8 +465,6 @@
 
   <String key="WeatherKey.Label">快速开关</String>
 
-  <String key="ShowAdvancedInPanel.Label">在游戏内面板显示高级选项</String>
-
   <String key="PanelSkin.Label">面板外观</String>
   <String key="PanelSkin.SeeThrough">半透明</String>
   <String key="PanelSkin.Frosted">磨砂玻璃</String>
@@ -486,7 +484,7 @@
 
   <String key="ResetAll.Label">将所有设置恢复默认</String>
   <String key="ResetAll.Confirm">
-    将所有设置恢复为默认值吗？\n\n这会丢弃你调整过的所有内容，包括游戏内面板中的更改，并关闭“体积雾”和“在游戏内面板显示高级选项”。\n\n已保存的配置会保留；重置后不会选中任何配置，再次选择即可恢复其中的天空设置。
+    将所有设置恢复为默认值吗？\n\n这会丢弃你调整过的所有内容，包括游戏内面板中的更改，并关闭“体积雾”。\n\n已保存的配置会保留；重置后不会选中任何配置，再次选择即可恢复其中的天空设置。
   </String>
 
   <String key="ResetPattern.Label">重置云层图案</String>
@@ -517,7 +515,7 @@
 
   <String key="HudButtonX.Label">模组按钮（不使用 Unified UI）：距左边缘</String>
   <String key="HudButtonY.Label">模组按钮（不使用 Unified UI）：距上边缘</String>
-  <String key="PanelOpenGroups.Label">游戏内面板中展开的标题（启用高级选项时），以逗号分隔</String>
+  <String key="PanelOpenGroups.Label">游戏内面板中展开的标题，以逗号分隔</String>
   <String key="PanelOpenClocks.Label">游戏内面板中显示白天、日落和夜间的行，以逗号分隔</String>
   <String key="PanelOpenWeather.Label">游戏内面板中显示晴空和阴天的行，以逗号分隔</String>
 
@@ -551,7 +549,6 @@
     体积天气设置。\n\n游戏运行时可编辑此文件：保存后，模组会在一秒内重新读取，面板也会同步更新。\n\n- 小数使用点：0.5，不要写 0,5。\n- 百分比按滑块显示方式填写：47 表示 47%。\n- 超出范围的值会被拉回范围内。无法读取的值以及模组不认识的名称会被忽略；VolumetricClouds.log 会说明具体项目。\n- 缺少某项设置行时，会保留当前值（启动时则为默认值）。\n- 如果整个文件都无法读取，模组不会修改它，并会在日志中说明。\n- 每当游戏内设置改变时，模组都会重写此文件（包括这些注释），因此你自行添加的注释不会保留。\n- 关闭游戏后删除此文件，可从全部默认设置重新开始。
   </String>
   <String key="File.Section.Panel">游戏内面板：{0} 选项卡</String>
-  <String key="File.Section.Advanced">游戏内面板（已开启高级选项）：{0} 选项卡</String>
   <String key="File.Section.Options">游戏选项页面</String>
   <String key="File.Section.None">两个页面都不显示</String>
   <String key="File.Percent">{0}，单位 %。{1} 到 {2}，默认 {3}。</String>

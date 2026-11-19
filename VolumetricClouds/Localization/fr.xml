@@ -451,8 +451,6 @@
 
   <String key="WeatherKey.Label">Bascule rapide</String>
 
-  <String key="ShowAdvancedInPanel.Label">Afficher les options avancées dans le panneau</String>
-
   <String key="PanelSkin.Label">Apparence du panneau</String>
   <String key="PanelSkin.SeeThrough">Transparent</String>
   <String key="PanelSkin.Frosted">Verre dépoli</String>
@@ -471,7 +469,7 @@
   <String key="Group.StartingOver">Recommencer</String>
 
   <String key="ResetAll.Label">Réinitialiser tous les réglages</String>
-  <String key="ResetAll.Confirm">Rétablir tous les réglages par défaut ?\n\nCela efface tous vos réglages, y compris ceux du panneau en jeu, et désactive « Brouillard volumétrique » et « Afficher les options avancées dans le panneau ».\n\nVos profils sont conservés : aucun profil ne sera sélectionné ensuite, et en choisir un restaurera son ciel.</String>
+  <String key="ResetAll.Confirm">Rétablir tous les réglages par défaut ?\n\nCela efface tous vos réglages, y compris ceux du panneau en jeu, et désactive « Brouillard volumétrique ».\n\nVos profils sont conservés : aucun profil ne sera sélectionné ensuite, et en choisir un restaurera son ciel.</String>
 
   <String key="ResetPattern.Label">Réinitialiser le motif de nuages</String>
   <String key="ResetPattern.Confirm">Donner à cette ville un nouveau motif de nuages et de brouillard ?\n\nVotre dernière sauvegarde garde l’ancien jusqu’à la prochaine sauvegarde manuelle ou auto : la recharger avant cela restaure l’ancien ciel.\n\nAucun de vos réglages ne change.</String>
@@ -497,7 +495,7 @@
 
   <String key="HudButtonX.Label">Bouton du mod (sans Unified UI) : distance depuis le bord gauche</String>
   <String key="HudButtonY.Label">Bouton du mod (sans Unified UI) : distance depuis le bord supérieur</String>
-  <String key="PanelOpenGroups.Label">Titres ouverts du panneau en jeu (options avancées activées), séparés par des virgules</String>
+  <String key="PanelOpenGroups.Label">Titres ouverts du panneau en jeu, séparés par des virgules</String>
   <String key="PanelOpenClocks.Label">Lignes du panneau en jeu qui montrent le jour, le couchant et la nuit, séparées par des virgules</String>
   <String key="PanelOpenWeather.Label">Lignes du panneau en jeu qui montrent le ciel clair et le ciel couvert, séparées par des virgules</String>
 
@@ -529,7 +527,6 @@
   <!-- One line of the file per \n: a bullet wrapped here stays one line there. -->
   <String key="File.Header">Réglages de Volumetric Weather.\n\nVous pouvez modifier ce fichier pendant le jeu : le mod le relit dans la seconde suivant son enregistrement et les panneaux se mettent à jour.\n\n- Les décimales utilisent un point : 0.5, jamais 0,5.\n- Un pourcentage s’écrit comme sur son curseur : 47 signifie 47 %.\n- Une valeur hors plage est ramenée dans la plage. Une valeur illisible ou un nom inconnu du mod est ignoré. VolumetricClouds.log indique lequel.\n- Un réglage dont la ligne manque garde sa valeur actuelle (au démarrage, sa valeur par défaut).\n- Si le fichier est totalement illisible, le mod le laisse intact et l’indique dans le journal.\n- Le mod réécrit ce fichier, commentaires inclus, à chaque changement de réglage dans le jeu : vos propres notes seront perdues.\n- Supprimez le fichier jeu fermé pour repartir de tous les réglages par défaut.</String>
   <String key="File.Section.Panel">Panneau en jeu : onglet {0}</String>
-  <String key="File.Section.Advanced">Panneau en jeu, options avancées : onglet {0}</String>
   <String key="File.Section.Options">Page des options du jeu</String>
   <String key="File.Section.None">Absent des deux pages</String>
   <String key="File.Percent">{0}, en %. {1} à {2}, défaut {3}.</String>

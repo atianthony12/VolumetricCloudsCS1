@@ -1,0 +1,29 @@
+[h1]Version 1.6.0[/h1]
+[b]New[/b]
+[list]
+[*][b]Cloud variety[/b]: some stretches of sky grow tall towering cumulus, others stay flat and small (Clouds tab).
+[*][b]Softer cumulus[/b]: the heaped clouds get soft, wispy edges instead of hard blocks (Clouds tab).
+[*][b]Rounded cumulus bases[/b]: cumulus bottoms are rounded and uneven instead of one flat line (Clouds tab).
+[*][b]Natural Classic clouds[/b]: Classic clouds get thinner toward their edges and rounded, instead of flat slabs (Clouds tab).
+[*][b]Wind on the rain[/b] and [b]Finer rain[/b]: rain leans with the wind, with drops of many sizes, sheets of heavier rain, splashes, rain lit by street lights and no rain under roofs and bridges.
+[*][b]Wet roads and puddles[/b]: roads get dark and shiny in the rain and mirror the city, with puddles; grass and trees have their own sliders.
+[*][b]Spray from wheels[/b] and [b]Storm mist[/b].
+[*][b]Travelling storms[/b] and [b]Lightning variety[/b]: storms come in from upwind and move away, with bolts of many shapes and colors.
+[*][b]Flare around lights[/b]: lamps throw thin rays of light, with the replacement light halos (Halos tab).
+[*][b]New mod defaults[/b]: a new sky for new installs. Existing players keep theirs and get a one-time message offering to try them.
+[/list]
+[b]Changed[/b]
+[list]
+[*]The in-game panel now always shows every tab, Weather and Halos included: [i]Show advanced options[/i] is gone.
+[*][i]Smoother clouds[/i] is much faster on 4K screens and with Dynamic Resolution over 100%, and no longer smears when the camera moves.
+[*]The clouds draw faster for everyone, with the same look.
+[*]Soft clouds under [i]Mixed[/i] and [i]Auto[/i] are now as bright as the heaped clouds beside them.
+[*][i]Storms[/i] and [i]Cloud position[/i] moved to the Now tab.
+[*]New installs start on the Medium quality preset (or Low on weaker computers). Existing players keep their quality.
+[/list]
+[b]Fixed[/b]
+[list]
+[*]Rain curtains no longer light up like day when [i]Cloud brightness[/i] is raised at night.
+[*]A lightning bolt no longer leaves dark lines in the rain and clouds behind it.
+[*]A long profile name with an emoji could stop the game from drawing new text.
+[/list]

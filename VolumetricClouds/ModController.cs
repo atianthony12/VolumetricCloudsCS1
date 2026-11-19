@@ -31,9 +31,9 @@ namespace VolumetricClouds
         }
 
         /// <summary>
-        /// Rebuilds the in-game panel after "Show advanced options" changes: which tabs it has
-        /// is decided when it is built. Safe with no city loaded -- the switch lives on the
-        /// options page, which is reachable from the main menu.
+        /// Rebuilds the in-game panel after a change decided when it is built (the panel look; until
+        /// 1.6.0 also "Show advanced options"). Safe with no city loaded -- the options page is
+        /// reachable from the main menu.
         /// </summary>
         public static void RebuildPanel()
         {

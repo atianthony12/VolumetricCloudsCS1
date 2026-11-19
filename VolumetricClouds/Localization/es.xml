@@ -451,8 +451,6 @@
 
   <String key="WeatherKey.Label">Activar/desactivar rápido</String>
 
-  <String key="ShowAdvancedInPanel.Label">Mostrar opciones avanzadas en el panel</String>
-
   <String key="PanelSkin.Label">Aspecto del panel</String>
   <String key="PanelSkin.SeeThrough">Transparente</String>
   <String key="PanelSkin.Frosted">Vidrio esmerilado</String>
@@ -471,7 +469,7 @@
   <String key="Group.StartingOver">Empezar de nuevo</String>
 
   <String key="ResetAll.Label">Restablecer todos los ajustes</String>
-  <String key="ResetAll.Confirm">¿Restablecer todos los ajustes?\n\nEsto descarta todos tus cambios, incluidos los del panel del juego, y desactiva 'Niebla volumétrica' y 'Mostrar opciones avanzadas en el panel'.\n\nTus perfiles guardados se conservan: después no habrá ningún perfil seleccionado, y elegir uno restaurará su cielo.</String>
+  <String key="ResetAll.Confirm">¿Restablecer todos los ajustes?\n\nEsto descarta todos tus cambios, incluidos los del panel del juego, y desactiva 'Niebla volumétrica'.\n\nTus perfiles guardados se conservan: después no habrá ningún perfil seleccionado, y elegir uno restaurará su cielo.</String>
 
   <String key="ResetPattern.Label">Nuevo patrón de nubes</String>
   <String key="ResetPattern.Confirm">¿Dar a esta ciudad un nuevo patrón de nubes y niebla?\n\nTu última partida guardada conserva el anterior hasta que tú o el autoguardado volváis a guardar: cargarla antes recupera el cielo anterior.\n\nNingún ajuste cambia.</String>
@@ -497,7 +495,7 @@
 
   <String key="HudButtonX.Label">Botón del mod (sin Unified UI): distancia desde la izquierda</String>
   <String key="HudButtonY.Label">Botón del mod (sin Unified UI): distancia desde arriba</String>
-  <String key="PanelOpenGroups.Label">Encabezados abiertos del panel del juego (opciones avanzadas activadas), separados por comas</String>
+  <String key="PanelOpenGroups.Label">Encabezados abiertos del panel del juego, separados por comas</String>
   <String key="PanelOpenClocks.Label">Filas del panel del juego que muestran día, atardecer y noche, separadas por comas</String>
   <String key="PanelOpenWeather.Label">Filas del panel del juego que muestran cielo despejado y cubierto, separadas por comas</String>
 
@@ -529,7 +527,6 @@
   <!-- One line of the file per \n: a bullet wrapped here stays one line there. -->
   <String key="File.Header">Ajustes de Volumetric Weather.\n\nPuedes editar este archivo con el juego en marcha: el mod vuelve a leerlo en el segundo posterior a guardarlo y los paneles se actualizan.\n\n- Los números usan punto decimal: 0.5, nunca 0,5.\n- Un porcentaje se escribe como lo muestra su control: 47 significa 47%.\n- Un valor fuera de rango se ajusta al límite. Un valor ilegible o un nombre desconocido se ignoran. VolumetricClouds.log indica cuál.\n- Un ajuste cuya línea falta conserva su valor actual (al iniciar, el predeterminado).\n- Si el archivo no se puede leer, el mod no lo modifica y lo indica en el registro.\n- El mod reescribe este archivo, incluidos estos comentarios, cada vez que cambia un ajuste en el juego: tus notas no se conservarán.\n- Borra el archivo con el juego cerrado para volver a todos los valores predeterminados.</String>
   <String key="File.Section.Panel">Panel del juego: pestaña {0}</String>
-  <String key="File.Section.Advanced">Panel del juego, con opciones avanzadas: pestaña {0}</String>
   <String key="File.Section.Options">Página de opciones del juego</String>
   <String key="File.Section.None">No se muestra en ninguna página</String>
   <String key="File.Percent">{0}, en %. De {1} a {2}, predeterminado {3}.</String>

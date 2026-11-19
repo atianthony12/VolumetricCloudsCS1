@@ -71,11 +71,6 @@ rain, lightning, rainbows and fog. Works on Windows, Mac and Linux.
 3. **Press F4** (or click the mod's button) to open the in-game panel.
 4. **Press Shift+F4** to hide all of the weather while you build, and again to bring it back.
 
-> [!TIP]
-> To see more tabs in the panel, go to the mod's options (Pause menu → Options → Volumetric
-> Weather) and tick **Show advanced options in the in-game panel**. The Weather and Halos tabs join
-> the panel.
-
 **Not using Steam?** Download the zip from [Releases](../../releases) and put its
 `VolumetricClouds` folder (three DLLs) in `%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods\`,
 then enable the mod in Content Manager → Mods. You still need Harmony. Only use one copy: if you
@@ -93,8 +88,8 @@ keyboards.
 
 ## Guide
 
-The panel has five tabs: **Now**, **Clouds**, **Distant clouds**, **Fog** and **Light**, plus
-**Weather** and **Halos** with the advanced options on. Every row has its own reset button. Some
+The panel has seven tabs: **Now**, **Clouds**, **Distant clouds**, **Fog**, **Light**, **Weather**
+and **Halos**. Every row has its own reset button. Some
 rows also have a **clock** button, to give them a different value for the day, the sunset and the
 night, or a **cloud** button, for a clear sky and a full overcast.
 
@@ -205,7 +200,7 @@ In the Pause menu → Options → Volumetric Weather:
 - **Simpler clouds for older graphics cards**: a lighter cloud shader, without the Soft and Mixed
   styles, curved clouds, smoother clouds, valley and water fog, or waterspouts. The mod switches to
   it by itself if the full clouds can't draw on your computer.
-- The language, both keys, the advanced options, the **Panel look** (Frosted glass, See-through,
+- The language, both keys, the **Panel look** (Frosted glass, See-through,
   Blue or Vanilla), **Where to show mod icon** (Unified UI, Toolbar or Never), **Detailed logging**,
   **Reset all settings to defaults** and **Reset cloud pattern**.
 

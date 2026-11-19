@@ -9,14 +9,15 @@ namespace VolumetricClouds.UI
     /// The in-game panel: what you set while looking at the sky.
     /// </summary>
     /// <remarks>
-    /// This is the ONLY place the sky is set (1.1.0). By default it has four tabs:
+    /// This is the ONLY place the sky is set (1.1.0). Its tabs:
     ///   Now    -- every override in the mod, plus the two status lines. Photo mode.
     ///   Clouds -- the shape of the sky.
     ///   Fog    -- the fog, which is a cloud layer lying on the ground.
     ///   Light  -- shadows and brightness (an advanced tab until 1.3.0).
-    /// "Show advanced options in the in-game panel" (on the game's options page) adds two
-    /// more: Weather and Halos -- the rows whose Row.Options names them. A row that is already
-    /// on one of the basic tabs is not repeated on an advanced one. (A third, Rendering, went in
+    ///   Weather and Halos -- the rows whose Row.Options names them. Until 1.6.0 these two were
+    /// shown only with "Show advanced options in the in-game panel" (the options page); the author
+    /// took the switch out (2026-11-19): every tab always, the greyed rows shown greyed, the headings
+    /// folding. (A third, Rendering, went in
     /// 1.3.0: its rows are on the options page.) The mod itself and what the computer can
     /// afford (quality, language, key, button, diagnostics, the resets) are on the options page
     /// (<see cref="OptionsUI"/>) alone: Row.Options == General.
@@ -33,8 +34,7 @@ namespace VolumetricClouds.UI
     /// </remarks>
     public class CloudsPanel : UIPanel
     {
-        private const float BasicWidth = 600f;
-        private const float AdvancedWidth = 680f;   // was for seven tabs; Weather and Halos are laid out at it
+        private const float AdvancedWidth = 680f;   // Vanilla's (600 without the Weather and Halos tabs until 1.6.0)
 
         /// <summary>
         /// The new looks' width (1.5.0), basic or advanced: the icon tabs need no room, the names keep
@@ -208,7 +208,7 @@ namespace VolumetricClouds.UI
 
         private const float RefreshInterval = 0.25f;
         private float _nextRefreshTime;
-        private float _width = BasicWidth;
+        private float _width = AdvancedWidth;
 
         /// <summary>
         /// Guards the refresh against its own callbacks: writing a UISlider's value fires
@@ -329,12 +329,10 @@ namespace VolumetricClouds.UI
 
         /// <summary>
         /// The groups left open (Settings.PanelOpenGroups, 1.5.0), as last read; every other one is
-        /// folded away. Only while the advanced options are on -- the basic panel is short enough,
-        /// and its headings stay plain.
+        /// folded away.
         /// </summary>
         private readonly List<string> _open = new List<string>();
         private string _openRead;
-        private bool _advanced;
 
         /// <summary>The rows whose clock is open (Settings.PanelOpenClocks, 1.5.0), as last read.</summary>
         private readonly List<string> _openClocks = new List<string>();
@@ -350,8 +348,6 @@ namespace VolumetricClouds.UI
 
             _instance = this;
 
-            bool advanced = Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
-            _advanced = advanced;
             ReadOpen();
             ReadOpenClocks();
             ReadOpenWeather();
@@ -359,9 +355,9 @@ namespace VolumetricClouds.UI
             _ui = PanelLook.NewBuilder();
             _tabHeight = _ui.Skin == Skin.Vanilla ? TabHeight : IconTabHeight;
 
-            // Vanilla as it always was. The new looks: one width, basic or advanced (NewLooksWidth),
+            // Vanilla as it always was with every tab. The new looks: one width (NewLooksWidth),
             // the names keeping their full size (BuildPage).
-            _width = _ui.Skin != Skin.Vanilla ? NewLooksWidth : advanced ? AdvancedWidth : BasicWidth;
+            _width = _ui.Skin != Skin.Vanilla ? NewLooksWidth : AdvancedWidth;
 
             size = new Vector2(_width, PanelHeight);
             canFocus = true;
@@ -375,7 +371,7 @@ namespace VolumetricClouds.UI
             // Every setting row ends in its reset button (1.5.0): room for it on every row.
             _ui.ResetColumn = ResetColumn;
 
-            List<Tab> tabs = Tabs(advanced);
+            List<Tab> tabs = Tabs();
             List<string> icons = new List<string>();
             foreach (Tab tab in tabs)
             {
@@ -413,8 +409,7 @@ namespace VolumetricClouds.UI
                     RefreshValues();
             };
 
-            Log.Msg("panel built: " + _controls.Count + " controls over " + _pages.Count + " tabs (" +
-                    (advanced ? "advanced" : "basic") + ", " + _ui.Skin + ")");
+            Log.Msg("panel built: " + _controls.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin + ")");
         }
 
         /// <summary>
@@ -437,18 +432,15 @@ namespace VolumetricClouds.UI
             }
         }
 
-        private static List<Tab> Tabs(bool advanced)
+        private static List<Tab> Tabs()
         {
             List<Tab> tabs = new List<Tab>();
 
             foreach (PanelPage page in BasicTabs)
                 tabs.Add(new Tab { Name = SettingsCatalog.TabName(page), Panel = page });
 
-            if (advanced)
-            {
-                foreach (OptionsPage page in AdvancedTabs)
-                    tabs.Add(new Tab { Name = SettingsCatalog.TabName(page), Options = page });
-            }
+            foreach (OptionsPage page in AdvancedTabs)
+                tabs.Add(new Tab { Name = SettingsCatalog.TabName(page), Options = page });
 
             return tabs;
         }
@@ -591,8 +583,7 @@ namespace VolumetricClouds.UI
         }
 
         /// <summary>
-        /// Hides the rows Row.IsShownInPanel says to -- Row.Shown (1.3.0), and since 1.4.0 a basic
-        /// tab's greyed-out rows while the advanced options are off -- and closes their page up under
+        /// Hides the rows Row.IsShownInPanel says to -- Row.Shown (1.3.0) -- and closes their page up under
         /// them, or opens it again. Runs with every refresh, but a page is laid out again only when
         /// one of its rows has actually changed.
         /// </summary>
@@ -761,7 +752,7 @@ namespace VolumetricClouds.UI
 
         private bool IsFolded(string group)
         {
-            return _advanced && group != null && !_open.Contains(group);
+            return group != null && !_open.Contains(group);
         }
 
         private void ReadOpen()
@@ -991,7 +982,7 @@ namespace VolumetricClouds.UI
             HashSet<UIComponent> claimed = new HashSet<UIComponent>();
 
             // The Distant clouds tab is short: its headings stay plain, never folding (1.5.0).
-            bool folding = _advanced && tab.Panel != PanelPage.DistantClouds;
+            bool folding = tab.Panel != PanelPage.DistantClouds;
 
             // The names' column, per page: as wide as the page's longest name needs (capitals in
             // Frosted take more room), at least the skin's 196. At most 46% of the page in Vanilla;

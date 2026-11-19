@@ -5,7 +5,16 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## 1.6.0 — unreleased
+## 1.6.0 — 2026-11-19
+
+New cloud shapes (*Cloud variety*, *Softer cumulus*, *Rounded cumulus bases*, *Natural Classic clouds*), rain that
+leans with the wind with finer drops, wet roads and puddles, spray from wheels, travelling storms and more varied
+lightning, a flare around lights, much faster *Smoother clouds* at 4K and under supersampling, and new mod defaults
+with a one-time message offering them. Existing players keep their sky: every new cloud-shape row reads 0% from an
+older file, and their profiles read the same. What they do see change: the rain, lightning, wet ground and storm
+rows come in on at 100% (0% gives the old look), soft clouds under Mixed and Auto are as bright as the heaps, and
+the flare shows on lamps for players with the replacement halos, and the in-game panel shows every tab. Two rows
+leave `VolumetricClouds.xml`: `ShowAdvancedInPanel` and the test row `SmootherCloudsSharp`. Nothing in saved cities changes.
 
 ### Added
 
@@ -92,10 +101,10 @@ below; the mods list shows it after the mod's name, and the first line of
 - **Quality for a new install follows the computer**: Medium (it was High), or Low where the game's own shadows,
   level of detail or textures were lowered or the graphics card has under 4 GB. Never High on its own: pick it on
   the options page. Existing players keep their quality.
-- *Cloud drawing size* (options page, under *Smoother clouds*, *Half the screen*): how large Smoother clouds draws
-  the clouds before blending them. *A third of the screen* draws them nearly twice as fast at 4K, *A quarter* faster
-  still, *By screen size* a third above 1440p; the finest wisps get softer. `VolumetricClouds.xml` gains one line,
-  `SmootherCloudsSize` (0, half the screen, as before): nothing changes for existing players.
+- *Cloud drawing size* (options page, under *Smoother clouds*, *Sharpest*): how large Smoother clouds draws
+  the clouds before blending them. *Balanced* draws them nearly twice as fast at 4K, *Fastest* faster still,
+  *Automatic* is the sharpest up to 1440p and Balanced above; the finest wisps get softer. `VolumetricClouds.xml`
+  gains one line, `SmootherCloudsSize` (0, Sharpest, as before): nothing changes for existing players.
 - *Flare around lights* (Halos tab, its own group): with the replacement light halos on, street and building lamps
   throw thin rays out from their light, as the eye sees a bright light at night: a few long spikes and many fine
   rays, in the lamp's own colour. The nearer and brighter the lamp, the longer its rays; far lamps get short
@@ -115,6 +124,9 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ### Changed
 
+- The in-game panel always has every tab: *Show advanced options in the in-game panel* is gone from the options
+  page. Weather and Halos are there for everyone, every tab's headings fold, and a row that does nothing at the
+  moment shows grayed out instead of hidden. Its line, `ShowAdvancedInPanel`, leaves `VolumetricClouds.xml`.
 - *Cloud position X / Y* moved from the Weather tab to the bottom of the Now tab, where everyone sees it (still
   this city's own, saved with it). *Override the wind* is now *Override wind*, and the Weather tab's heading *How
   the game's weather sets the cloud cover* is now *Weather cloud cover*.
@@ -153,8 +165,8 @@ below; the mods list shows it after the mod's name, and the first line of
   what they did there (Auto with *Softer cumulus* at 4K: 20 to 26 ms a frame became 7 to 9; Classic 4 to 8
   became 1 to 2). Cloud edges keep their detail, still and with the camera moving; the smallest holes of a far
   layer are a little softer, and after a jump of the camera the clouds sharpen over a few frames. Smaller
-  screens draw as before. Unticking *Smoother clouds without smearing (test)* gives the blend and the cost from
-  before. The smaller sizes of *Cloud drawing size* are smaller again there (a third: 640 x 360 at 4K).
+  screens draw as before. The faster choices of *Cloud drawing size* are smaller again there (Balanced: 640 x 360
+  at 4K).
 
 ### Fixed
 

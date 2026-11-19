@@ -497,8 +497,6 @@
 
   <String key="WeatherKey.Label">Quick toggle</String>
 
-  <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
-
   <String key="PanelSkin.Label">Panel look</String>
   <String key="PanelSkin.SeeThrough">See-through</String>
   <String key="PanelSkin.Frosted">Frosted glass</String>
@@ -520,7 +518,7 @@
   <String key="ResetAll.Confirm">
     Put every setting back to its default?\n\n
     This throws away everything you have tuned, including changes made in the in-game panel,
-    and turns off 'Volumetric fog' and 'Show advanced options in the in-game panel'.\n\n
+    and turns off 'Volumetric fog'.\n\n
     Your saved profiles are kept: afterwards no profile is picked, and picking one brings its
     sky back.
   </String>
@@ -558,7 +556,7 @@
 
   <String key="HudButtonX.Label">The mod's button (without Unified UI): distance from the left edge</String>
   <String key="HudButtonY.Label">The mod's button (without Unified UI): distance from the top edge</String>
-  <String key="PanelOpenGroups.Label">The in-game panel's open headings (advanced options on), comma separated</String>
+  <String key="PanelOpenGroups.Label">The in-game panel's open headings, comma separated</String>
   <String key="PanelOpenClocks.Label">The in-game panel's rows showing day, sunset and night, comma separated</String>
   <String key="PanelOpenWeather.Label">The in-game panel's rows showing clear sky and overcast, comma separated</String>
 
@@ -605,7 +603,6 @@
     - Delete the file with the game closed to start again from every default.
   </String>
   <String key="File.Section.Panel">In-game panel: {0} tab</String>
-  <String key="File.Section.Advanced">In-game panel, with advanced options on: {0} tab</String>
   <String key="File.Section.Options">The game's options page</String>
   <String key="File.Section.None">Not shown on either page</String>
   <String key="File.Percent">{0}, in %. {1} to {2}, default {3}.</String>

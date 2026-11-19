@@ -88,12 +88,8 @@ namespace VolumetricClouds
         public static FloatSetting HudButtonX { get; private set; }
         public static FloatSetting HudButtonY { get; private set; }
 
-        /// <summary>
-        /// Off (the default): the in-game panel has the three tabs a subscriber needs -- Now,
-        /// Clouds, Fog. On: it also gets Weather, Light, Rendering and Halos. Since 1.1.0 those
-        /// four exist nowhere else: the options page holds only the mod itself.
-        /// </summary>
-        public static BoolSetting ShowAdvancedInPanel { get; private set; }
+        // (ShowAdvancedInPanel, "Show advanced options in the in-game panel", went in 1.6.0: the panel
+        // always has every tab. Its name is retired in SettingsXml.Retired.)
 
         /// <summary>
         /// THE PANEL'S LOOK (1.5.0, ModsLibCS1.UI.Skin), stored by VALUE (append only): 0
@@ -962,7 +958,6 @@ namespace VolumetricClouds
         {
             // ---- housekeeping ----
             public const int IconPlace = IconPlaces.UnifiedUI;
-            public const bool ShowAdvancedInPanel = false;
             public const bool DetailedLogging = false;
 
             /// <summary>Frosted glass (ModsLibCS1.UI.Skin.Frosted), for existing players too (the author's call).</summary>
@@ -1483,7 +1478,6 @@ namespace VolumetricClouds
                 IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
                 ToggleKey = new SavedInputKey("ToggleKey", InMemory, DefaultToggleKey, false);
                 WeatherKey = new SavedInputKey("WeatherKey", InMemory, DefaultWeatherKey, false);
-                ShowAdvancedInPanel = new BoolSetting("ShowAdvancedInPanel", Defaults.ShowAdvancedInPanel);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 DetailedLogging = new BoolSetting("DetailedLogging", Defaults.DetailedLogging);
                 Language = new IntSetting("Language", Defaults.Language);

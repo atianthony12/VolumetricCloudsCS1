@@ -120,8 +120,7 @@ namespace VolumetricClouds
                         " fog=" + On(Settings.FogOverride, false) +
                         " lightning=" + On(Settings.LightningOverride, false) +
                         " wind=" + Sky.CloudWeather.DescribeWind() +
-                        " | advancedPanel=" + On(Settings.ShowAdvancedInPanel, false) +
-                        " panelLook=" + UI.PanelLook.Skin +
+                        " | panelLook=" + UI.PanelLook.Skin +
                         // The grading changes the picture, so it is in the quiet log too.
                         " | colours: sunlit=" + Hex(Settings.CloudSunlitColor, Settings.Defaults.SunlitColor) +
                         " shade=" + Hex(Settings.CloudShadeColor, Settings.Defaults.ShadeColor) +

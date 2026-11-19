@@ -922,6 +922,8 @@ namespace VolumetricClouds
         /// clouds half as bright as heaps), never released; now "CloudLightGap", default 0% (even). Not carried over.
         /// 2026-11-19: "SmootherCloudsSharp", the test row for Smoother clouds' blend against smearing (2026-11-15,
         /// never released): the author kept that blend, for everyone, and the row went. Not carried over.
+        /// 2026-11-19: "ShowAdvancedInPanel", "Show advanced options in the in-game panel" (1.0 to 1.5.3): the
+        /// panel has every tab for everyone now (the author's call). Not carried over.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -930,6 +932,7 @@ namespace VolumetricClouds
             "CloudTemporal",
             "CloudLightDifference",
             "SmootherCloudsSharp",
+            "ShowAdvancedInPanel",
             "LightThroughClouds", "LightThroughCloudsSunset", "LightThroughCloudsNight",
             "LightThroughCloudsOvercast", "LightThroughCloudsSunsetOvercast", "LightThroughCloudsNightOvercast",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",
@@ -1293,7 +1296,7 @@ namespace VolumetricClouds
             if (row.Options == OptionsPage.General)
                 return Localization.Get("File.Section.Options");
             if (row.Options != OptionsPage.None)
-                return Localization.Get("File.Section.Advanced", SettingsCatalog.TabName(row.Options));
+                return Localization.Get("File.Section.Panel", SettingsCatalog.TabName(row.Options));
 
             return Localization.Get("File.Section.None");
         }
