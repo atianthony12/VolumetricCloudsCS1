@@ -1,8 +1,3 @@
-[h1]Version 1.6: wet streets, storms and new cloud shapes[/h1]
-Rain that leans with the wind, wet roads and puddles, travelling storms with more varied lightning, softer and more varied cumulus, and much faster clouds on 4K screens. New mod defaults for new installs: existing players keep their sky and get a one-time message offering to try them. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3805863507]change notes[/url].
-If something stopped working after the update, please let me know.
-
-[hr][/hr]
 [h1]How to use[/h1]
 [olist]
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and then this mod, make sure both are enabled. If you use Skyve, make sure the mod is enabled in it.
@@ -15,32 +10,34 @@ If something stopped working after the update, please let me know.
 [h1]Features[/h1]
 [h3]Clouds[/h3]
 [list]
-[*]Volumetric 3D clouds with real shadows
-[*]5 cloud styles: Classic, Cumulus, Soft, Mixed and Auto (new in v1.5.3)
-[*]Distant clouds: HDRI skies from [url=https://polyhaven.com]Poly Haven[/url]
-[*]Curved clouds to the horizon (new in v1.5.2)
-[*]Cloud variety, Softer cumulus, Rounded cumulus bases and Natural Classic clouds (new in v1.6)
+[*]Raymarched volumetric clouds that drift with the wind and cast their shadows on the city
+[*]Towering cumulus, soft cotton puffs and flat overcast layers, mixed in one sky and changing as the clouds build up
+[*]Sunlight that glows through thin edges, darker storm bases and red sunsets lighting the clouds from below
+[*]Clouds that follow the curve of the Earth all the way to the horizon
+[*]Distant clouds from HDRI skies by [url=https://polyhaven.com]Poly Haven[/url]
 [/list]
 [h3]Weather[/h3]
 [list]
-[*]Follows the game's weather, or set it yourself
-[*]Rain, lightning, rainbows and waterspouts
-[*]Wind on the rain, Finer rain, Wet roads and puddles, Spray from wheels and Travelling storms (new in v1.6)
-[*]Flare around lights (new in v1.6)
-[*]Volumetric fog and smaller light halos (optional)
-[*]Trees that move in the wind (new in v1.5.2, experimental)
+[*]A complete weather overhaul that follows the game's weather, or lets you set your own
+[*]Rain that falls only under the clouds that carry it, slanting and gusting with the wind
+[*]Thunderstorms that travel across the map, with lightning striking the ground and crawling through the clouds
+[*]Wet roads, puddles and spray from car wheels
+[*]Volumetric fog: morning fog, mist after rain, fog filling valleys and lying over water, lit by the city's lights
+[*]Rainbows and waterspouts
+[*]Enhanced trees movement in the wind (experimental and off by default in the Weather tab)
+[*]BONUS: a fix for the lights in the game (Halos tab)
 [/list]
 [h3]Mod options[/h3]
 [list]
-[*]Different values at sunset, at night and under an overcast sky
-[*]Profiles for your favorite skies
-[*]4 panel looks
+[*]Separate settings for day, sunset, night and overcast skies
+[*]Profiles to save and switch between your favorite settings
+[*]4 in-game panel looks
 [*]Localization: English, Spanish, French and Simplified Chinese
 [/list]
 
 [hr][/hr]
 [h1]Compatibility[/h1]
-Tested together with [b]AD Cloud Replacer[/b], [b]Render It![/b], [b]Theme Mixer[/b], [b]Play It![/b], [b]Fog Controller[/b] and more, with no conflicts.
+Tested together with [b]AD Cloud Replacer[/b], [b]Dynamic Cubemap[/b], [b]Render It![/b], [b]Theme Mixer[/b], [b]Play It![/b], [b]Fog Controller[/b] and more, with no conflicts.
 Works on Windows, Mac and Linux as of v1.1.1.
 [b]Removing the mod[/b] should not corrupt your saves.
 
