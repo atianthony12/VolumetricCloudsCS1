@@ -394,14 +394,19 @@ $freshLine = [single[]](Call "LayerLine" @())
 Check (($cachedLine[0] -eq $freshLine[0]) -and ($cachedLine[1] -eq $freshLine[1])) "the cached layer line the shader parameters use is LayerLine's"
 
 # Under the type (Mixed, Auto): the slab reaches the tallest heap at the heaps' coverage now (CloudStyle.TypedHeapTop).
+# On EVE's own curve (Rounded cumulus bases at 0): HeapTopAt reads the curve drawn now (CloudStyle.ShapeNow), which
+# with the bases on (the default since New Defaults, 2026-11-18) asks CloudShaders.Lite -- an engine call offline. Its
+# lookup is done here the same way on EVE's tops; the rounded curves' tops are checked in the next section.
+$eveTops = [single[]]($style.GetField("EveShape").GetValue($null).Tops)
+function EveTopAt([single]$coverage) { return $eveTops[[Math]::Min([int][Math]::Ceiling([Math]::Max(0.0, $coverage) * 100.0), $eveTops.Length - 1)] }
 $tallestHeap = [single](Value "Tallest")
 $covMax = [single](Value "CoverageMax")
-Check ([single](Call "HeapTopAt" @($covMax)) -eq $tallestHeap) "a heap at the most coverage ends at Tallest"
-Check ([single](Call "HeapTopAt" @([single]1)) -eq $tallestHeap) "more coverage than that never asks for more"
+Check ([single](EveTopAt $covMax) -eq $tallestHeap) "a heap at the most coverage ends at Tallest"
+Check ([single](EveTopAt ([single]1)) -eq $tallestHeap) "more coverage than that never asks for more"
 $topsOk = $true; $prevTop = 0.0
 for ($i = 0; $i -le 50; $i++) {
     $cv = [single]($i * 0.01)
-    $top = [single](Call "HeapTopAt" @($cv))
+    $top = [single](EveTopAt $cv)
     if ($top -lt $prevTop) { $topsOk = $false; "  HeapTopAt falls at $cv" }
     # Above the top the coverage curve leaves no cloud at all, so the slab never clips a heap.
     $hAbove = [single](($top + 1) / [single](Value "Span"))
@@ -469,7 +474,10 @@ foreach ($b in 0.25, 0.5, 1.0) {
 $d0 = [single]$style.GetMethod("Density", [Type[]]@([single], [single], [single])).Invoke($null, @([single]0.3, [single]0.2, [single]0.8))
 $d0b = [single]$style.GetMethod("Density", [Type[]]@([single], [single], [single], [single])).Invoke($null, @([single]0.3, [single]0.2, [single]0.8, [single]0))
 Check ($d0 -eq $d0b) "the density at 0% is EVE's density"
-Check ([single]$style.GetProperty("BasesNow").GetValue($null, $null) -eq 0) "offline the row is off: the tops and the slab are EVE's"
+# Its default is New Defaults' 70% since 2026-11-18 (0 before; a file without the row still reads 0: SettingsCatalog
+# GuardNewDefaults). BasesNow itself asks CloudShaders.Lite, an engine call, so it is not read offline any more.
+$defaults = $asm.GetType("VolumetricClouds.Settings+Defaults")
+Check ([single]$defaults.GetField("CumulusBases").GetValue($null) -eq [single]0.7) "the row's default is New Defaults' 70%"
 
 ""
 "=== CloudStyle: Softer cumulus (CumulusSoftness, 2026-11-16) ==="
@@ -552,8 +560,9 @@ foreach ($n in 0.5, 0.55, 0.6, 0.7, 0.85) {
     }
 }
 Check $ok ("with its bias ({0:F2}) the fray gives back at most depth x bias ({1:F3} of density)" -f $bias, $back)
-Check ([single]$style.GetProperty("SoftnessNow").GetValue($null, $null) -eq 0) "offline the row is off"
-Check ([single]$style.GetProperty("LineTrimNow").GetValue($null, $null) -eq [single]$style.GetProperty("BaseTrimNow").GetValue($null, $null)) "off, the heaps' line is trimmed as before (Rounded cumulus bases only)"
+# Its default is New Defaults' 60% since 2026-11-18 (0 before; a file without the row still reads 0). SoftnessNow,
+# LineTrimNow and BaseTrimNow ask CloudShaders, an engine call, so they are not read offline any more.
+Check ([single]$defaults.GetField("CumulusSoftness").GetValue($null) -eq [single]0.6) "the row's default is New Defaults' 60%"
 
 ""
 "=== CloudStyle: how much cloud (the same amount as Classic) ==="

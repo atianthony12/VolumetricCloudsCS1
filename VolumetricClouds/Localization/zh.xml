@@ -123,6 +123,8 @@
   <String key="CumulusSoftness.Label">更柔和的积云</String>
   <String key="CumulusSoftness.Tooltip">让积云的边缘柔和、带丝缕，像柔和风格的云一样。0% = 边缘清晰，与以前相同</String>
   <String key="CumulusAmount.Label">积云数量</String>
+  <String key="CloudVariety.Label">云的多样性</String>
+  <String key="CloudVariety.Tooltip">天空的某些区域会长出高耸的塔状积云，其他区域保持低平、小巧。云底保持在同一高度。0% = 所有区域相同，与以前相同</String>
 
   <String key="Group.CloudShape">高度与形状</String>
   <String key="CloudAltitude.Label">云层高度</String>
@@ -500,6 +502,19 @@
   <String key="Profile.Note">
     只有在面板中按下“保存”时，VolumetricCloudsProfiles 文件夹中的对应文件才会更改。
   </String>
+
+  <String key="ModVersion.Label">上次使用此文件并显示其新内容的模组版本。请勿修改</String>
+
+  <String key="NewDefaults.Text">Volumetric Weather 有很多新功能！你可以保留当前的设置或配置，但我建议你试试模组的新默认设置，以免错过任何内容。如果需要回到当前配置，请先保存它。</String>
+  <String key="NewDefaults.Try">试用新默认设置</String>
+  <String key="NewDefaults.Keep">不用了</String>
+  <String key="NewDefaults.SavePicked">你的配置“{0}”有未保存的更改。会先把它们保存到该配置中，之后选择它即可回到这些设置，然后再应用新的默认设置。</String>
+  <String key="NewDefaults.SaveNew">你当前的设置没有保存在任何配置中。会先把它们保存为新配置“{0}”，之后选择它即可回到这些设置，然后再应用新的默认设置。</String>
+  <String key="NewDefaults.SaveAndSwitch">保存并切换</String>
+  <String key="NewDefaults.Back">返回</String>
+  <String key="NewDefaults.SaveFailed">无法保存你的设置，因此没有做任何更改。</String>
+  <String key="NewDefaults.Ok">确定</String>
+  <String key="NewDefaults.SavedName">{0} 之前未保存的配置</String>
 
   <String key="HudButtonX.Label">模组按钮（不使用 Unified UI）：距左边缘</String>
   <String key="HudButtonY.Label">模组按钮（不使用 Unified UI）：距上边缘</String>

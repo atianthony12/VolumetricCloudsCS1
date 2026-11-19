@@ -109,6 +109,8 @@
   <String key="CumulusSoftness.Label">Cúmulos más suaves</String>
   <String key="CumulusSoftness.Tooltip">Da a las nubes de cúmulo bordes suaves y deshilachados, como las nubes del estilo Suave. 0% = bordes nítidos, como antes</String>
   <String key="CumulusAmount.Label">Cantidad de cúmulos</String>
+  <String key="CloudVariety.Label">Variedad de nubes</String>
+  <String key="CloudVariety.Tooltip">Algunas zonas del cielo forman cúmulos altos como torres, otras se quedan planas y pequeñas. Las bases siguen a la misma altura. 0% = todas las zonas iguales, como antes</String>
 
   <String key="Group.CloudShape">Altura y forma</String>
   <String key="CloudAltitude.Label">Altitud de nubes</String>
@@ -480,6 +482,19 @@
   <!-- Read only in the settings file, as the comment on <Profile>. -->
   <String key="Profile.Label">Perfil actual: el elegido arriba del panel del juego; vacío si no hay ninguno</String>
   <String key="Profile.Note">Su archivo en VolumetricCloudsProfiles solo cambia al pulsar Guardar en el panel.</String>
+
+  <String key="ModVersion.Label">La versión del mod que se usó por última vez con este archivo y mostró sus novedades. Déjala como está</String>
+
+  <String key="NewDefaults.Text">¡Volumetric Weather tiene muchas novedades! Puedes conservar tu configuración o tu perfil actual, pero te recomiendo probar los nuevos valores predeterminados del mod para no perderte nada. Guarda tu perfil actual si quieres poder volver a él.</String>
+  <String key="NewDefaults.Try">Probar los nuevos valores</String>
+  <String key="NewDefaults.Keep">No, gracias</String>
+  <String key="NewDefaults.SavePicked">Tu perfil '{0}' tiene cambios sin guardar. Primero se guardarán en él, para que puedas volver a ellos eligiéndolo, y después se aplicarán los nuevos valores predeterminados.</String>
+  <String key="NewDefaults.SaveNew">Tu configuración actual no está guardada en un perfil. Primero se guardará como un perfil nuevo, '{0}', para que puedas volver a ella eligiéndolo, y después se aplicarán los nuevos valores predeterminados.</String>
+  <String key="NewDefaults.SaveAndSwitch">Guardar y cambiar</String>
+  <String key="NewDefaults.Back">Atrás</String>
+  <String key="NewDefaults.SaveFailed">No se pudo guardar tu configuración, así que no se ha cambiado nada.</String>
+  <String key="NewDefaults.Ok">Aceptar</String>
+  <String key="NewDefaults.SavedName">Perfil sin guardar antes de {0}</String>
 
   <String key="HudButtonX.Label">Botón del mod (sin Unified UI): distancia desde la izquierda</String>
   <String key="HudButtonY.Label">Botón del mod (sin Unified UI): distancia desde arriba</String>

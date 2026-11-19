@@ -247,7 +247,8 @@ namespace VolumetricClouds.Sky
                 float cover = CloudWeather.Coverage;
                 float a, b;
                 Line(HeapEdge(HeapCoverage(cover)), out a, out b);
-                return CloudAuto.Mix(HeapTopAt(a + b - LineTrimNow) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f);
+                // Cloud variety (2026-11-19): the towers stretched over that (itself with the row off).
+                return VarietyTop(CloudAuto.Mix(HeapTopAt(a + b - LineTrimNow) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f));
             }
         }
 
@@ -1150,6 +1151,78 @@ namespace VolumetricClouds.Sky
         {
             float hard = 1f / (1f - Hardness);
             return Math.Min(0f, (0.5f / hard - 0.5f / SoftHardnessAt(softness)) * Math.Max(0f, Math.Min(1f, SoftSurface)));
+        }
+
+        // ---- cloud variety (2026-11-19, the row "Cloud variety", CloudVariety) -------------------------------------
+
+        /// <summary>The "Cloud variety" row, 0..1 (its default without one).</summary>
+        public static float VarietyRow
+        {
+            get { return Clamp(Settings.CloudVariety != null ? Settings.CloudVariety.value : Settings.Defaults.CloudVariety, 0f, 1f); }
+        }
+
+        /// <summary>
+        /// The row as drawn: only while the heaps are drawn, the cloud shader's extras variant is (CloudShaders.PlusOn: never
+        /// under Simpler clouds, nor where that variant does not run) and the mix map holding the pattern is up; 0 otherwise,
+        /// and the shader gets the heaps as they always were.
+        /// </summary>
+        public static float VarietyNow
+        {
+            get
+            {
+                float row = VarietyRow;
+                return row > 0f && HeapsDrawn && CloudShaders.PlusOn && CloudMixMap.Ready ? row : 0f;
+            }
+        }
+
+        /// <summary>
+        /// Plain Cumulus wants the mix map baked for the variety's pattern (Mixed and Auto have it anyway): the row on, the
+        /// extras' variant drawn, the noise up.
+        /// </summary>
+        public static bool VarietyWantsMap
+        {
+            get { return IsCumulus && VarietyRow > 0f && CloudShaders.PlusOn && Texture != null && !CloudMixMap.Failed && !CloudShaders.Lite; }
+        }
+
+        /// <summary>
+        /// Metres above the base the tallest heap the cover draws now reaches in a vigorous stretch before it is stretched:
+        /// the heaps' line at the map's top score, plus the most the variety moves it (what the towers' stretch is bounded
+        /// against: <see cref="CloudVariety.TowerStretchFor"/>).
+        /// </summary>
+        public static float VarietyHereTop(float row)
+        {
+            float a, b;
+            Line(HeapEdge(HeapCoverage(CloudWeather.Coverage)), out a, out b);
+            return HeapTopAt(a + b - LineTrimNow + CloudVariety.MostLineMove(row)) * SizeFactor * HeightFactor;
+        }
+
+        /// <summary>The towers' stretch now (the row's own, bounded by CloudVariety.TopBound over the tallest heap drawn now).</summary>
+        public static float VarietyTowerStretch
+        {
+            get { return CloudVariety.TowerStretchFor(VarietyHereTop(VarietyNow)); }
+        }
+
+        /// <summary>
+        /// Metres above the base the heaps reach with the variety: <paramref name="top"/> (what they reach without it) or the
+        /// stretched tallest heap, whichever is higher. <paramref name="top"/> itself with the row off.
+        /// </summary>
+        public static float VarietyTop(float top)
+        {
+            float row = VarietyNow;
+            if (row <= 0f)
+                return top;
+            float here = VarietyHereTop(row);
+            float stretched = CloudVariety.TopAt(here, SpanNow, ShapeNow.Time[1], CloudVariety.MostStretch(row, CloudVariety.TowerStretchFor(here)));
+            return Math.Max(top, stretched);
+        }
+
+        /// <summary>For the log.</summary>
+        public static string DescribeVariety()
+        {
+            float row = VarietyNow;
+            if (row <= 0f)
+                return VarietyRow > 0f ? "off: the extras' variant, the heaps or the pattern's map is not drawn here" : "off (the heaps as before)";
+            return CloudVariety.Describe(row, VarietyTowerStretch, VarietyTop(TallestNow));
         }
 
         /// <summary>The coverage taken off the heaps' line now: <see cref="BaseTrimNow"/> and <see cref="SoftTrim"/> x the row as drawn (both 0 off: the line as it was).</summary>

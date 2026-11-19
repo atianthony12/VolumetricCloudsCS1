@@ -542,17 +542,62 @@ float4 _HeapFray;       // the fine read: x = how deep it carves, y = its multip
 float4 _HeapFringe;     // x = the fringe's density, y = 1 / its reach, z = the fine read's middle, w = its contrast
 float4 _HeapWarp;       // xy = the 64^3 noise's R and G middles, as read (sRGB-decoded), z = 1 / the cg over which
                         // the skin and the fringe come in, w = what the fray gives back on average (the sky's amount)
-// The read (`detailed`) and its mip level before the heaps' own clamp (`lodHere`): for the fray only.
-#define HEAP_PLUS_IN , bool detailed, float lodHere
-#define HEAP_PLUS(d, l) , d, l
+// The read (`detailed`) and its mip level before the heaps' own clamp (`lodHere`): for the fray only. `variety`: Cloud
+// variety's stretch here (x, 1 = none) and the line's move (y, already in heapLine), below.
+#define HEAP_PLUS_IN , bool detailed, float lodHere, float2 variety
+#define HEAP_PLUS(d, l, v) , d, l, v
 // True while the cloud pass works out a step's light (CloudRaymarchPass CloudRadiance sets it around its looks;
 // nothing else does, so the march's own reads and the shadow map never see it). 2026-11-17: the light's looks
 // read the heaps without the fray -- its fine strands are drawn, but the light they cast on themselves changed
 // the picture by under 0.1/255 on average and cost a fine read in each of the sun's near looks.
 static bool heapLightLook = false;
+
+// CLOUD VARIETY (2026-11-19, the row "Cloud variety", Sky/CloudVariety.cs is its C# twin with CloudStyle.Density): "same
+// base, different tops". A slow pattern in the mix map's GREEN (CloudMix.BakeVariety, even by rank) says how vigorous each
+// stretch of sky is: calm stretches keep flatter, smaller heaps, vigorous ones tower and spread. The heaps' coverage curve
+// is stretched above its widest level only (the bases stay), by a stretch that comes in with the heap's own coverage (a
+// lone small heap stays its height); their coverage line moves with it (a tower is a big heap). Only the curve's height
+// argument changes: the noise is read where it always was. Behind the row (_VarietyShape.w > 0), in the extras' variant
+// only; 0 = the heaps exactly as they always were, the map's green never read.
+float4 _VarietyKind;    // the plateaus on the even pattern: x = calm up to, y = 1 / its rise to the middle, z = the middle up
+                        // to, w = 1 / its rise to the towers
+float4 _VarietyShape;   // x = the row x the calm stretches' drop, y = the row x the towers' rise, z = the held curve height
+                        // (the widest level's share of the span), w = the row as drawn (0: off)
+float4 _VarietyLine;    // the heaps' line's move: x = the row x the calm one, y = the row x the towers', z = the most it moves
+                        // anywhere (the empty-sky skip's bound), w = the row x the move everywhere
+float4 _VarietyGrow;    // a tower's stretch comes in with the coverage: x = from, y = 1 / the coverage it takes
+
+#ifndef VC_LITE
+// The pattern at p, blended over Curved clouds' far patches as FarMixRead.
+float VarietyAt(FarLook f, float2 uv)
+{
+    float v = 0.0;
+    [branch]
+    if (f.w.x >= 1.0)
+    {
+        v = VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, uv).g;
+    }
+    else
+    {
+        [branch] if (f.w.x > 0.0) v += f.w.x * VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, uv).g;
+        [branch] if (f.w.y > 0.0) v += f.w.y * VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, f.uv1).g;
+        [branch] if (f.w.z > 0.0) v += f.w.z * VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, f.uv2).g;
+        [branch] if (f.w.w > 0.0) v += f.w.w * VC_TEX2D_LOD0(_MixMap, _WeatherScoreTex, f.uv3).g;
+    }
+    return v;
+}
+#endif
+
+// Which plateau the pattern's value v is on: -1 calm, 0 middle, 1 towers, smooth between (CloudVariety.Kind).
+float VarietyKind(float v)
+{
+    float a = saturate((v - _VarietyKind.x) * _VarietyKind.y);
+    float b = saturate((v - _VarietyKind.z) * _VarietyKind.w);
+    return a * a * (3.0 - 2.0 * a) - 1.0 + b * b * (3.0 - 2.0 * b);
+}
 #else
 #define HEAP_PLUS_IN
-#define HEAP_PLUS(d, l)
+#define HEAP_PLUS(d, l, v)
 #endif
 
 // EVE V5: cg = saturate(coverage + curve(h) - 1); the noise carves erosion-depth deep into it,
@@ -568,7 +613,25 @@ float CumulusDensity(float3 p, float lod, float score, float heapLine HEAP_PLUS_
     if (coverage <= 0.0)
         return 0.0;
 
+#ifdef VC_PLUS
+    // Cloud variety (above): the curve stretched above its widest level; a stretch of 1 (off, or the middle plateau)
+    // leaves the height as it always was.
+    float hCurve = (p.y - _CloudBottom) * _CumulusShape.w;
+    [branch]
+    if (variety.x != 1.0)
+    {
+        float stretch = variety.x;
+        if (stretch > 1.0)
+        {
+            float grow = saturate((coverage - _VarietyGrow.x) * _VarietyGrow.y);
+            stretch = 1.0 + (stretch - 1.0) * grow * grow * (3.0 - 2.0 * grow);
+        }
+        hCurve = hCurve > _VarietyShape.z ? _VarietyShape.z + (hCurve - _VarietyShape.z) / stretch : hCurve;
+    }
+    float cg = saturate(coverage + CumulusCurve(hCurve) - 1.0);
+#else
     float cg = saturate(coverage + CumulusCurve((p.y - _CloudBottom) * _CumulusShape.w) - 1.0);
+#endif
     if (cg <= 0.0)
         return 0.0;
 
@@ -968,7 +1031,21 @@ float SampleDensityLod(float3 p, bool detailed, float lod DEEP_OUT)
         [branch]
         if (heaps)
         {
-            float heap = CumulusDensity(p, max(lod, 0.0), score, heapLine HEAP_PLUS(detailed, lod) DEEP_SOFT(soft) DEEP_ARG(kindBody));
+#ifdef VC_PLUS
+            // Cloud variety (CumulusDensity): the stretch and the line's move here; off, neither is read.
+            float2 variety = float2(1.0, 0.0);
+#ifndef VC_LITE
+            [branch]
+            if (_VarietyShape.w > 0.0)
+            {
+                float k = VarietyKind(VarietyAt(look, uvWeather));
+                variety = float2(k < 0.0 ? 1.0 + k * _VarietyShape.x : 1.0 + k * _VarietyShape.y,
+                                 (k < 0.0 ? -k * _VarietyLine.x : k * _VarietyLine.y) + _VarietyLine.w);
+                heapLine += variety.y;
+            }
+#endif
+#endif
+            float heap = CumulusDensity(p, max(lod, 0.0), score, heapLine HEAP_PLUS(detailed, lod, variety) DEEP_SOFT(soft) DEEP_ARG(kindBody));
 #ifdef VC_DEEP
             body = heap > clouds ? kindBody : body;
 #endif

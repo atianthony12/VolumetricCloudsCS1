@@ -106,8 +106,10 @@ namespace VolumetricClouds.Sky
                           " s ago (held " + LightOffDelay.ToString("F0") + " s before it goes)";
                 string heaps = HeapsAsked ? "Softer cumulus is on" : null;
                 string classic = ClassicAsked ? "Natural Classic clouds is on" : null;
+                string variety = VarietyAsked ? "Cloud variety is on" : null;
                 string asked = light != null && heaps != null ? light + " and " + heaps : light ?? heaps;
-                return asked != null && classic != null ? asked + " and " + classic : asked ?? classic;
+                asked = asked != null && classic != null ? asked + " and " + classic : asked ?? classic;
+                return asked != null && variety != null ? asked + " and " + variety : asked ?? variety;
             }
         }
 
@@ -120,6 +122,12 @@ namespace VolumetricClouds.Sky
         private static bool ClassicAsked
         {
             get { return Over(Settings.ClassicShape, 0f); }
+        }
+
+        /// <summary>Cloud variety asks for the extras' variant: its row over 0 while a style with heaps is picked (Cumulus, Mixed, Auto).</summary>
+        private static bool VarietyAsked
+        {
+            get { return (CloudStyle.IsCumulus || CloudStyle.IsMixed || CloudStyle.IsAuto) && Over(Settings.CloudVariety, 0f); }
         }
 
         /// <summary>Softer cumulus asks for the extras' variant: its row over 0 while a style with heaps is picked (Cumulus, Mixed, Auto).</summary>

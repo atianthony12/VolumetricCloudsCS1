@@ -125,6 +125,12 @@ namespace VolumetricClouds
         public static StringSetting CurrentProfile { get; private set; }
 
         /// <summary>
+        /// (2026-11-18) The mod's version that last ran with this settings file and had its news shown
+        /// (UI.NoticeRule, UI.NewDefaultsNotice). Never part of a profile, never reset.
+        /// </summary>
+        public static StringSetting ModVersion { get; private set; }
+
+        /// <summary>
         /// (1.5.0) The in-game panel's group headings left OPEN while the advanced options are on (every
         /// other one is folded): their Row.Group names, comma separated. Open ones are kept, not folded
         /// ones, so a group added later starts folded like the rest. The panel's headings are its only
@@ -647,6 +653,13 @@ namespace VolumetricClouds
         /// </summary>
         public static FloatSetting CumulusSoftness { get; private set; }
 
+        /// <summary>
+        /// 2026-11-19, the author ("GTA 6's have even more variety than ours"): CLOUD VARIETY (Sky.CloudVariety), 0..1: some
+        /// stretches of sky grow towering heaps, others keep flat small ones, the bases on one level. Drawn by the cloud
+        /// shader's extras variant only. 0 = the heaps exactly as they were (the default: nobody's sky changes).
+        /// </summary>
+        public static FloatSetting CloudVariety { get; private set; }
+
         /// <summary>Vertical extent of the cloud layer, in metres.</summary>
         public static FloatSetting CloudThickness { get; private set; }
 
@@ -1015,50 +1028,56 @@ namespace VolumetricClouds
             public const float CurvedClouds = 0f;
             public const float CurvedCloudsSunset = CurvedClouds;
             public const float CurvedCloudsNight = CurvedClouds;
-            public const float CurvedCloudsOvercast = CurvedClouds;
-            public const float CurvedCloudsSunsetOvercast = CurvedClouds;
-            public const float CurvedCloudsNightOvercast = CurvedClouds;
+            // 2026-11-18 (the author: "Make the New Defaults profile the mod's default settings"), as every
+            // default marked "New Defaults" below: new installs, a Reset and "(Mod defaults)". A file or a
+            // profile without the row reads it as its value before (SettingsCatalog.GuardNewDefaults).
+            public const float CurvedCloudsOvercast = 1.5f;
+            public const float CurvedCloudsSunsetOvercast = 1.5f;
+            public const float CurvedCloudsNightOvercast = 1.5f;
 
             // ---- the clouds ----
             public const bool CloudsVisible = true;
 
             /// <summary>
-            /// Classic for everyone, new installs and a Reset included: Cumulus is chosen on the
-            /// panel. A settings file written before the row existed stands for
-            /// <see cref="CloudStyleForOlderFiles"/>, whatever this default is: an update never
-            /// swaps a player's clouds for new ones.
+            /// Auto (New Defaults, 2026-11-18; Classic before, for everyone). A settings file written
+            /// before the row existed stands for <see cref="CloudStyleForOlderFiles"/>, whatever this
+            /// default is: an update never swaps a player's clouds for new ones.
             /// </summary>
-            public const int CloudStyle = 0;
+            public const int CloudStyle = 4;
             public const int CloudStyleForOlderFiles = 0;
 
             /// <summary>All of it: Cumulus as it shipped in 1.2 (a new row's default reaches every file).</summary>
             public const float CumulusLayer = 1f;
 
-            /// <summary>The cumulus rows (1.5.0): the clouds as they were, so a new row changes nobody's sky.</summary>
-            public const float CumulusSize = 1f, CumulusHeight = 1f, CumulusAmount = 1f;
+            /// <summary>The cumulus rows (1.5.0; New Defaults: 100% each before).</summary>
+            public const float CumulusSize = 1.05f, CumulusHeight = 2f, CumulusAmount = 1.8f;
 
-            /// <summary>Rounded cumulus bases (2026-11-16): off, EVE's flat bases, so a new row changes nobody's sky.</summary>
-            public const float CumulusBases = 0f;
+            /// <summary>Rounded cumulus bases (2026-11-16; New Defaults: 0, EVE's flat bases, before).</summary>
+            public const float CumulusBases = 0.7f;
 
-            /// <summary>Softer cumulus (2026-11-16): off, the heaps' edges as they were, so a new row changes nobody's sky.</summary>
-            public const float CumulusSoftness = 0f;
+            /// <summary>Softer cumulus (2026-11-16; New Defaults: 0, the heaps' edges as they were, before).</summary>
+            public const float CumulusSoftness = 0.6f;
 
-            public const float Altitude = 750f;
-            public const float Thickness = 400f;
+            /// <summary>Cloud variety (2026-11-19): off, the heaps as they were.</summary>
+            public const float CloudVariety = 0f;
 
-            /// <summary>Natural Classic clouds (2026-11-17): off, the layer's slab as it was, so a new row changes nobody's sky.</summary>
-            public const float ClassicShape = 0f;
+            /// <summary>New Defaults (750 m and 400 m before).</summary>
+            public const float Altitude = 1300f;
+            public const float Thickness = 700f;
+
+            /// <summary>Natural Classic clouds (2026-11-17; New Defaults: 0, the layer's slab as it was, before).</summary>
+            public const float ClassicShape = 0.7f;
             /// <summary>
             /// ON, at full: players asked for it, and the author chose to give it to everyone
             /// with the update. A new row, so its default reaches every existing file too (a
             /// missing element is its default); 0% is the soft look from before, exactly.
             /// </summary>
-            public const float Detail = 1f;
+            public const float Detail = 0.5f;        // New Defaults (100% before)
 
             public const float Breakup = 0.5f;
-            public const float BreakupScale = 4f;
+            public const float BreakupScale = 4.5f;  // New Defaults (4x before)
             public const float Fragments = 0f;       // off: an update never adds fragments to a sky
-            public const int FragmentStyle = 1;      // Scattered
+            public const int FragmentStyle = 0;      // Clustered (New Defaults; Scattered, 1, before)
             public const float Density = 1.5f;
 
             /// <summary>
@@ -1067,7 +1086,7 @@ namespace VolumetricClouds
             /// settings file or a profile without them gets 100% (a missing element is its default);
             /// 0% is the light from before, exactly.
             /// </summary>
-            public const float LightInsideClouds = 1f;
+            public const float LightInsideClouds = 1.5f;   // New Defaults (100% before, as every time and weather)
             public const float SunsetLight = 1f;
 
             /// <summary>
@@ -1088,15 +1107,16 @@ namespace VolumetricClouds
             public static readonly Color32 ShadeColorNight = ShadeColor;
             public const float DensitySunset = Density;
             public const float DensityNight = Density;
-            public const float LightInsideCloudsSunset = LightInsideClouds;
-            public const float LightInsideCloudsNight = LightInsideClouds;
+            public const float LightInsideCloudsSunset = 1.7f;
+            public const float LightInsideCloudsNight = 1.5f;
             public const float SunsetOpacity = DayOpacity;
             public const float ShadowDarknessSunset = ShadowDarkness;
             public const float ShadowDarknessNight = ShadowDarkness;
             public const float FogDensitySunset = FogDensity;
             public const float FogDensityNight = FogDensity;
-            public const float FogBrightnessSunset = FogBrightness;
-            public const float FogBrightnessNight = FogBrightness;
+            // Not "= FogBrightness": New Defaults raised the day's alone (150% each before).
+            public const float FogBrightnessSunset = 1.5f;
+            public const float FogBrightnessNight = 1.5f;
             public const float FogTintSunset = FogTint;
             public const float FogTintNight = FogTint;
             // Written out, not "= FogColor": static fields start in the order they are written, and
@@ -1118,15 +1138,15 @@ namespace VolumetricClouds
             public const float DensityOvercast = 0.8f;
             public const float DensitySunsetOvercast = DensityOvercast;
             public const float DensityNightOvercast = DensityOvercast;
-            public const float LightInsideCloudsOvercast = LightInsideClouds;
-            public const float LightInsideCloudsSunsetOvercast = LightInsideClouds;
-            public const float LightInsideCloudsNightOvercast = LightInsideClouds;
+            public const float LightInsideCloudsOvercast = 1.5f;
+            public const float LightInsideCloudsSunsetOvercast = 2f;
+            public const float LightInsideCloudsNightOvercast = 1.5f;
             public const float DayOpacityOvercast = DayOpacity;
             public const float SunsetOpacityOvercast = DayOpacity;
             public const float NightOpacityOvercast = NightOpacity;
-            public const float FogBrightnessOvercast = FogBrightness;
-            public const float FogBrightnessSunsetOvercast = FogBrightness;
-            public const float FogBrightnessNightOvercast = FogBrightness;
+            public const float FogBrightnessOvercast = 1.65f;
+            public const float FogBrightnessSunsetOvercast = 1.5f;
+            public const float FogBrightnessNightOvercast = 1.5f;
             public const float FogTintOvercast = FogTint;
             public const float FogTintSunsetOvercast = FogTint;
             public const float FogTintNightOvercast = FogTint;
@@ -1135,15 +1155,22 @@ namespace VolumetricClouds
             public static readonly Color32 FogColorNightOvercast = new Color32(255, 255, 255, 255);
 
             /// <summary>
-            /// Cloud brightness (1.5.0, the four rows merged): a new install's sky as 1.4.0's -- Auto on,
-            /// its clear sky and full overcast ends, the same at every hour.
+            /// Cloud brightness (1.5.0, the four rows merged). New Defaults (2026-11-18); before, a new
+            /// install's sky was 1.4.0's: <see cref="BrightnessClear"/> (150%) clear and
+            /// <see cref="BrightnessOvercast"/> (50%) overcast at every hour.
             /// </summary>
-            public const float Light = BrightnessClear;
-            public const float LightSunset = BrightnessClear;
-            public const float LightNight = BrightnessClear;
-            public const float LightOvercast = BrightnessOvercast;
-            public const float LightSunsetOvercast = BrightnessOvercast;
-            public const float LightNightOvercast = BrightnessOvercast;
+            public const float Light = 2.05f;
+            public const float LightSunset = 2f;
+            public const float LightNight = 1.5f;
+            public const float LightOvercast = 2f;
+            public const float LightSunsetOvercast = 2f;
+            public const float LightNightOvercast = 1f;
+
+            /// <summary>
+            /// The light the rain curtains stand at (CloudVolume): Cloud brightness's default when they were
+            /// tuned (150%), never the row (2026-11-13) -- kept apart when that default moved (New Defaults).
+            /// </summary>
+            public const float RainCurtainLevel = 1.5f;
 
             /// <summary>Every row's clock closed (the author's call): a player's opening is kept in the file.</summary>
             public const string PanelOpenClocks = "";
@@ -1157,7 +1184,7 @@ namespace VolumetricClouds
             /// 1.5.0-1.5.1, OFF since 1.5.2 (the author's call): new installs and a Reset only; a file
             /// written by 1.5.x keeps its own value. Off with the sliders at 0 nothing of it is loaded.
             /// </summary>
-            public const bool DynamicDistantClouds = false;
+            public const bool DynamicDistantClouds = true;   // New Defaults (off since 1.5.2 before)
 
             /// <summary>Distant clouds (1.5.0): the sliders all at 0, read only with DynamicDistantClouds off.</summary>
             public const float SkyCirrus = 0f;
@@ -1197,14 +1224,15 @@ namespace VolumetricClouds
             /// </summary>
             public const float DayOpacity = 0f;
             public const float NightOpacity = 1f;
-            public const float NightGlow = 0.5f;
+            public const float NightGlow = 1.05f;   // New Defaults (50% before)
 
             // ---- shadows ----
             public const bool CloudShadows = true;
             public const float ShadowDarkness = 0.85f;
             public const float ShadowFullness = 3f;
 
-            public const int ShadowMapResolution = 2048;
+            /// <summary>The Medium preset's (2026-11-18; High's 2048 before: <see cref="HighShadowMap"/>).</summary>
+            public const int ShadowMapResolution = 1024;
             public const int ShadowMapRate = 20;
 
             // ---- rendering (the machine, never a shared preset) ----
@@ -1226,16 +1254,26 @@ namespace VolumetricClouds
             public const bool SmootherCloudsSharp = true;
 
             /// <summary>
-            /// Raymarch steps. 96 is the slider's maximum, what the author runs, and the shader's
-            /// hard limit: CloudRaymarch.shader marches `for (int s = 0; s &lt; 96; s++)` while
-            /// the step length is (exit - enter) / steps, so a higher number here only shortens
-            /// the step and leaves the far end of every slab unmarched. Raising it means
-            /// editing that loop bound first.
+            /// Raymarch steps at the High preset. 96 is the slider's maximum, what the author runs, and
+            /// the shader's hard limit: CloudRaymarch.shader marches `for (int s = 0; s &lt; 96; s++)`
+            /// while the step length is (exit - enter) / steps, so a higher number here only shortens
+            /// the step and leaves the far end of every slab unmarched. Raising it means editing that
+            /// loop bound first.
             /// </summary>
-            public const float Quality = 96f;
+            public const float HighSteps = 96f;
 
-            /// <summary>High. See <see cref="QualityPreset"/>.</summary>
-            public const int Preset = 2;
+            /// <summary>The shadow map's size at the High preset.</summary>
+            public const int HighShadowMap = 2048;
+
+            /// <summary>
+            /// Raymarch steps: the Medium preset's (2026-11-18, the author: Medium by default "since now we
+            /// have the cumulus clouds which are heavy on by default"; High's 96 before). A new install gets
+            /// the preset picked for the computer (UI.QualityChoice) and its rows from it.
+            /// </summary>
+            public const float Quality = 64f;
+
+            /// <summary>Medium (High before 2026-11-18). A new install's is picked for the computer (UI.QualityChoice). See <see cref="QualityPreset"/>.</summary>
+            public const int Preset = 1;
 
             // ---- rain ----
             public const bool RainEnabled = true;
@@ -1249,19 +1287,20 @@ namespace VolumetricClouds
             // 1.2 (the author: "make the streaks much smaller and slightly less bright"): half the
             // length and width and 80% of the brightness of the streaks before 1.1.1's settings, which
             // 100% still is. A changed default reaches new installs and a Reset only: a settings file
-            // already lists these rows (invariant 15).
-            public const float RainStreakLength = 0.5f;
-            public const float RainStreakWidth = 0.5f;
-            public const float RainStreakOpacity = 0.8f;
+            // already lists these rows (invariant 15). New Defaults (2026-11-18): 25% / 25% / 70% (50 / 50 / 80 before).
+            public const float RainStreakLength = 0.25f;
+            public const float RainStreakWidth = 0.25f;
+            public const float RainStreakOpacity = 0.7f;
             /// <summary>White: the streaks' colour exactly as before the setting existed.</summary>
             public static readonly Color32 RainStreakColor = new Color32(255, 255, 255, 255);
             public const float RainFallSpeed = 1f;
             // 2026-11-15: seen in game ("The new settings are perfect"), on for every player at their middle
             // value (the design's 100%), as Lightning variety (the author's call the same day).
-            public const float RainWind = 1f;
+            // New Defaults (2026-11-18): Wind on the rain 50%, Wet roads and puddles 150% (100% each before).
+            public const float RainWind = 0.5f;
             public const bool RainDetail = true;
             public const float StormMist = 1f;
-            public const float WetGround = 1f;
+            public const float WetGround = 1.5f;
             public const float WetTerrain = 0.1f;
             public const float WetTrees = 0.1f;
             public const float WheelSpray = 1f;
@@ -1280,18 +1319,19 @@ namespace VolumetricClouds
             // ---- lightning ----
             public const bool LightningEnabled = true;
             public const bool LightningReplaceBolt = true;
-            public const float LightningBrightness = 1f;
+            public const float LightningBrightness = 2f;   // New Defaults (100% before)
             public const bool LightningOverride = false;
             public const float LightningActivity = 0.5f;
             public const float LightningStormScale = 1f;
             // 2026-11-15: the author asked for "a LOT" more variety; 100% for every player (confirmed the same day).
-            public const float LightningVariety = 1f;
+            // New Defaults (2026-11-18): 140%.
+            public const float LightningVariety = 1.4f;
             // Travelling storms for every player (the author, 2026-11-15: "make this the default for our mod's lightning").
             public const int StormMovement = 1;
 
             // ---- trees in the wind (2026-10-30) ----
-            // Off for everyone until the author has judged it in-game; the rest at the design's 100%.
-            public const bool TreeWind = false;
+            // Off for everyone until the author had judged it in-game; ON in New Defaults (2026-11-18). The rest at the design's 100%.
+            public const bool TreeWind = true;
             public const float TreeWindStrength = 1f;
             public const bool TreeWindEverywhere = false;
             public const float TreeGusts = 1f;
@@ -1344,8 +1384,9 @@ namespace VolumetricClouds
             /// cloud brightness of 25%, lit since through the fixed
             /// <see cref="Sky.CloudVolume.FogLightScale"/> of 0.5). Like every default, it reaches
             /// only new installs and a Reset: a file that holds the element keeps its number.
+            /// New Defaults (2026-11-18): 205% by day.
             /// </summary>
-            public const float FogBrightness = 1.5f;
+            public const float FogBrightness = 2.05f;
 
             public const float FogTint = -0.4f;
 
@@ -1359,25 +1400,28 @@ namespace VolumetricClouds
             // ---- light halos ----
 
             /// <summary>
-            /// OFF: a night that looks nothing like vanilla is not something to do to someone
-            /// who never asked. Everything below it, though, is the author's night rather than a
-            /// neutral one -- ticking the box has to DO something.
+            /// ON in New Defaults (2026-11-18, the author's call). Off before: "a night that looks nothing
+            /// like vanilla is not something to do to someone who never asked". Everything below it is the
+            /// author's night rather than a neutral one -- ticking the box has to DO something.
             /// </summary>
-            public const bool HaloEnabled = false;
+            public const bool HaloEnabled = true;
 
+            // New Defaults (2026-11-18): size 100%, near lights closer than 470 m, brightness 200%, tightness
+            // 300% (120% / 280 m / 90% / 175% before).
             public const float HaloBrightness = 3f;
             public const float HaloTightness = 6f;
-            public const float HaloRadius = 1.2f;
-            public const float HaloNearDistance = 280f;
-            public const float HaloNearBrightness = 0.9f;
-            public const float HaloNearTightness = 1.75f;
+            public const float HaloRadius = 1f;
+            public const float HaloNearDistance = 470f;
+            public const float HaloNearBrightness = 2f;
+            public const float HaloNearTightness = 3f;
             public const float HaloNearRadius = 0.1f;
 
             // The close glare (1.5.2). It reaches existing players who opted into the halos:
             // the halos are the author's night, and this is part of it. Values = his own
             // (2026-10-30): faint, wide, reaching far.
-            public const float HaloGlare = 0.1f;
-            public const float HaloGlareSize = 1.7f;
+            // New Defaults (2026-11-18): 15%, 70% (10%, 170% before).
+            public const float HaloGlare = 0.15f;
+            public const float HaloGlareSize = 0.7f;
             public const float HaloGlareDistance = 600f;
 
             /// <summary>The author, 2026-10-29: "make it by default dynamic ... affected by fog basically just as the light halo".</summary>
@@ -1385,21 +1429,29 @@ namespace VolumetricClouds
 
             // The flare (2026-11-17). Like the glare, it reaches existing players who opted into
             // the halos (the halos stay off until asked for): at the designed strength near and far.
+            // New Defaults (2026-11-18): far lights 70%; sizes 40% near, 65% far, 60% vehicles; rays 50% thick
+            // (100% each, vehicles 75%, before).
             public const float HaloFlareNear = 1f;
-            public const float HaloFlareFar = 1f;
+            public const float HaloFlareFar = 0.7f;
 
-            // Its shape (2026-11-17, the author: "more control over flares, especially size"):
-            // each at the designed look.
-            public const float HaloFlareSizeNear = 1f;
-            public const float HaloFlareSizeFar = 1f;
-            public const float HaloFlareThickness = 1f;
+            // Its shape (2026-11-17, the author: "more control over flares, especially size").
+            public const float HaloFlareSizeNear = 0.4f;
+            public const float HaloFlareSizeFar = 0.65f;
+            public const float HaloFlareThickness = 0.5f;
             public const float HaloFlareSpikes = 1f;
             public const int HaloFlareSpikeCount = 6;
 
             // Vehicles' lights (2026-11-17, "add the flare onto vehicle lights"): slight by default, the
             // author's brief -- half the strength, three quarters of the length.
             public const float HaloFlareVehicles = 0.5f;
-            public const float HaloFlareSizeVehicles = 0.75f;
+            public const float HaloFlareSizeVehicles = 0.6f;
+
+            /// <summary>
+            /// The mod's version that last ran with this settings file AND had its news shown (2026-11-18,
+            /// UI.NewDefaultsNotice): empty in every file written before it, which is how an existing
+            /// player is told apart from a new install.
+            /// </summary>
+            public const string ModVersion = "";
         }
 
         private static bool _initialised;
@@ -1586,6 +1638,7 @@ namespace VolumetricClouds
                 CumulusBases = new FloatSetting("CumulusBases", Defaults.CumulusBases);
                 CumulusSoftness = new FloatSetting("CumulusSoftness", Defaults.CumulusSoftness);
                 CumulusAmount = new FloatSetting("CumulusAmount", Defaults.CumulusAmount);
+                CloudVariety = new FloatSetting("CloudVariety", Defaults.CloudVariety);
                 CloudThickness = new FloatSetting("CloudThickness", Defaults.Thickness);
                 ClassicShape = new FloatSetting("ClassicShape", Defaults.ClassicShape);
                 CloudDensity = new FloatSetting("CloudDensity", Defaults.Density);
@@ -1688,6 +1741,7 @@ namespace VolumetricClouds
 
                 // The element is "Profile", a name that stays for good (invariant 15).
                 CurrentProfile = new StringSetting("Profile", Defaults.Profile);
+                ModVersion = new StringSetting("ModVersion", Defaults.ModVersion);
                 PanelOpenGroups = new StringSetting("PanelOpenGroups", Defaults.PanelOpenGroups);
                 PanelOpenClocks = new StringSetting("PanelOpenClocks", Defaults.PanelOpenClocks);
                 PanelOpenWeather = new StringSetting("PanelOpenWeather", Defaults.PanelOpenWeather);

@@ -9,6 +9,9 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ### Added
 
+- *Cloud variety* (Clouds tab, under the cumulus rows, 0%): some stretches of sky grow tall towering cumulus, others
+  keep flat, small ones, the cloud bottoms on one level. Cumulus, Mixed and Auto. `VolumetricClouds.xml` gains one
+  line, `CloudVariety` (0%): nobody's sky changes.
 - *Wind covers the whole map* (Weather tab, Trees, off): with *Trees move in the wind* on, every tree on the
   map sways with the full wind wherever it stands. Off, as before, each tree gets the game's share by its
   height, so trees in hollows and among tall buildings barely move or stand still. On, Tree Control's sway
@@ -23,7 +26,7 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Storms* (Weather tab, Lightning): lightning now comes from storm cells that form upwind, pass over where you
   look and move away downwind (*Travelling storms*, the new default for everyone). *Around the camera* gives the
   lightning as it was.
-- *Wind on the rain* (Weather tab, 100%): the rain streaks lean
+- *Wind on the rain* (Weather tab, 100% for existing players, 50% in the new mod defaults): the rain streaks lean
   with the city's wind instead of always leaning like the rain curtains. In the weather's own wind that is about
   as much as before (20 to 25 degrees in full rain), less in a light breeze; only a gale set on the Now tab or a
   waterspout nearby leans them steeply, and never past 50 degrees (60 in a gust). Gusts sway the rain a little
@@ -50,16 +53,19 @@ below; the mods list shows it after the mod's name, and the first line of
   of the Cumulus heaps form the way their tops do, rounded and uneven from heap to heap, instead of every heap
   sitting on one flat line, widest right at the bottom. Nothing is cut away or bent: the heaps grow from a rounder
   shape, about as tall as before, and the sky holds about as much cloud, so their shadows follow by themselves. The flat slabs of the Classic layer among the heaps are not changed. Off under *Simpler clouds*.
-  `VolumetricClouds.xml` gains one line, `CumulusBases` (0%): nobody's clouds change.
+  `VolumetricClouds.xml` gains one line, `CumulusBases` (0% for existing players: nobody's clouds change; 70% in the
+  new mod defaults).
 - *Softer cumulus* (Clouds tab, under *Rounded cumulus bases*, shown with Cumulus, Mixed and Auto, 0%): the edges of
   the Cumulus heaps go soft and wispy, frayed into strands near their bottoms and billows higher up, with a faint
   see-through fringe, like the Soft style's clouds, instead of hard-edged blocks. Their shadows follow. Off under
-  *Simpler clouds*. `VolumetricClouds.xml` gains one line, `CumulusSoftness` (0%): nobody's clouds change.
+  *Simpler clouds*. `VolumetricClouds.xml` gains one line, `CumulusSoftness` (0% for existing players: nobody's clouds
+  change; 60% in the new mod defaults).
 - *Natural Classic clouds* (Clouds tab, under *Layer thickness*, 0%): the Classic clouds get thinner toward their edges,
   rounded on top and underneath, instead of flat slabs as thick at their edge as in their middle. No cloud gets taller
   than before and the sky holds about as much cloud; their shadows follow. It shapes the Classic clouds wherever they
   are drawn: the Classic style, and the Classic clouds beside the other styles' clouds. Off under *Simpler clouds*.
-  `VolumetricClouds.xml` gains one line, `ClassicShape` (0%): nobody's clouds change.
+  `VolumetricClouds.xml` gains one line, `ClassicShape` (0% for existing players: nobody's clouds change; 70% in the
+  new mod defaults).
 - *Brightness difference between clouds* (Light tab, shown with Mixed and Auto, 0%): under Mixed and Auto the soft
   clouds were lit about half as brightly as the heaped clouds beside them, so they looked dark gray next to them.
   Now they are just as bright where the sun reaches them, while the sky as a whole keeps about its brightness (at
@@ -72,8 +78,23 @@ below; the mods list shows it after the mod's name, and the first line of
   skies (more sheep clouds, far clouds and two more cloud layers), finer detail at their edges up close, and come
   back mirrored in some of their lives, so the same picture repeats less. The mod's download grows by about
   14 MB, and while distant clouds show they take about 256 MB of graphics memory (43 MB before).
-- Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every player, at its
-  middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before.
+- Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every existing player,
+  at its middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before. The
+  new mod defaults (below) set some of them differently.
+- **New mod defaults**, and a one-time message about them. A new install starts on a new sky: the Auto cloud style
+  with taller, softer Cumulus clouds with rounded bases, natural Classic clouds, higher and thicker clouds, brighter
+  clouds and fog, more glow inside the clouds, a stronger glow under them at night, curved clouds under a full
+  overcast, dynamic distant clouds, thinner rain streaks, stronger and more varied lightning, wetter streets, trees
+  that move in the wind, and the replacement light halos with a softer flare. *Reset all* and *(Mod defaults)* in
+  the profile list give it too. Existing players keep their sky exactly as it was, and their saved profiles too;
+  the first time they open the mod's panel after the update, a message (in the panel's look) offers to try the new defaults. *Try new
+  defaults* first saves any unsaved changes, into the picked profile or, without one, as a new profile named
+  *Unsaved profile pre-1.6.0*, so you can always go back; *No thanks* keeps everything as it is. The message shows
+  once. Your quality setting is not changed. `VolumetricClouds.xml` gains one line, `ModVersion`, the version that
+  last showed its news.
+- **Quality for a new install follows the computer**: Medium (it was High), or Low where the game's own shadows,
+  level of detail or textures were lowered or the graphics card has under 4 GB. Never High on its own: pick it on
+  the options page. Existing players keep their quality.
 - *Cloud drawing size* (options page, under *Smoother clouds*, *Half the screen*): how large Smoother clouds draws
   the clouds before blending them. *A third of the screen* draws them nearly twice as fast at 4K, *A quarter* faster
   still, *By screen size* a third above 1440p; the finest wisps get softer. `VolumetricClouds.xml` gains one line,

@@ -157,6 +157,7 @@ namespace VolumetricClouds
                 }
                 else if (!ImportFromCgs())
                 {
+                    SettingsCatalog.FirstRun();
                     SaveNow();
                     Log.Msg("settings: no settings file yet; created " + Path + " with every default");
                 }
@@ -191,6 +192,9 @@ namespace VolumetricClouds
             _readOnce = true;
             Log.Msg("settings: " + verb + " " + result.Applied + " values from " + file + result.Describe());
             result.LogProblems("settings");
+
+            // An existing player: shown the new defaults once (UI.NewDefaultsNotice), or stamped now.
+            NewDefaultsNotice.AtStartup(true);
 
             // Lists every setting, with its comment: a file from an older version gains the new
             // ones, and a clamped value is written as it now is. Skipped when nothing differs.
@@ -1068,6 +1072,8 @@ namespace VolumetricClouds
             var marker = new SavedBool(ImportedMarker, CgsName, false, false);
             if (marker.value)
             {
+                // The new file was deleted since: a fresh start, as a new install.
+                SettingsCatalog.FirstRun();
                 SaveNow();
                 Log.Msg("settings: " + CgsName + ".cgs was imported before, so it is not read again; created " +
                         Path + " with every default");
@@ -1095,8 +1101,13 @@ namespace VolumetricClouds
                         // Newer than the .cgs: what an older file means (Row.OlderFileInt; a clock's
                         // Sunset and Night, its Day value, imported just before them; an Overcast value,
                         // its Clear sky one).
+                        string older = row.OlderFile != null && !row.OlderFileInt.HasValue
+                            ? row.OlderFile(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
+                            : null;
                         if (row.OlderFileInt.HasValue && row.Int != null)
                             row.Int.value = row.OlderFileInt.Value;
+                        else if (older != null)
+                            ApplyText(row, older);   // a row New Defaults moved: its value before (2026-11-18)
                         else if ((row.OvercastOf ?? row.TimeOf) != null)
                             ApplyText(row, ValueText(row.OvercastOf ?? row.TimeOf));
                         continue;
@@ -1114,6 +1125,8 @@ namespace VolumetricClouds
                 _loading = false;
             }
 
+            // An existing player (of 1.0): shown the new defaults once.
+            NewDefaultsNotice.AtStartup(true);
             SaveNow();
 
             // Marked only once the values are safely in the new file: a mark with no file would

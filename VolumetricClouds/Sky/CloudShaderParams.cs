@@ -90,7 +90,7 @@ namespace VolumetricClouds.Sky
                 if (CloudStyle.PuffsDrawn)
                     return Mathf.Max(CloudStyle.SoftTallestNow, thickness * CloudStyle.LayerThickest);
                 if (CloudStyle.HeapsDrawn)
-                    return Mathf.Max(CloudStyle.TallestNow + CumulusTopMargin, thickness * CloudStyle.LayerThickest);
+                    return Mathf.Max(CloudStyle.VarietyTop(CloudStyle.TallestNow) + CumulusTopMargin, thickness * CloudStyle.LayerThickest);
 
                 return thickness;
             }
@@ -344,7 +344,7 @@ namespace VolumetricClouds.Sky
         private static void ApplyStyle(Material material, CloudDensityField field, float thickness, float breakupScale, float density)
         {
             // Mixed and Auto: the type map is baked off the main thread once per seed and map size.
-            if (CloudStyle.MixedWanted)
+            if (CloudStyle.MixedWanted || CloudStyle.VarietyWantsMap)
                 CloudMixMap.Update(field, SkyPattern.FieldSeed);
 
             bool soft = CloudStyle.SoftDrawn;
@@ -455,6 +455,50 @@ namespace VolumetricClouds.Sky
             }
 
             ApplySofterHeaps(material);
+            ApplyVariety(material);
+        }
+
+        private static readonly int IdVarietyKind = Shader.PropertyToID("_VarietyKind");
+        private static readonly int IdVarietyShape = Shader.PropertyToID("_VarietyShape");
+        private static readonly int IdVarietyLine = Shader.PropertyToID("_VarietyLine");
+        private static readonly int IdVarietyGrow = Shader.PropertyToID("_VarietyGrow");
+        private static int _varietyLogged = -1;
+
+        /// <summary>
+        /// Cloud variety (Sky.CloudVariety, CloudStyle.Variety*): the pattern's plateaus, the stretch and the line's move for
+        /// CumulusDensity's variety branch, which only the extras' variant has (VC_PLUS, on the cloud, air and shadow-map
+        /// materials while CloudShaders.PlusOn). _VarietyShape.w is the row as drawn: 0 (the default, or the variant or the
+        /// map not drawn) = the heaps as they always were, nothing else of it read. The pattern is the mix map's green: under
+        /// plain Cumulus the map is bound here (Mixed and Auto bind it in ApplyMix).
+        /// </summary>
+        private static void ApplyVariety(Material material)
+        {
+            float row = CloudStyle.VarietyNow;
+            if (row <= 0f)
+            {
+                material.SetVector(IdVarietyShape, Vector4.zero);
+                material.SetVector(IdVarietyLine, Vector4.zero);
+            }
+            else
+            {
+                float tower = CloudStyle.VarietyTowerStretch;
+                material.SetTexture(IdMixMap, CloudMixMap.Map);
+                material.SetVector(IdVarietyKind, new Vector4(CloudVariety.CalmTo, 1f / (CloudVariety.MiddleFrom - CloudVariety.CalmTo),
+                    CloudVariety.MiddleTo, 1f / (CloudVariety.TowerFrom - CloudVariety.MiddleTo)));
+                material.SetVector(IdVarietyShape, new Vector4(row * (1f - CloudVariety.CalmStretch), row * (tower - 1f),
+                    CloudStyle.ShapeNow.Time[1] * Mathf.Clamp01(CloudVariety.BaseHold), row));
+                material.SetVector(IdVarietyLine, new Vector4(row * CloudVariety.CalmLine, row * CloudVariety.TowerLine,
+                    CloudVariety.MostLineMove(row), row * CloudVariety.LineTrim));
+                material.SetVector(IdVarietyGrow, new Vector4(CloudVariety.GrowFrom, 1f / (CloudVariety.GrowTo - CloudVariety.GrowFrom), 0f, 0f));
+            }
+
+            // On the log when it goes on or off (a slider: not on every tick of a drag).
+            int on = row > 0f ? 1 : 0;
+            if (on != _varietyLogged)
+            {
+                _varietyLogged = on;
+                Log.Msg("cloud variety: " + CloudStyle.DescribeVariety());
+            }
         }
 
         private static readonly int IdHeapSoft = Shader.PropertyToID("_HeapSoft");

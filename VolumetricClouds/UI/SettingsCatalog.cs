@@ -170,6 +170,12 @@ namespace VolumetricClouds.UI
         public Func<IDictionary<string, string>, string> OlderFile;
 
         /// <summary>
+        /// "Reset all" leaves it as it is (2026-11-18): a value about the file, not a setting
+        /// (&lt;ModVersion&gt;: reset, the new-defaults notice would come back).
+        /// </summary>
+        public bool KeptOnReset;
+
+        /// <summary>
         /// A row with a clock (1.5.0, Sky.TimeOfDay): its Day, Sunset and Night rows, itself first.
         /// Null on every other row.
         /// </summary>
@@ -669,7 +675,10 @@ namespace VolumetricClouds.UI
             Profiles.Detach("reset all settings");
 
             foreach (Row row in Rows)
-                row.ResetToDefault();
+            {
+                if (!row.KeptOnReset)
+                    row.ResetToDefault();
+            }
 
             Profiles.AfterReset();
 
@@ -955,8 +964,8 @@ namespace VolumetricClouds.UI
             if (preset < 0 || preset > 2 || Settings.CloudQuality == null)
                 return;
 
-            float steps = preset == 0 ? 32f : preset == 1 ? 64f : Settings.Defaults.Quality;
-            int resolution = preset == 0 ? 512 : preset == 1 ? 1024 : Settings.Defaults.ShadowMapResolution;
+            float steps = preset == 0 ? 32f : preset == 1 ? 64f : Settings.Defaults.HighSteps;
+            int resolution = preset == 0 ? 512 : preset == 1 ? 1024 : Settings.Defaults.HighShadowMap;
             int rate = preset == 0 ? 10 : Settings.Defaults.ShadowMapRate;
 
             // Restored, not cleared: ResetAll holds the same guard around this call.
@@ -977,6 +986,65 @@ namespace VolumetricClouds.UI
 
             Log.Msg("quality preset: " + PresetName(preset) + " -> steps=" + steps.ToString("F0") +
                     " shadowMap=" + resolution + "^2 @ " + rate + " Hz");
+        }
+
+        private static int? _machinePreset;
+
+        /// <summary>
+        /// The preset a NEW install starts on, for this computer (2026-11-18, QualityChoice): Medium, Low
+        /// where the game's graphics options were lowered or the card is small. Worked out once, logged.
+        /// The preset row's default, so "Reset all" gives it too.
+        /// </summary>
+        public static int MachinePreset
+        {
+            get
+            {
+                if (!_machinePreset.HasValue)
+                {
+                    int pick = Settings.Defaults.Preset;
+                    try
+                    {
+                        int shadows = SystemReport.GameLevel(global::Settings.shadowsQuality);
+                        int detail = SystemReport.GameLevel(global::Settings.levelOfDetail);
+                        int textures = SystemReport.GameLevel(global::Settings.texturesQuality);
+                        int memory = SystemInfo.graphicsMemorySize;
+                        string why;
+                        pick = QualityChoice.Pick(shadows, detail, textures, memory, out why);
+                        Log.Msg("quality preset for this computer: " + PresetName(pick) + " (" + why + "; the game's shadows=" +
+                                shadows + " levelOfDetail=" + detail + " textures=" + textures + ", graphics memory " + memory +
+                                " MB) -- a new install starts on it, and Reset all puts it back");
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warn("quality preset for this computer: could not read the game's options (" + e.Message + "); " +
+                                 PresetName(pick));
+                    }
+
+                    _machinePreset = pick;
+                }
+
+                return _machinePreset.Value;
+            }
+        }
+
+        /// <summary>
+        /// A new install, before its settings file is first written (SettingsXml.Load): the computer's
+        /// preset with the three rows it sets, and the version stamp (no new-defaults notice: its sky IS
+        /// the new defaults).
+        /// </summary>
+        internal static void FirstRun()
+        {
+            int pick = MachinePreset;
+            if (Settings.QualityPreset != null)
+            {
+                Settings.QualityPreset.value = pick;
+                ApplyPreset(pick);
+            }
+
+            if (Settings.ModVersion != null)
+                Settings.ModVersion.value = Mod.Version;
+
+            Log.Msg("settings: a new install -- the mod's defaults, quality " + PresetName(pick) + ", stamped " + Mod.Version);
         }
 
         /// <summary>The preset's name for the LOG, in English. The UI's names are in the language files.</summary>
@@ -1458,6 +1526,60 @@ namespace VolumetricClouds.UI
             BuildRenderingOptions();
             BuildGeneralOptions();
             BuildHidden();
+
+            GuardNewDefaults();
+        }
+
+        /// <summary>
+        /// Every row whose default moved when the author's "New Defaults" profile became the mod's
+        /// (2026-11-18), with the value it had before, in the file's words (slider units). The rows of
+        /// a clock or a cloud button are not here: a file without one takes its Day / Clear sky value,
+        /// which is guarded. The cloud style keeps its own (Row.OlderFileInt: Classic).
+        /// </summary>
+        private static readonly string[] BeforeNewDefaults =
+        {
+            "ClassicShape", "0", "CloudAltitude", "750", "CloudBreakupScale", "4", "CloudDetail", "100",
+            "CloudFragmentStyle", "1", "CloudLight", "150", "CloudThickness", "400", "CumulusAmount", "100",
+            "CumulusBases", "0", "CumulusHeight", "100", "CumulusSize", "100", "CumulusSoftness", "0",
+            "DynamicDistantClouds", "false", "FogBrightness", "150", "HaloEnabled", "false", "HaloFlareFar", "100",
+            "HaloFlareSizeFar", "100", "HaloFlareSizeNear", "100", "HaloFlareSizeVehicles", "75",
+            "HaloFlareThickness", "100", "HaloGlare", "10", "HaloGlareSize", "170", "HaloNearLightBrightness", "90",
+            "HaloNearLightDistance", "280", "HaloNearLightTightness", "175", "HaloRadius", "120",
+            "LightInsideClouds", "100", "LightningBrightness", "100", "LightningVariety", "100", "NightGlow", "50",
+            "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
+            "TreeWind", "false", "WetGround", "100",
+        };
+
+        /// <summary>
+        /// New Defaults reach new installs, a Reset and "(Mod defaults)" only (invariant 15): a settings
+        /// file or a profile WITHOUT one of these rows -- written before the row existed -- reads it as its
+        /// value before the change, not the new default, so no existing player's sky or saved profile
+        /// changes with the update. Through Row.OlderFile (the settings file at startup, every profile,
+        /// the .cgs import), after any older-file rule the row already has.
+        /// </summary>
+        private static void GuardNewDefaults()
+        {
+            var before = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i + 1 < BeforeNewDefaults.Length; i += 2)
+                before[BeforeNewDefaults[i]] = BeforeNewDefaults[i + 1];
+
+            int guarded = 0;
+            foreach (Row row in _rows)
+            {
+                string was;
+                if (row.OlderFileInt.HasValue || row.TimeOf != null || row.OvercastOf != null ||
+                    !before.TryGetValue(row.Name, out was))
+                    continue;
+
+                Func<IDictionary<string, string>, string> prior = row.OlderFile;
+                row.OlderFile = prior == null
+                    ? (Func<IDictionary<string, string>, string>)(written => was)
+                    : written => prior(written) ?? was;
+                guarded++;
+            }
+
+            if (guarded != before.Count)
+                Log.Warn("settings catalog: " + guarded + " of the " + before.Count + " rows New Defaults moved are guarded for older files: a name in BeforeNewDefaults has no row");
         }
 
         private static void Add(Row row)
@@ -1752,6 +1874,22 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.CumulusAmount,
                 Min = 0f, Max = 200f, Step = 5f,
                 Shown = CumulusPicked,
+            });
+
+            // Cloud variety (2026-11-19): a slow pattern makes some stretches of sky tower and keeps others flat, the bases
+            // on one level (Sky.CloudVariety). 0% = the heaps as they were, the default. Wholly an extra (the cloud shader's
+            // VC_PLUS variant): greyed under Simpler clouds and where that variant does not run (CloudShaders.PlusDrawn),
+            // where it draws as at 0%. No AfterChange (a slider's runs on every tick of a drag).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Clouds,
+                Float = Settings.CloudVariety,
+                DefaultFloat = Settings.Defaults.CloudVariety,
+                Min = 0f, Max = 100f, Step = 5f,
+                HasTooltip = true,
+                Shown = CumulusPicked,
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
             });
 
             Add(new Row
@@ -2927,7 +3065,8 @@ namespace VolumetricClouds.UI
                 Options = OptionsPage.General,
                 Group = "Performance",
                 Int = Settings.QualityPreset,
-                DefaultInt = Settings.Defaults.Preset,
+                // The computer's (2026-11-18): Medium, Low where the game's graphics were lowered.
+                DefaultInt = MachinePreset,
                 ChoiceKeys = new[] { "QualityPreset.Low", "QualityPreset.Medium", "QualityPreset.High", "QualityPreset.Custom" },
                 ChoiceValues = new[] { 0, 1, 2, 3 },
                 Profiled = false,
@@ -3451,6 +3590,17 @@ namespace VolumetricClouds.UI
                 HasNote = true,
                 Profiled = false,
                 AfterChange = Profiles.OnSelectionEdited,
+            });
+
+            // (2026-11-18) The version that last ran with this file and had its news shown: how an
+            // existing player is told apart from a new install (NoticeRule). Kept by "Reset all".
+            Add(new Row
+            {
+                Kind = RowKind.Text,
+                Text = Settings.ModVersion,
+                DefaultText = Settings.Defaults.ModVersion,
+                Profiled = false,
+                KeptOnReset = true,
             });
 
             // Where the player dragged the mod's own button (no Unified UI). Wide ranges on

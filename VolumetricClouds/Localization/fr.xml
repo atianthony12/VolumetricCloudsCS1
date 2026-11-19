@@ -109,6 +109,8 @@
   <String key="CumulusSoftness.Label">Cumulus plus doux</String>
   <String key="CumulusSoftness.Tooltip">Donne aux cumulus des bords doux et effilochés, comme les nuages du style Doux. 0% = bords nets, comme avant</String>
   <String key="CumulusAmount.Label">Quantité de cumulus</String>
+  <String key="CloudVariety.Label">Variété des nuages</String>
+  <String key="CloudVariety.Tooltip">Certaines zones du ciel forment de grands cumulus en tours, d'autres restent plats et petits. Les bases restent au même niveau. 0% = toutes les zones pareilles, comme avant</String>
 
   <String key="Group.CloudShape">Altitude et forme</String>
   <String key="CloudAltitude.Label">Altitude des nuages</String>
@@ -480,6 +482,19 @@
   <!-- Read only in the settings file, as the comment on <Profile>. -->
   <String key="Profile.Label">Profil actuel : choisi en haut du panneau en jeu, vide si aucun</String>
   <String key="Profile.Note">Son fichier dans VolumetricCloudsProfiles ne change que lorsque vous cliquez sur Enregistrer dans le panneau.</String>
+
+  <String key="ModVersion.Label">La version du mod qui a utilisé ce fichier en dernier et en a montré les nouveautés. Ne la modifiez pas</String>
+
+  <String key="NewDefaults.Text">Volumetric Weather a beaucoup de nouveautés ! Vous pouvez garder vos réglages ou votre profil actuels, mais je vous recommande d’essayer les nouveaux réglages par défaut du mod pour ne rien manquer. Pensez à enregistrer votre profil actuel si vous voulez pouvoir y revenir.</String>
+  <String key="NewDefaults.Try">Essayer les nouveaux réglages</String>
+  <String key="NewDefaults.Keep">Non merci</String>
+  <String key="NewDefaults.SavePicked">Votre profil « {0} » a des modifications non enregistrées. Elles y seront d’abord enregistrées, pour que vous puissiez y revenir en le choisissant, puis les nouveaux réglages par défaut seront appliqués.</String>
+  <String key="NewDefaults.SaveNew">Vos réglages actuels ne sont pas enregistrés dans un profil. Ils seront d’abord enregistrés comme nouveau profil, « {0} », pour que vous puissiez y revenir en le choisissant, puis les nouveaux réglages par défaut seront appliqués.</String>
+  <String key="NewDefaults.SaveAndSwitch">Enregistrer et changer</String>
+  <String key="NewDefaults.Back">Retour</String>
+  <String key="NewDefaults.SaveFailed">Vos réglages n’ont pas pu être enregistrés, donc rien n’a été changé.</String>
+  <String key="NewDefaults.Ok">OK</String>
+  <String key="NewDefaults.SavedName">Profil non enregistré avant {0}</String>
 
   <String key="HudButtonX.Label">Bouton du mod (sans Unified UI) : distance depuis le bord gauche</String>
   <String key="HudButtonY.Label">Bouton du mod (sans Unified UI) : distance depuis le bord supérieur</String>

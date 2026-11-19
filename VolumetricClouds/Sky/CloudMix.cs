@@ -243,6 +243,58 @@ namespace VolumetricClouds.Sky
             else
                 BakeHeapRows(values, size, seedX, seedZ, scale, 0, size);
 
+            return RankEven(values);
+        }
+
+        // ---- the variety (2026-11-19, phase 1: CPU only, not drawn) -------------------------------
+
+        /// <summary>
+        /// The variety pattern: value noise at these periods per weather repeat, with these weights, from numbers of
+        /// its own (keys 44, 45), so how vigorous a stretch of sky is says nothing of where the heaps or the layer are.
+        /// Slow: one lattice cell is a quarter to a third of the repeat (3.4 to 4.5 km at 13.5 km), several heaps wide. (Periods 2
+        /// and 3 gave every city nearly the same two bands across the repeat: four lattice values.)
+        /// </summary>
+        public const int VarietyPeriodA = 3, VarietyPeriodB = 4;
+        public const float VarietyWeightA = 0.6f, VarietyWeightB = 0.4f;
+
+        /// <summary>
+        /// How vigorous the sky is at (u, v) of the weather map's repeat, before it is made even (Sky/CloudVariety reads
+        /// the even value: plateaus and towers are its business, not the pattern's).
+        /// </summary>
+        public static float VarietyAt(float u, float v, float seedX, float seedZ, int scale)
+        {
+            int periodA = VarietyPeriodA * scale, periodB = VarietyPeriodB * scale;
+            float a = ValueNoise(u * periodA, v * periodA, periodA, 44f, seedX, seedZ);
+            float b = ValueNoise(u * periodB, v * periodB, periodB, 45f, seedX, seedZ);
+            return a * VarietyWeightA + b * VarietyWeightB;
+        }
+
+        /// <summary>
+        /// The variety pattern as the map's GREEN would hold it: each texel's rank in the map, 0..255, as the heaps'
+        /// (<see cref="BakeHeaps"/>), so a share of its values is that share of the sky in every city. Phase 1: baked for
+        /// the preview and the tests only; the map the game uploads still carries 0 in green.
+        /// </summary>
+        public static byte[] BakeVariety(int size, float seedX, float seedZ, int scale)
+        {
+            float[] values = new float[size * size];
+            if (scale > 1)
+                ParallelRows.Run(size, "VolumetricClouds variety", (first, end) => BakeVarietyRows(values, size, seedX, seedZ, scale, first, end));
+            else
+                BakeVarietyRows(values, size, seedX, seedZ, scale, 0, size);
+
+            return RankEven(values);
+        }
+
+        private static void BakeVarietyRows(float[] values, int size, float seedX, float seedZ, int scale, int first, int end)
+        {
+            for (int j = first; j < end; j++)
+                for (int i = 0; i < size; i++)
+                    values[j * size + i] = VarietyAt((i + 0.5f) / size, (j + 0.5f) / size, seedX, seedZ, scale);
+        }
+
+        /// <summary>Each value's rank among them all, 0..255 (bins of 1/4096, half its own bin counted).</summary>
+        private static byte[] RankEven(float[] values)
+        {
             const int Bins = 4096;
             int[] count = new int[Bins];
             for (int i = 0; i < values.Length; i++)

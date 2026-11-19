@@ -1407,7 +1407,7 @@ namespace VolumetricClouds.Sky
             // players raise it so the moon shows on them (215% Night Overcast), and the curtains under
             // them, seen against a dark city, lit up like day. They stand at the level the curtains were
             // tuned at, the row's default: a player who never moved it gets exactly the light as before.
-            const float rainLevel = Settings.Defaults.Light;
+            const float rainLevel = Settings.Defaults.RainCurtainLevel;
             // Rain curtain brightness (2026-11-15), with a clock: the city's light they take can stay far
             // brighter at night than the clouds' (x10 the cloud bases under another mod's lighting), so the
             // night value lets them be a dark veil. On the sky's light and the sun's, not a strike's.

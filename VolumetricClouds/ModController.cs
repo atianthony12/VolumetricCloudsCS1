@@ -174,6 +174,7 @@ namespace VolumetricClouds
         private void Update()
         {
             ApplyNewPattern();
+            NewDefaultsNotice.Tick(_panel != null && _panel.isVisible);
 
             // Don't steal a key while a text field has focus or a modal is up,
             // otherwise typing into a rename box toggles the panel.
@@ -370,6 +371,7 @@ namespace VolumetricClouds
 
         private void OnDestroy()
         {
+            NewDefaultsNotice.CityClosing();
             LocaleManager.eventLocaleChanged -= OnLocaleChanged;
             UUIIntegration.Unregister();
             DestroyHudButton();

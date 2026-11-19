@@ -146,6 +146,8 @@
   <String key="CumulusSoftness.Label">Softer cumulus</String>
   <String key="CumulusSoftness.Tooltip">Gives the heaped clouds soft, wispy edges, like the Soft style's clouds. 0% = sharp edges, as before</String>
   <String key="CumulusAmount.Label">Cumulus amount</String>
+  <String key="CloudVariety.Label">Cloud variety</String>
+  <String key="CloudVariety.Tooltip">Some stretches of sky grow tall towering cumulus, others stay flat and small. The bottoms stay level. 0% = every stretch alike, as before</String>
 
   <String key="Group.CloudShape">Height and shape</String>
   <String key="CloudAltitude.Label">Cloud altitude</String>
@@ -539,6 +541,21 @@
   <String key="Profile.Note">
     Its file in the VolumetricCloudsProfiles folder changes only when you press Save in the panel.
   </String>
+
+  <String key="ModVersion.Label">The version of the mod that last ran with this file and showed its news. Leave it as it is</String>
+
+  <!-- The one-time notice of the new mod defaults (UI/NewDefaultsNotice.cs), the first time the panel is opened after the update. -->
+  <String key="NewDefaults.Text">Volumetric Weather has a lot of new features! You can keep your current settings or profile, but I recommend you try the new mod defaults to make sure you haven't missed anything. Make sure to save your current profile if you need to go back to it.</String>
+  <String key="NewDefaults.Try">Try new defaults</String>
+  <String key="NewDefaults.Keep">No thanks</String>
+  <String key="NewDefaults.SavePicked">Your profile "{0}" has unsaved changes. They will be saved into it first, so you can go back to them by picking it, and then the new defaults are put in.</String>
+  <String key="NewDefaults.SaveNew">Your current settings are not saved in a profile. They will be saved first as a new profile, "{0}", so you can go back to them by picking it, and then the new defaults are put in.</String>
+  <String key="NewDefaults.SaveAndSwitch">Save and switch</String>
+  <String key="NewDefaults.Back">Back</String>
+  <String key="NewDefaults.SaveFailed">Your settings could not be saved, so nothing was changed.</String>
+  <String key="NewDefaults.Ok">OK</String>
+  <!-- The name of the profile the settings are saved as; {0} is the mod's version. -->
+  <String key="NewDefaults.SavedName">Unsaved profile pre-{0}</String>
 
   <String key="HudButtonX.Label">The mod's button (without Unified UI): distance from the left edge</String>
   <String key="HudButtonY.Label">The mod's button (without Unified UI): distance from the top edge</String>

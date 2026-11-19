@@ -14,11 +14,11 @@ namespace VolumetricClouds
     /// should at least carry the facts a first-run quality choice would need: the resolution,
     /// the card, and what they are already running the game at.
     ///
-    /// The game's own graphics levels are read but deliberately NOT used to choose a preset.
-    /// Its defaults are the top of the range, so a player who never opened the graphics options
-    /// reads as "high-end" whatever is in the machine; and when someone HAS lowered them it is
-    /// usually to shed draw calls in a big city, which is exactly the city where our cost hides
-    /// for free. The signal would mostly be wrong in the expensive direction.
+    /// The game's own graphics levels: its defaults are the top of the range, so a player who never
+    /// opened the graphics options reads as "high-end" whatever is in the machine. So since
+    /// 2026-11-18 (the author: a new install's quality "according to the user's in-game settings")
+    /// they only ever LOWER a new install's preset (UI.QualityChoice: Medium, Low where one was
+    /// lowered or the card has under 4 GB), never raise it to High.
     /// </remarks>
     public static class SystemReport
     {
@@ -50,7 +50,7 @@ namespace VolumetricClouds
                         " antialiasing=" + GameSetting(global::Settings.antialiasing) +
                         " anisotropic=" + GameSetting(global::Settings.anisotropicFiltering) +
                         " dof=" + GameSetting(global::Settings.dofMode) +
-                        "  (read for the record; the preset below is not deduced from them)");
+                        "  (a new install's preset is lowered by them, never raised: UI.QualityChoice)");
 
                 int preset = Settings.QualityPreset != null ? Settings.QualityPreset.value : Settings.Defaults.Preset;
                 Log.Msg("mod quality: preset=" + UI.SettingsCatalog.PresetName(preset) +
@@ -194,16 +194,23 @@ namespace VolumetricClouds
         /// </summary>
         private static string GameSetting(string key)
         {
+            int level = GameLevel(key);
+            return level < 0 ? "?" : level.ToString();
+        }
+
+        /// <summary>The same as a number; -1 where it cannot be read (no gameSettings file yet, no such key).</summary>
+        internal static int GameLevel(string key)
+        {
             try
             {
                 if (GameSettings.FindSettingsFileByName(global::Settings.gameSettingsFile) == null)
-                    return "?";
+                    return -1;
 
-                return new SavedInt(key, global::Settings.gameSettingsFile, -1, false).value.ToString();
+                return new SavedInt(key, global::Settings.gameSettingsFile, -1, false).value;
             }
             catch (Exception)
             {
-                return "?";
+                return -1;
             }
         }
 

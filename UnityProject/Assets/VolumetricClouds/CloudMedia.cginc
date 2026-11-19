@@ -245,7 +245,12 @@ bool CellEmpty(float weather, float score)
         return true;
 
     if (_CloudStyle > 0.5)
+#ifdef VC_PLUS
+        // Cloud variety moves the heaps' line by at most _VarietyLine.z (0 off): the bound holds with it.
+        return _CumulusShape.y >= 0.0 && _CumulusShape.x + _VarietyLine.z + _CumulusShape.y * score <= 0.0;
+#else
         return _CumulusShape.y >= 0.0 && _CumulusShape.x + _CumulusShape.y * score <= 0.0;
+#endif
 
     return true;
 }
