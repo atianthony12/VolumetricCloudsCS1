@@ -2435,6 +2435,9 @@ namespace VolumetricClouds.UI
             // 2026-11-15 (the author, after Torrent: "when there's strong wind it goes almost horizontal"):
             // the city's wind on the streaks (Sky.RainDrops, RainGust.cginc). 0% = as before. The trees'
             // Gusts / Rain and storms rows shape the city's wind, so they shape this too.
+            // 2026-11-19 (the author: "way too aggressive, like the rain is becoming horizontal"): the
+            // row now blends from the curtains' lean (0%) to the wind's own (100%), which has a ceiling
+            // (Sky.RainLook). The row was never released, so what its numbers mean was free to change.
             Add(new Row
             {
                 Kind = RowKind.Percent,

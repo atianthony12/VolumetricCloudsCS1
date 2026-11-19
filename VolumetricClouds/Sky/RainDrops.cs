@@ -40,26 +40,54 @@ namespace VolumetricClouds.Sky
         private static readonly int IdRainWindOffset = Shader.PropertyToID("_RainWindOffset");
         private static readonly int IdRainGust = Shader.PropertyToID("_RainGust");
         private static readonly int IdRainDetail = Shader.PropertyToID("_RainDetail");
+        private static readonly int IdRainLife = Shader.PropertyToID("_RainLife");
+        private static readonly int IdRainLife2 = Shader.PropertyToID("_RainLife2");
+        private static readonly int IdRainLayer = Shader.PropertyToID("_RainLayer");
 
         /// <summary>
-        /// A drop of medium size falls this fast in still air (m/s): what the wind's lean is reckoned
-        /// against, whatever the Rain fall speed row makes the streaks do (it scales how fast they move,
-        /// not which way).
+        /// The air's carry is wrapped to this: a whole number of every box (12, 40, 85 and 170 m) and of
+        /// the eddies' pattern (17 m x 120, RainDrops.shader).
         /// </summary>
-        public const float StillAirFall = 7.5f;
-
-        /// <summary>The air's carry is wrapped to this: a whole number of every box (12, 40 and 170 m).</summary>
         private const float WindWrap = 2040f;
 
         private Vector2 _windCarried;
         private string _loggedWind;
 
+        // The rain's life (2026-11-19, with Finer rain): the sheets' drift and the eddies' clock, on
+        // simulation time; and a second draw of the same mesh: its near drops in the near box again (the
+        // sheets take a third of the drops on average, and a dense sheet should be denser than the rain
+        // was), its far drops in a box between the two for the middle distance.
+        private static readonly Vector3 BoxMid = new Vector3(85f, 60f, 85f);
+        private static readonly Vector4 SecondSeed = new Vector4(0.371f, 0.618f, 0.137f, 1f);
+        private Vector2 _sheetDrift;
+        private float _eddyClock;
+        private GameObject _secondHolder;
+        private MeshRenderer _secondRenderer;
+        private MaterialPropertyBlock _secondBlock;
+        private bool _loggedLife;
+
+        /// <summary>The wind the streaks last read (m/s), 0 without Wind on the rain: the life's strength follows it.</summary>
+        private float _windSpeed;
+        private float _windGusts;
+        private float _carrySpeed;
+        private Vector3 _carryDirection = Vector3.forward;
+
         // Finer rain (2026-11-15): splashes (RainSplash.shader) and the city's lamps on the streaks.
         private const int SplashCount = 3000;
         private const float SplashBox = 30f;
         private const float SplashLives = 4f;        // lives a second: a splash lasts a quarter of a second
-        /// <summary>How much of the lamp map's light a drop catches (the map is the fog's, per its own unit).</summary>
-        private const float LampOnRain = 0.25f;
+        /// <summary>
+        /// How much of the lamp map's light a drop throws back (the map is the fog's, per its own unit).
+        /// A field, not a constant: tuned from a probe. Since 2026-11-19 it is ADDED to the picture
+        /// whatever the streaks' opacity (it was multiplied by it: at 15% nothing showed at a lamp).
+        /// </summary>
+        public static float LampOnRain = 0.6f;
+
+        /// <summary>The splashes keep the share they were built with (their shader still blends by opacity).</summary>
+        private const float LampOnSplash = 0.25f;
+
+        /// <summary>How much of a lightning flash's colour (CloudLightning's, 5+ at full power) a drop throws back.</summary>
+        public static float FlashOnRain = 0.04f;
         private static readonly int IdSplashParams = Shader.PropertyToID("_SplashParams");
         private GameObject _splashHolder;
         private MeshRenderer _splashRenderer;
@@ -140,6 +168,41 @@ namespace VolumetricClouds.Sky
             _renderer.enabled = false;
 
             Log.Msg("rain: " + DropCount + " streaks ready (" + _mesh.vertexCount + " vertices)");
+        }
+
+        /// <summary>
+        /// The second draw (Finer rain): the same mesh and material, its seeds shifted and its boxes wider
+        /// through a property block, so the rain has a middle distance. Made the first time it is wanted.
+        /// </summary>
+        private void UpdateSecond(bool want, float length, float width)
+        {
+            if (!want)
+            {
+                if (_secondRenderer != null)
+                    _secondRenderer.enabled = false;
+                return;
+            }
+
+            if (_secondHolder == null)
+            {
+                _secondHolder = new GameObject("VolumetricCloudsRainMiddle");
+                _secondHolder.AddComponent<MeshFilter>().sharedMesh = _mesh;
+                _secondRenderer = _secondHolder.AddComponent<MeshRenderer>();
+                _secondRenderer.sharedMaterial = _material;
+                _secondRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _secondRenderer.receiveShadows = false;
+                _secondRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                _secondBlock = new MaterialPropertyBlock();
+            }
+
+            _secondHolder.transform.position = _camera.transform.position;
+            _secondBlock.SetVector(IdBoxNear, BoxNear);
+            _secondBlock.SetVector(IdBoxFar, BoxMid);
+            _secondBlock.SetVector(IdStreakNear, new Vector4(1.1f * length, 0.012f * width, 0f, 0f));
+            _secondBlock.SetVector(IdStreakFar, new Vector4(1.9f * length, 0.02f * width, 0f, 0f));
+            _secondBlock.SetVector(IdRainLayer, SecondSeed);
+            _secondRenderer.SetPropertyBlock(_secondBlock);
+            _secondRenderer.enabled = true;
         }
 
         /// <summary>The splashes' mesh and material, made the first time Finer rain draws (false: no shader here).</summary>
@@ -228,7 +291,7 @@ namespace VolumetricClouds.Sky
             _splashMaterial.SetVector(IdDropColor, _material.GetVector(IdDropColor));
             _splashMaterial.SetFloat(IdDropDensity, streaks);
             _splashMaterial.SetFloat(IdDropFade, _fade);
-            _splashMaterial.SetVector(IdRainDetail, _material.GetVector(IdRainDetail));
+            _splashMaterial.SetVector(IdRainDetail, new Vector4(1f, LampOnSplash, 0f, 0f));
         }
 
         private void LateUpdate()
@@ -255,6 +318,10 @@ namespace VolumetricClouds.Sky
                 _holder.transform.position = _camera.transform.position;
                 UpdateMaterial(streaks);
             }
+            else
+            {
+                UpdateSecond(false, 1f, 1f);
+            }
 
             // Finer rain: the lamp map for the streaks and splashes (FogLampMap reads this), the splashes,
             // and the cover that keeps the rain from under roofs and bridges (nothing of it exists otherwise).
@@ -272,7 +339,8 @@ namespace VolumetricClouds.Sky
             if (Detail && draw && !_loggedDetail)
             {
                 _loggedDetail = true;
-                Log.Msg("rain: finer rain on -- drop sizes, drops at the lens, splashes, and the city's lamps on the rain at night");
+                Log.Msg("rain: finer rain on -- drop sizes, drops at the lens, a second layer of streaks for the middle distance, " +
+                        "sheets and eddies, splashes, and the city's lamps and the lightning on the rain");
             }
             else if (!Detail)
             {
@@ -337,23 +405,51 @@ namespace VolumetricClouds.Sky
 
             _material.SetVector(IdDropColor, StreakLook(DropColor()));
 
-            UpdateWind();
-            // x: drop sizes and the lens drops; y: the city's lamps on the rain (the map is drawn only at night).
+            // Simulation seconds this frame: paused, the wind's carry, the sheets and the eddies hold.
+            SimulationManager simulation = Singleton<SimulationManager>.exists ? Singleton<SimulationManager>.instance : null;
+            float rate = simulation == null || simulation.SimulationPaused || simulation.ForcedSimulationPaused
+                ? 0f : Mathf.Min(Mathf.Max(1, simulation.FinalSimulationSpeed), 2f);
+            float seconds = Time.deltaTime * rate;
+
+            UpdateWind(seconds);
+
+            // x: drop sizes and the lens drops; y, z: the city's lamps (the map is drawn only at night) and
+            // the lightning on the rain; w: both by the Streak brightness row.
             bool detail = Detail;
-            _material.SetVector(IdRainDetail, new Vector4(detail ? 1f : 0f, detail ? LampOnRain : 0f, 0f, 0f));
+            float opacity = Multiplier(Settings.RainStreakOpacity, Settings.Defaults.RainStreakOpacity, 0f);
+            _material.SetVector(IdRainDetail, detail
+                ? new Vector4(1f, LampOnRain, FlashOnRain, RainLook.LightShare(opacity))
+                : Vector4.zero);
+            _material.SetVector(IdRainLayer, Vector4.zero);
+            if (detail)
+                CloudLightning.ApplyTo(_material);
+
+            UpdateLife(detail, seconds);
+            UpdateSecond(detail, length, width);
         }
 
         /// <summary>
-        /// Wind on the rain (2026-11-15): the city's wind (WeatherWind) leans the streaks by its speed
-        /// over a drop's fall speed in still air and carries them, its gusts pushing and leaning them
-        /// more as the fronts roll through. 0 = the streaks as before.
+        /// Wind on the rain: the row blends the streaks' lean from the curtains' own (0%, as they always
+        /// fell) to what the city's wind gives (100%; RainLook.NaturalLean: gentle in the weather's own
+        /// wind, steep only in a gale, with a ceiling), and the gusts change and swing it a little as the
+        /// fronts roll through. Until 2026-11-19 the lean was wind / 7.5 m/s with no ceiling, x 2.5 in a
+        /// gust, and a gust shoved the drops sideways: "like the rain is becoming horizontal".
         /// </summary>
-        private void UpdateWind()
+        private void UpdateWind(float seconds)
         {
             float row = Settings.RainWind != null ? Mathf.Clamp(Settings.RainWind.value, 0f, 2f) : 0f;
             bool on = row > 0f && WeatherWind.Advanced;
+
+            // The curtains' lean and the fall speed, as CloudRain moves the streaks without the wind.
+            Vector3 slant = CloudRain.Slant;
+            float fall = 10f * Mathf.Max(0.1f, Settings.RainFallSpeed != null ? Settings.RainFallSpeed.value : 1f);
+
             if (!on)
             {
+                _windSpeed = 0f;
+                _windGusts = 0f;
+                _carrySpeed = fall * new Vector2(slant.x, slant.z).magnitude;
+                _carryDirection = CloudWeather.WindDirection;
                 _material.SetVector(IdRainWind, Vector4.zero);
                 if (_loggedWind != null)
                 {
@@ -363,36 +459,82 @@ namespace VolumetricClouds.Sky
                 return;
             }
 
-            float speed = WeatherWind.Speed * row;
+            // The mean lean, a vector: from the curtains' slant to the wind's own, by the row.
+            float wind = WeatherWind.Speed;
             Vector3 dir = WeatherWind.Direction;
-            float lean = speed / StillAirFall;
+            float natural = RainLook.NaturalLean(RainLook.WindRead(row, wind));
+            float share = RainLook.WindShare(row);
+            Vector2 lean = Vector2.Lerp(new Vector2(slant.x, slant.z), new Vector2(dir.x, dir.z) * natural, share);
 
             // The streaks fall at the row's speed; the air carries them in the same proportion, so a
             // streak moves along its own length.
-            float fall = 10f * Mathf.Max(0.1f, Settings.RainFallSpeed != null ? Settings.RainFallSpeed.value : 1f);
-            SimulationManager simulation = Singleton<SimulationManager>.exists ? Singleton<SimulationManager>.instance : null;
-            float rate = simulation == null || simulation.SimulationPaused || simulation.ForcedSimulationPaused
-                ? 0f : Mathf.Min(Mathf.Max(1, simulation.FinalSimulationSpeed), 2f);
-            float carry = fall * lean * Time.deltaTime * rate;
-            _windCarried = new Vector2(Mathf.Repeat(_windCarried.x + dir.x * carry, WindWrap),
-                                       Mathf.Repeat(_windCarried.y + dir.z * carry, WindWrap));
+            _windCarried = new Vector2(Mathf.Repeat(_windCarried.x + lean.x * fall * seconds, WindWrap),
+                                       Mathf.Repeat(_windCarried.y + lean.y * fall * seconds, WindWrap));
 
             TreeWind.Globals g = WeatherWind.Globals;
             float gusts = Mathf.Clamp01(WeatherWind.Gusts);
-            // A gust pushes a drop about 1.5 s of the wind's carry, at most half of it each way.
-            float push = gusts * Mathf.Min(fall * lean, 40f) * 1.5f;
+            float gustShare = RainLook.GustShare(row, gusts);
+            float swing = RainLook.SwingShare(row, gusts);
 
-            _material.SetVector(IdRainWind, new Vector4(dir.x * lean, push, dir.z * lean, 1f));
-            _material.SetVector(IdRainWindOffset, new Vector4(_windCarried.x, gusts, _windCarried.y, 0f));
+            _material.SetVector(IdRainWind, new Vector4(lean.x, gustShare, lean.y, 1f));
+            _material.SetVector(IdRainWindOffset, new Vector4(_windCarried.x, RainLook.Bands(row, gusts), _windCarried.y, swing));
             _material.SetVector(IdRainGust, new Vector4(g.GustX, g.GustZ, g.InvCell, gusts));
+
+            _windSpeed = wind;
+            _windGusts = gusts;
+            _carrySpeed = fall * lean.magnitude;
+            _carryDirection = lean.sqrMagnitude > 1e-6f ? new Vector3(lean.x, 0f, lean.y).normalized : dir;
 
             string kind = TreeWind.Describe(WeatherWind.Breezes);
             if (kind != _loggedWind)
             {
                 _loggedWind = kind;
-                Log.Msg("rain: the wind is on the rain -- " + speed.ToString("F1") + " m/s (" + kind + ", row " +
-                        (row * 100f).ToString("F0") + "%), streaks lean " + (Mathf.Atan(lean) * Mathf.Rad2Deg).ToString("F0") +
-                        " deg from upright, gusts +-" + (gusts * 100f).ToString("F0") + "%");
+                float mean = lean.magnitude;
+                Log.Msg("rain: the wind is on the rain -- " + wind.ToString("F1") + " m/s (" + kind + "), row " +
+                        (row * 100f).ToString("F0") + "%: streaks lean " + RainLook.Degrees(mean).ToString("F0") +
+                        " deg from upright (the curtains' " + RainLook.Degrees(new Vector2(slant.x, slant.z).magnitude).ToString("F0") +
+                        ", the wind's own " + RainLook.Degrees(natural).ToString("F0") + "), " +
+                        RainLook.Degrees(mean * (1f - gustShare)).ToString("F0") + " to " +
+                        RainLook.Degrees(mean * (1f + gustShare)).ToString("F0") + " in lulls and gusts, swinging +-" +
+                        RainLook.Degrees(swing).ToString("F0") + " deg");
+            }
+        }
+
+        /// <summary>
+        /// The rain's life (2026-11-19, part of Finer rain; the author: "make it more dynamic/random"):
+        /// sheets of denser and thinner rain riding downwind, eddies that wind the drops' paths, and each
+        /// drop's own speed, length and brightness (the shader's). Off = the streaks as before.
+        /// </summary>
+        private void UpdateLife(bool on, float seconds)
+        {
+            if (!on)
+            {
+                _material.SetVector(IdRainLife, Vector4.zero);
+                _material.SetVector(IdRainLife2, Vector4.zero);
+                _loggedLife = false;
+                return;
+            }
+
+            // The sheets ride downwind with the rain the air carries, and never stand still.
+            float speed = RainLook.SheetSpeed(_carrySpeed);
+            _sheetDrift = new Vector2(Mathf.Repeat(_sheetDrift.x + _carryDirection.x * speed * seconds, RainLook.SheetWrap),
+                                      Mathf.Repeat(_sheetDrift.y + _carryDirection.z * speed * seconds, RainLook.SheetWrap));
+            _eddyClock = Mathf.Repeat(_eddyClock + seconds / RainLook.EddyTurn, 1f);
+
+            float depth = RainLook.SheetDepth(_windSpeed, _windGusts);
+            float reach = RainLook.EddyReach(_windSpeed);
+            // The sheets lean with the fall: half as much as the streaks.
+            Vector3 slope = _carryDirection * (0.5f * _carrySpeed / Mathf.Max(1f, 10f * Mathf.Max(0.1f, Settings.RainFallSpeed != null ? Settings.RainFallSpeed.value : 1f)));
+
+            _material.SetVector(IdRainLife, new Vector4(_sheetDrift.x, _sheetDrift.y, _eddyClock, reach));
+            _material.SetVector(IdRainLife2, new Vector4(depth, 0f, slope.x, slope.z));
+
+            if (!_loggedLife)
+            {
+                _loggedLife = true;
+                Log.Msg("rain: sheets and eddies -- sheets take up to " + (depth * 100f).ToString("F0") + "% of the drops in a thin stretch, riding at " +
+                        speed.ToString("F0") + " m/s; eddies wind the drops " + reach.ToString("F2") + " m to each side (" +
+                        RainLook.Degrees(reach * 2f * Mathf.PI / 24f).ToString("F0") + " deg off the lean at most)");
             }
         }
 
@@ -508,6 +650,8 @@ namespace VolumetricClouds.Sky
                 Destroy(_splashMesh);
             if (_splashMaterial != null)
                 Destroy(_splashMaterial);
+            if (_secondHolder != null)
+                Destroy(_secondHolder);
             if (_holder != null)
                 Destroy(_holder);
             if (_mesh != null)

@@ -253,10 +253,10 @@
   <String key="RainFallSpeed.Label">Velocidad de caída</String>
 
   <String key="RainWind.Label">Viento en la lluvia</String>
-  <String key="RainWind.Tooltip">El viento empuja la lluvia de lado, casi horizontal en un vendaval, y las ráfagas traen lluvia más fuerte. 0% = cae recta</String>
+  <String key="RainWind.Tooltip">La lluvia se inclina con el viento de la ciudad: un poco con brisa, mucho en un vendaval, y las ráfagas la mecen y traen lluvia más fuerte. 0% = se inclina siempre como las cortinas de lluvia</String>
 
   <String key="RainDetail.Label">Lluvia más fina</String>
-  <String key="RainDetail.Tooltip">Gotas pequeñas, medianas y grandes, algunas justo delante de la cámara, salpicaduras en el suelo y lluvia iluminada por farolas y faros de noche</String>
+  <String key="RainDetail.Tooltip">Gotas de distintos tamaños y velocidades, algunas justo delante de la cámara, cortinas de lluvia más densa y más ligera que pasan, salpicaduras en el suelo y lluvia iluminada por farolas, faros y relámpagos</String>
 
   <String key="StormMist.Label">Neblina de tormenta</String>
   <String key="StormMist.Tooltip">Con lluvia intensa y viento fuerte, la neblina avanza a ras de las calles con el viento. 0% = desactivado</String>

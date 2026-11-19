@@ -298,10 +298,10 @@
   <String key="RainFallSpeed.Label">Rain fall speed</String>
 
   <String key="RainWind.Label">Wind on the rain</String>
-  <String key="RainWind.Tooltip">The wind blows the rain sideways, almost flat in a gale, and gusts sweep heavier rain past. 0% = straight down</String>
+  <String key="RainWind.Tooltip">The rain leans with the city's wind: a little in a breeze, steeply in a gale, and gusts sway it and sweep heavier rain past. 0% = it always leans like the rain curtains</String>
 
   <String key="RainDetail.Label">Finer rain</String>
-  <String key="RainDetail.Tooltip">Small, medium and large drops, a few falling right in front of the camera, splashes on the ground, and rain lit by street lights and headlights at night</String>
+  <String key="RainDetail.Tooltip">Drops of different sizes and speeds, some right in front of the camera, sheets of heavier and lighter rain drifting by, splashes on the ground, and rain lit by street lights, headlights and lightning</String>
 
   <String key="StormMist.Label">Storm mist</String>
   <String key="StormMist.Tooltip">In heavy rain and strong wind, mist rolls low along the streets with the wind. 0% = off</String>

@@ -253,10 +253,10 @@
   <String key="RainFallSpeed.Label">Vitesse de chute</String>
 
   <String key="RainWind.Label">Vent sur la pluie</String>
-  <String key="RainWind.Tooltip">Le vent pousse la pluie de côté, presque à l'horizontale dans une tempête, et les rafales amènent des averses plus fortes. 0 % = tombe droit</String>
+  <String key="RainWind.Tooltip">La pluie penche avec le vent de la ville : un peu par brise, fortement dans une tempête, et les rafales la font osciller et amènent des averses plus fortes. 0 % = elle penche toujours comme les rideaux de pluie</String>
 
   <String key="RainDetail.Label">Pluie plus fine</String>
-  <String key="RainDetail.Tooltip">Petites, moyennes et grosses gouttes, quelques-unes juste devant la caméra, des éclaboussures au sol et une pluie éclairée par les réverbères et les phares la nuit</String>
+  <String key="RainDetail.Tooltip">Des gouttes de tailles et de vitesses différentes, quelques-unes juste devant la caméra, des nappes de pluie plus dense et plus légère qui passent, des éclaboussures au sol et une pluie éclairée par les réverbères, les phares et les éclairs</String>
 
   <String key="StormMist.Label">Brume d'orage</String>
   <String key="StormMist.Tooltip">Sous une forte pluie et un vent fort, la brume roule au ras des rues avec le vent. 0 % = désactivé</String>

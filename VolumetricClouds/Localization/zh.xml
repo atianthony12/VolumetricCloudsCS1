@@ -267,10 +267,10 @@
   <String key="RainFallSpeed.Label">雨雪下落速度</String>
 
   <String key="RainWind.Label">风吹雨</String>
-  <String key="RainWind.Tooltip">风把雨吹斜，大风中几乎横飞，阵风带来更密的雨。0% = 垂直落下</String>
+  <String key="RainWind.Tooltip">雨随城市的风倾斜：微风时略斜，大风时很斜，阵风让雨摆动并带来更密的雨。0% = 始终像雨幕那样倾斜</String>
 
   <String key="RainDetail.Label">更细致的雨</String>
-  <String key="RainDetail.Tooltip">大小不一的雨滴，一些就落在镜头前，地面溅起水花，夜里雨被路灯和车灯照亮</String>
+  <String key="RainDetail.Tooltip">大小和速度不一的雨滴，一些就落在镜头前，一阵密一阵疏的雨飘过，地面溅起水花，雨被路灯、车灯和闪电照亮</String>
 
   <String key="StormMist.Label">风暴雾气</String>
   <String key="StormMist.Tooltip">大雨强风时，雾气随风贴着街道翻滚。0% = 关闭</String>

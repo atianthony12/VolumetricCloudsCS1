@@ -23,12 +23,19 @@ below; the mods list shows it after the mod's name, and the first line of
 - *Storms* (Weather tab, Lightning): lightning now comes from storm cells that form upwind, pass over where you
   look and move away downwind (*Travelling storms*, the new default for everyone). *Around the camera* gives the
   lightning as it was.
-- *Wind on the rain* (Weather tab, 100%): the city's wind blows the rain streaks sideways, nearly flat in a gale,
-  and its gusts sweep heavier bands of rain past. *Finer rain* (on): small, medium and large drops, a few
-  falling right in front of the camera, splashes where drops land on the ground, and at night rain lit by street
-  lights and car headlights (with the fog off too; the fog is lit only by its own setting, as before), and no
-  rain or splashes under roofs, canopies, bridges and elevated roads (a strong wind still blows some in under
-  the edges). *Storm mist* (100%): in heavy rain and a strong wind, mist rolls low along the streets with the wind.
+- *Wind on the rain* (Weather tab, 100%): the rain streaks lean
+  with the city's wind instead of always leaning like the rain curtains. In the weather's own wind that is about
+  as much as before (20 to 25 degrees in full rain), less in a light breeze; only a gale set on the Now tab or a
+  waterspout nearby leans them steeply, and never past 50 degrees (60 in a gust). Gusts sway the rain a little
+  and sweep heavier bands past. 0% = the streaks exactly as before.
+  *Finer rain* (on): drops of different sizes, speeds, lengths and brightness, a few falling right in front of
+  the camera, twice the drops near the camera and a middle distance of its own, sheets of heavier and lighter
+  rain drifting by with the wind, drops that wind a little on the way down so no two streaks are quite parallel,
+  splashes where drops land on the ground, rain lit by street lights and car headlights at night and by
+  lightning (with the fog off too; the fog is lit only by its own setting, as before; the lit drops show whatever
+  *Streak brightness* says, down to half), and no rain or splashes under roofs, canopies, bridges and elevated
+  roads (a strong wind still blows some in under the edges).
+  *Storm mist* (100%): in heavy rain and a strong wind, mist rolls low along the streets with the wind.
 - *Wet roads and puddles* (Weather tab, new Wet ground group, 100%): in and after rain, roads and ground get
   darker and shiny, mirror the city and the sky, puddles form on flat ground and drops make rings in them.
   Bare ground and trees have their own sliders, *Wet grass and soil* and *Wet trees* (both 10%), so the
@@ -90,6 +97,11 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ### Changed
 
+- Rain at street lights is the mod's own. The glow round every light used to carry the game's own rain: a
+  streak picture scrolling through it, the last of the game's rain still drawn. While the mod's rain is on, the
+  glow keeps swelling in the rain as much as it did on average but shows no streaks; the rain seen at a lamp is
+  the mod's drops, lit by the lamp (with *Finer rain* on, at night). This reaches every player with *Rain* on,
+  with the replacement halos or the game's. On winter maps, where the game's snowflakes stay, nothing changes.
 - *Glow and softer shade* (Light tab), a trial above 100%: from 100% to 200% the slider now lets the sun's light
   soak into the clouds the way it does in real ones, instead of making the glow and the shade stronger still.
   The clouds' bodies get brighter and softer, they shade like lit balls instead of bright shells (so their

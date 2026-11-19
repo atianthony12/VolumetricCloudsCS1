@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using ColossalFramework;
 using UnityEngine;
 
 namespace VolumetricClouds.Sky
@@ -50,6 +51,18 @@ namespace VolumetricClouds.Sky
     /// against a mod that did the same would switch a renderer on and off every frame, and each
     /// switch rebuilds and destroys its mesh and materials (its OnEnable / OnDisable): a stutter
     /// that never ends. Any error hands the renderers back to the game for the city.
+    ///
+    /// THE RAIN IN THE LIGHTS' GLOW (2026-11-19, the author: "around streetlights/lights, the game's
+    /// vanilla rain particles still show, not ours"). That is neither renderer above: the light halo
+    /// shaders (the game's Custom/Lights/GroupVolume and FloatingGroupVolume, and our replacements, which
+    /// keep the game's inputs) scroll a streak texture through every glow, 2 x streak x rain added to the
+    /// halo's own scatter. The texture is a GLOBAL, `_LightRainTexture`, set once when the city loads
+    /// (RenderProperties.InitializeShaderProperties, IL: from Awake and the loading coroutine, nowhere
+    /// else). While our rain replaces the game's, a flat texture at the original's MEAN stands in its
+    /// place: the glow still swells in the rain as much as it did on average, with no streaks in it --
+    /// the streaks at a lamp are then our own drops, lit by the lamp (Sky/RainDrops.cs). Put back with
+    /// the renderers, and on a winter map (the game's flakes stay there, so the lights keep theirs).
+    /// The same rule: if the global holds anything but our texture, something else set it; it is left.
     /// </remarks>
     public class GameRain : MonoBehaviour
     {
@@ -81,6 +94,16 @@ namespace VolumetricClouds.Sky
         /// <summary>Something else has taken this one over: never touched again in this city.</summary>
         private bool[] _shellLeft;
         private bool[] _particlesLeft;
+
+        private static readonly int IdLightRainTexture = Shader.PropertyToID("_LightRainTexture");
+
+        /// <summary>The flat level when the game's texture cannot be read back: about a sparse streak texture's mean.</summary>
+        private const float LightRainFallback = 0.1f;
+
+        private Texture2D _lightRainFlat;
+        private Texture _lightRainOriginal;
+        private bool _lightRainHeld;
+        private bool _lightRainLeft;
 
         private Material _invisible;
         private bool _loggedSilence;
@@ -243,6 +266,141 @@ namespace VolumetricClouds.Sky
                     _heldOff[i] = true;
                 }
             }
+
+            if (CloudRain.IsSnow)
+                RestoreLightRain();
+            else
+                HoldLightRain();
+        }
+
+        /// <summary>The lights' glow loses the game's rain streaks while our rain falls (the remarks say why and how).</summary>
+        private void HoldLightRain()
+        {
+            if (_lightRainLeft)
+                return;
+
+            Texture now = Shader.GetGlobalTexture(IdLightRainTexture);
+            if (_lightRainHeld)
+            {
+                if (now != _lightRainFlat)
+                {
+                    // Set again by something else since: theirs stays.
+                    _lightRainLeft = true;
+                    _lightRainHeld = false;
+                    _lightRainOriginal = null;
+                    Log.Msg("game rain: the lights' rain texture was set again by something else; it is left as it is for this city");
+                }
+
+                return;
+            }
+
+            if (now == null)
+            {
+                _lightRainLeft = true;
+                Log.Msg("game rain: the lights have no rain texture here (_LightRainTexture is not set); nothing to take out of their glow");
+                return;
+            }
+
+            float mean = MeanRed(now);
+            bool read = mean >= 0f;
+            if (!read)
+                mean = LightRainFallback;
+
+            if (_lightRainFlat == null)
+                _lightRainFlat = Flat(mean);
+
+            _lightRainOriginal = now;
+            Shader.SetGlobalTexture(IdLightRainTexture, _lightRainFlat);
+            _lightRainHeld = true;
+            Log.Msg("game rain: the rain streaks in the lights' glow are the game's ('" + now.name + "', " + now.width + "x" + now.height +
+                    "); while our rain falls the glow gets their " + (read ? "mean, " : "mean as guessed (the texture could not be read), ") +
+                    mean.ToString("F3") + ", with no streaks -- the rain at a lamp is ours, lit by it" + HaloReads());
+        }
+
+        /// <summary>
+        /// For the log: whether the lights' halo material reads the global at all. A material whose shader
+        /// lists the texture among its properties uses its own, and the global cannot replace that one.
+        /// </summary>
+        private static string HaloReads()
+        {
+            if (!Singleton<RenderManager>.exists || Singleton<RenderManager>.instance.lightSystem == null)
+                return "";
+
+            Material halo = Singleton<RenderManager>.instance.lightSystem.m_lightMaterialVolumeGroup;
+            if (halo == null)
+                return "";
+
+            string what = "'" + halo.name + "' (shader '" + (halo.shader != null ? halo.shader.name : "null") + "')";
+            return halo.HasProperty(IdLightRainTexture) && halo.GetTexture(IdLightRainTexture) != null
+                ? ". BUT the halos' material " + what + " carries a rain texture of its own, which this cannot replace: its streaks stay"
+                : ". The halos' material " + what + " has none of its own: it reads this one";
+        }
+
+        /// <summary>The game's texture back in the lights' glow, if ours is still the one there.</summary>
+        private bool RestoreLightRain()
+        {
+            if (!_lightRainHeld)
+                return false;
+
+            _lightRainHeld = false;
+            if (Shader.GetGlobalTexture(IdLightRainTexture) == _lightRainFlat)
+            {
+                Texture original = _lightRainOriginal;
+                if (original == null && Singleton<RenderManager>.exists && Singleton<RenderManager>.instance.m_properties != null)
+                    original = Singleton<RenderManager>.instance.m_properties.m_lightRainTexture;
+                if (original != null)
+                    Shader.SetGlobalTexture(IdLightRainTexture, original);
+            }
+
+            _lightRainOriginal = null;
+            return true;
+        }
+
+        /// <summary>
+        /// The mean of a texture's red channel as a shader reads it (the halo shaders read .x), or -1 if it
+        /// could not be read. Drawn into a small target and read back: the game's texture is not readable.
+        /// </summary>
+        internal static float MeanRed(Texture texture)
+        {
+            const int size = 32;
+            RenderTexture small = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            RenderTexture was = RenderTexture.active;
+            Texture2D pixels = new Texture2D(size, size, TextureFormat.ARGB32, false, true);
+            try
+            {
+                Graphics.Blit(texture, small);
+                RenderTexture.active = small;
+                pixels.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
+                Color32[] read = pixels.GetPixels32();
+                long sum = 0;
+                for (int i = 0; i < read.Length; i++)
+                    sum += read[i].r;
+                return read.Length > 0 ? sum / (255f * read.Length) : -1f;
+            }
+            catch (Exception e)
+            {
+                Log.Error("game rain: could not read the lights' rain texture back", e);
+                return -1f;
+            }
+            finally
+            {
+                RenderTexture.active = was;
+                RenderTexture.ReleaseTemporary(small);
+                Destroy(pixels);
+            }
+        }
+
+        /// <summary>A 4x4 texture of one level, linear (a data texture: read as stored).</summary>
+        internal static Texture2D Flat(float level)
+        {
+            byte v = (byte)Mathf.RoundToInt(Mathf.Clamp01(level) * 255f);
+            Texture2D flat = new Texture2D(4, 4, TextureFormat.ARGB32, false, true) { name = "VolumetricCloudsLightRainFlat" };
+            Color32[] fill = new Color32[16];
+            for (int i = 0; i < fill.Length; i++)
+                fill[i] = new Color32(v, v, v, 255);
+            flat.SetPixels32(fill);
+            flat.Apply(false, true);
+            return flat;
         }
 
         /// <summary>Puts back what we changed, where it is still as we left it.</summary>
@@ -282,6 +440,9 @@ namespace VolumetricClouds.Sky
                     restored = true;
                 }
             }
+
+            if (RestoreLightRain())
+                restored = true;
 
             if (restored)
             {
@@ -455,6 +616,8 @@ namespace VolumetricClouds.Sky
 
             if (_invisible != null)
                 Destroy(_invisible);
+            if (_lightRainFlat != null)
+                Destroy(_lightRainFlat);
         }
     }
 }
