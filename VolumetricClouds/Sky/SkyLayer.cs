@@ -11,9 +11,8 @@ namespace VolumetricClouds.Sky
     /// a sky of several layers -- as Cities: Skylines II draws its distant clouds (Unity HDRP's Cloud
     /// Layer): a picture of the whole sky per kind, a slider each, and they add up. The pictures are cut
     /// out of CC0 photographs (Poly Haven) by tools/make-skylayer.ps1 and embedded as grey JPEGs
-    /// (Resources/SkyLayer). 4096x1024 from 2026-10-13 (2048 was "too blurry"); since 2026-11-15 (the
-    /// author: "more high definition and ... more variety", his pick of 8192 wide knowing the size) twelve
-    /// pictures of 8192x2048 cut from Poly Haven's 8K sources, quality 75, ~18.9 MB: three textures.
+    /// (Resources/SkyLayer, 4096x1024 each since 2026-10-13 -- 2048 was "too blurry" -- ~4.7 MB for all
+    /// eight at quality 85; the author's cap is the whole mod around 5 MB, "we have some leeway").
     /// </summary>
     /// <remarks>
     /// A child of the cloud box with its own shader (SkyLayer.shader) and queue: after the game's stars,
@@ -76,25 +75,13 @@ namespace VolumetricClouds.Sky
             new Vector4(3000f, 1.5f, 0.55f, 0.8f),  // cloud layers
         };
 
-        /// <summary>The pictures' textures, four pictures (one per channel) to each: A, B, C (C since 2026-11-15).</summary>
-        private const int Textures = 3;
-        private static readonly int[] IdPictures =
-        {
-            Shader.PropertyToID("_SkyPicturesA"), Shader.PropertyToID("_SkyPicturesB"), Shader.PropertyToID("_SkyPicturesC"),
-        };
-        private static readonly int IdPictureSize = Shader.PropertyToID("_SkyPictureSize");
+        private static readonly int IdPicturesA = Shader.PropertyToID("_SkyPicturesA");
+        private static readonly int IdPicturesB = Shader.PropertyToID("_SkyPicturesB");
         private static readonly int IdWeights = Shader.PropertyToID("_SkyWeights");
         private static readonly int IdKinds = Shader.PropertyToID("_SkyKinds");
         private static readonly int IdCopy0 = Shader.PropertyToID("_SkyCopy0");
         private static readonly int IdCopy1 = Shader.PropertyToID("_SkyCopy1");
         private static readonly int IdFlow = Shader.PropertyToID("_SkyFlow");
-        private static readonly int IdVariety = Shader.PropertyToID("_SkyVariety");
-
-        /// <summary>
-        /// (2026-11-15, the author: "more high definition and ... more variety") the fine detail added at
-        /// the clouds' edges where the pictures are magnified (SkyLayer.shader SkyDetail); 0 = as photographed.
-        /// </summary>
-        private const float Detail = 1f;
         private static readonly int IdSunDir = Shader.PropertyToID("_SunDir");
         private static readonly int IdSunColor = Shader.PropertyToID("_SunColor");
         private static readonly int IdAmbientColor = Shader.PropertyToID("_AmbientColor");
@@ -111,13 +98,13 @@ namespace VolumetricClouds.Sky
         private readonly Material _material;
         private readonly GameObject _holder;
         private readonly MeshRenderer _renderer;
-        private readonly Texture2D[] _pictures = new Texture2D[Textures];
-        private Vector4 _pictureSize;
+        private Texture2D _picturesA;
+        private Texture2D _picturesB;
         private bool _loadFailed;
 
         private readonly float[] _amounts = new float[SkyLayerMix.Kinds];
         private readonly float[] _scratch = new float[SkyLayerMix.Pictures.Length];
-        private readonly Vector4[] _weights = new Vector4[Textures * SkyLayerMix.Kinds];
+        private readonly Vector4[] _weights = new Vector4[2 * SkyLayerMix.Kinds];
 
         // The motion: how far the wind has carried the distant clouds this session (m, along its path),
         // where they are (m, x and z: Speed x the wind's drift), and per copy where it started and in
@@ -209,7 +196,7 @@ namespace VolumetricClouds.Sky
                 return;
             }
 
-            if (_pictures[0] == null && !_loadFailed)
+            if (_picturesA == null && !_loadFailed)
                 Load();
             if (_loadFailed)
             {
@@ -220,13 +207,12 @@ namespace VolumetricClouds.Sky
             for (int k = 0; k < SkyLayerMix.Kinds; k++)
             {
                 SkyLayerMix.Weights(k, _amounts[k], _scratch);
-                for (int t = 0; t < Textures; t++)
-                    _weights[Textures * k + t] = new Vector4(Scratch(4 * t), Scratch(4 * t + 1), Scratch(4 * t + 2), Scratch(4 * t + 3));
+                _weights[2 * k] = new Vector4(_scratch[0], _scratch[1], _scratch[2], _scratch[3]);
+                _weights[2 * k + 1] = new Vector4(_scratch[4], _scratch[5], _scratch[6], _scratch[7]);
             }
             _material.SetVectorArray(IdWeights, _weights);
-            for (int t = 0; t < Textures; t++)
-                _material.SetTexture(IdPictures[t], _pictures[t]);
-            _material.SetVector(IdPictureSize, _pictureSize);
+            _material.SetTexture(IdPicturesA, _picturesA);
+            _material.SetTexture(IdPicturesB, _picturesB);
 
             // The two copies: how far each has been carried, its turn, its weight.
             float w0, w1;
@@ -234,9 +220,6 @@ namespace VolumetricClouds.Sky
             _material.SetVector(IdCopy1, Copy(1, out w1));
             _behind = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(BehindFrom, BehindFull, CloudShaderParams.Coverage));
             _material.SetVector(IdFlow, new Vector4(w0, w1, LayerHeight, _behind));
-            // Variety: some lives come back mirrored (a different sky from the same picture), by the life and
-            // this city's seed, so cities and lives differ.
-            _material.SetVector(IdVariety, new Vector4(Detail, Mirrored(0) ? -1f : 1f, Mirrored(1) ? -1f : 1f, 0f));
 
             // The clouds' own light (CloudVolume.ApplyLighting set it this frame), and their distance fade.
             // Without the Soft style's own light level (CloudStyle.CloudLightScale): the pictures are lit
@@ -315,16 +298,6 @@ namespace VolumetricClouds.Sky
                                (float)Math.Cos(turn), (float)Math.Sin(turn));
         }
 
-        /// <summary>Is copy <paramref name="c"/>'s present life mirrored? Half the lives, by a hash of the life and the city's seed.</summary>
-        private bool Mirrored(int c)
-        {
-            uint h = unchecked((uint)_life[c] * 2246822519u ^ (uint)SkyPattern.FieldSeed * 3266489917u ^ (uint)(c + 1) * 668265263u);
-            h ^= h >> 15;
-            h = unchecked(h * 2654435761u);
-            h ^= h >> 13;
-            return (h & 1u) != 0u;
-        }
-
         /// <summary>The rows' state: on the log when the layer comes on or goes off, other changes on the detailed log.</summary>
         private void LogState(bool on)
         {
@@ -375,66 +348,53 @@ namespace VolumetricClouds.Sky
             Stopwatch watch = Stopwatch.StartNew();
             try
             {
+                Color32[] a = null, b = null;
                 int width = 0, height = 0;
-                // One texture at a time (2026-11-15: 8192 x 2048 pictures, 64 MB of pixels a texture): its four
-                // pictures packed, uploaded, and the array let go before the next.
-                for (int t = 0; t < Textures; t++)
+                for (int p = 0; p < SkyLayerMix.Pictures.Length; p++)
                 {
-                    Color32[] target = null;
-                    for (int p = 4 * t; p < Mathf.Min(4 * t + 4, SkyLayerMix.Pictures.Length); p++)
+                    string name = SkyLayerMix.Pictures[p];
+                    Color32[] pixels;
+                    int w, h;
+                    string error = Decode(name, out pixels, out w, out h);
+                    if (error != null)
                     {
-                        string name = SkyLayerMix.Pictures[p];
-                        Color32[] pixels;
-                        int w, h;
-                        string error = Decode(name, out pixels, out w, out h);
-                        if (error != null)
-                        {
-                            Fail("picture '" + name + "' " + error);
-                            return;
-                        }
-
-                        if (width == 0)
-                        {
-                            width = w;
-                            height = h;
-                            if (w > SystemInfo.maxTextureSize)
-                            {
-                                Fail("its pictures are " + w + " wide and this graphics card takes " + SystemInfo.maxTextureSize + " at most");
-                                return;
-                            }
-                        }
-                        else if (w != width || h != height)
-                        {
-                            Fail("picture '" + name + "' is " + w + "x" + h + ", the others " + width + "x" + height);
-                            return;
-                        }
-
-                        if (target == null)
-                            target = new Color32[w * h];
-
-                        int channel = p % 4;
-                        for (int i = 0; i < pixels.Length; i++)
-                        {
-                            byte v = pixels[i].r;
-                            switch (channel)
-                            {
-                                case 0: target[i].r = v; break;
-                                case 1: target[i].g = v; break;
-                                case 2: target[i].b = v; break;
-                                default: target[i].a = v; break;
-                            }
-                        }
+                        Fail("picture '" + name + "' " + error);
+                        return;
                     }
 
-                    if (target == null)
-                        target = new Color32[Mathf.Max(1, width * height)];
-                    _pictures[t] = Make(target, width, height, "VolumetricCloudsSkyPictures" + (char)('A' + t));
+                    if (a == null)
+                    {
+                        width = w;
+                        height = h;
+                        a = new Color32[w * h];
+                        b = new Color32[w * h];
+                    }
+                    else if (w != width || h != height)
+                    {
+                        Fail("picture '" + name + "' is " + w + "x" + h + ", the others " + width + "x" + height);
+                        return;
+                    }
+
+                    Color32[] target = p < 4 ? a : b;
+                    int channel = p % 4;
+                    for (int i = 0; i < pixels.Length; i++)
+                    {
+                        byte v = pixels[i].r;
+                        switch (channel)
+                        {
+                            case 0: target[i].r = v; break;
+                            case 1: target[i].g = v; break;
+                            case 2: target[i].b = v; break;
+                            default: target[i].a = v; break;
+                        }
+                    }
                 }
 
-                _pictureSize = new Vector4(width, height, 1f / Mathf.Max(1, width), 1f / Mathf.Max(1, height));
-                float megabytes = Textures * width * height * 4f * (4f / 3f) / (1024f * 1024f);
+                _picturesA = Make(a, width, height, "VolumetricCloudsSkyPicturesA");
+                _picturesB = Make(b, width, height, "VolumetricCloudsSkyPicturesB");
+                float megabytes = 2f * width * height * 4f * (4f / 3f) / (1024f * 1024f);
                 Log.Msg("sky layer: " + SkyLayerMix.Pictures.Length + " pictures of " + width + "x" + height +
-                        " decoded in " + watch.ElapsedMilliseconds + " ms, " + Textures + " textures, " + megabytes.ToString("F1") +
+                        " decoded in " + watch.ElapsedMilliseconds + " ms, two textures, " + megabytes.ToString("F1") +
                         " MB of graphics memory with mips; kept for the session");
             }
             catch (Exception e)
@@ -516,17 +476,10 @@ namespace VolumetricClouds.Sky
                 UnityEngine.Object.Destroy(_holder);
             if (_material != null)
                 UnityEngine.Object.Destroy(_material);
-            for (int t = 0; t < Textures; t++)
-            {
-                if (_pictures[t] != null)
-                    UnityEngine.Object.Destroy(_pictures[t]);
-            }
-        }
-
-        /// <summary>A picture's weight, 0 past the last picture (the last texture may be part empty).</summary>
-        private float Scratch(int p)
-        {
-            return p < _scratch.Length ? _scratch[p] : 0f;
+            if (_picturesA != null)
+                UnityEngine.Object.Destroy(_picturesA);
+            if (_picturesB != null)
+                UnityEngine.Object.Destroy(_picturesB);
         }
     }
 }

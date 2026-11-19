@@ -1539,14 +1539,15 @@ namespace VolumetricClouds.UI
         private static readonly string[] BeforeNewDefaults =
         {
             "ClassicShape", "0", "CloudAltitude", "750", "CloudBreakupScale", "4", "CloudDetail", "100",
-            "CloudFragmentStyle", "1", "CloudLight", "150", "CloudThickness", "400", "CumulusAmount", "100",
+            "CloudFragmentStyle", "1", "CloudLight", "150", "CloudShadowFullness", "3", "CloudThickness", "400",
+            "CloudVariety", "0", "CumulusAmount", "100",
             "CumulusBases", "0", "CumulusHeight", "100", "CumulusSize", "100", "CumulusSoftness", "0",
             "DynamicDistantClouds", "false", "FogBrightness", "150", "HaloEnabled", "false", "HaloFlareFar", "100",
             "HaloFlareSizeFar", "100", "HaloFlareSizeNear", "100", "HaloFlareSizeVehicles", "75",
             "HaloFlareThickness", "100", "HaloGlare", "10", "HaloGlareSize", "170", "HaloNearLightBrightness", "90",
             "HaloNearLightDistance", "280", "HaloNearLightTightness", "175", "HaloRadius", "120",
             "LightInsideClouds", "100", "LightningBrightness", "100", "LightningVariety", "100", "NightGlow", "50",
-            "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
+            "RainFallSpeed", "100", "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
             "TreeWind", "false", "WetGround", "100",
         };
 
@@ -1593,7 +1594,8 @@ namespace VolumetricClouds.UI
         /// nothing here is in a profile either (1.3.0, the author: "let's not save anything under
         /// Now to the profiles"): picking one leaves the weather of the moment as it is, and moving
         /// these never makes a profile "unsaved". 1.5.0: the two status lines, "Follow the game's
-        /// weather" and "Test lightning" went (the author's call).
+        /// weather" and "Test lightning" went (the author's call). 2026-11-19: the storms' movement and
+        /// this city's cloud position came here from the Weather tab (his call).
         /// </summary>
         private static void BuildNow()
         {
@@ -1732,6 +1734,25 @@ namespace VolumetricClouds.UI
                 Enabled = () => LightningOn() && LightningOverridden(),
             });
 
+            // 2026-11-15 (the author: "strikes start at the sea, then move towards us very gradually,
+            // then move away"): around the camera as before, or travelling storm cells (Sky.StormCells).
+            // Stored by value, append-only. On the Weather tab until 2026-11-19, then here beside the
+            // lightning (the author's call): the weather of the moment, so no longer in a profile -- a
+            // profile that holds it is not read for it; the settings file keeps the player's pick.
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = PanelPage.Now,
+                HasTooltip = true,
+                Int = Settings.StormMovement,
+                DefaultInt = Settings.Defaults.StormMovement,
+                ChoiceKeys = new[] { "StormMovement.Around", "StormMovement.Travelling" },
+                ChoiceValues = new[] { 0, 1 },
+                Profiled = false,
+                Enabled = LightningOn,
+                AfterChange = State("storms", () => Settings.StormMovement.value == 1 ? "travelling" : "around the camera"),
+            });
+
             // 1.3.0 (the author: "Rainbow chance should be in the Now tab ... default the value to
             // whatever is most like real life"): the share of rains that bring rainbows at all
             // (Sky.Rainbow). 100% is nature. Now-tab, so not in a profile.
@@ -1761,6 +1782,38 @@ namespace VolumetricClouds.UI
                 // None under Simpler clouds (its shader has no funnels), nor where the funnels' variant
                 // does not run (Sky.CloudShaders).
                 Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.FunnelsDrawn),
+            });
+
+            // 1.3.0 (asked for: "edit the X and Y values" of the clouds' position, "for advanced
+            // settings"): moves THIS city's clouds, all of them together (CloudWind.SetShift),
+            // saved with the city (SkyState version 2) -- not a setting: every city's pattern is its
+            // own, so no profile or reset carries it. Y is the map's second axis (the world's z).
+            // +-10 km: the pattern repeats every Weather pattern size (at most 20 km). On the Weather
+            // tab until 2026-11-19, then here (the author's call). LAST on the tab: every row after a
+            // heading is in its group.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Now,
+                Group = "CloudPosition",
+                Id = "CloudPositionX",
+                Min = -10000f, Max = 10000f, Step = 50f,
+                Format = SignedKilometres,
+                CityValue = () => (float)CloudWind.ShiftX,
+                SetCityValue = x => MoveClouds(x, CloudWind.ShiftZ),
+                Profiled = false,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Now,
+                Id = "CloudPositionY",
+                Min = -10000f, Max = 10000f, Step = 50f,
+                Format = SignedKilometres,
+                CityValue = () => (float)CloudWind.ShiftZ,
+                SetCityValue = z => MoveClouds(CloudWind.ShiftX, z),
+                Profiled = false,
             });
         }
 
@@ -2431,36 +2484,6 @@ namespace VolumetricClouds.UI
                 Settings.CurvedCloudsSunsetOvercast, Settings.Defaults.CurvedCloudsSunsetOvercast,
                 Settings.CurvedCloudsNightOvercast, Settings.Defaults.CurvedCloudsNightOvercast);
 
-            // 1.3.0 (asked for: "edit the X and Y values" of the clouds' position, "for advanced
-            // settings"): moves THIS city's clouds, all of them together (CloudWind.SetShift),
-            // saved with the city (SkyState version 2) -- not a setting: every city's pattern is its
-            // own, so no profile or reset carries it. Y is the map's second axis (the world's z).
-            // +-10 km: the pattern repeats every Weather pattern size (at most 20 km).
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Options = OptionsPage.Weather,
-                Group = "CloudPosition",
-                Id = "CloudPositionX",
-                Min = -10000f, Max = 10000f, Step = 50f,
-                Format = SignedKilometres,
-                CityValue = () => (float)CloudWind.ShiftX,
-                SetCityValue = x => MoveClouds(x, CloudWind.ShiftZ),
-                Profiled = false,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Value,
-                Options = OptionsPage.Weather,
-                Id = "CloudPositionY",
-                Min = -10000f, Max = 10000f, Step = 50f,
-                Format = SignedKilometres,
-                CityValue = () => (float)CloudWind.ShiftZ,
-                SetCityValue = z => MoveClouds(CloudWind.ShiftX, z),
-                Profiled = false,
-            });
-
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -2737,22 +2760,6 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.LightningVariety,
                 Min = 0f, Max = 200f, Step = 5f,
                 Enabled = LightningOn,
-            });
-
-            // 2026-11-15 (the author: "strikes start at the sea, then move towards us very gradually,
-            // then move away"): around the camera as before, or travelling storm cells (Sky.StormCells).
-            // Stored by value, append-only.
-            Add(new Row
-            {
-                Kind = RowKind.Choice,
-                Options = OptionsPage.Weather,
-                HasTooltip = true,
-                Int = Settings.StormMovement,
-                DefaultInt = Settings.Defaults.StormMovement,
-                ChoiceKeys = new[] { "StormMovement.Around", "StormMovement.Travelling" },
-                ChoiceValues = new[] { 0, 1 },
-                Enabled = LightningOn,
-                AfterChange = State("storms", () => Settings.StormMovement.value == 1 ? "travelling" : "around the camera"),
             });
 
             // 2026-10-30 (the author: "tree movement in high wind like other games do"): the game's tree
@@ -3133,11 +3140,13 @@ namespace VolumetricClouds.UI
 
             // Smoother clouds (1.5.0, Sky/CloudTemporal): the machine's choice like the rows above, so
             // never in a profile; outside the quality preset. On by default since 2026-11-07, under the new name
-            // SmootherClouds so it reaches every existing file once (Settings.Defaults.Temporal).
+            // SmootherClouds so it reaches every existing file once (Settings.Defaults.Temporal). Its note (2026-11-19,
+            // the author): a small warning under it that turning it off costs a lot of speed.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
                 Options = OptionsPage.General,
+                HasNote = true,
                 Bool = Settings.CloudTemporal,
                 DefaultBool = Settings.Defaults.Temporal,
                 Profiled = false,
@@ -3163,21 +3172,8 @@ namespace VolumetricClouds.UI
                 AfterChange = State("smoother clouds' drawing size", () => SmootherSize.ChoiceName(Settings.SmootherCloudsSize.value)),
             });
 
-            // 2026-11-15 (the author: "fix the smearing issue with Smoother clouds"): the new blend --
-            // three depths per pixel, variance clipping, a sharp history read, less kept in fast moves.
-            // A TEST row so he can compare in game; before the release either kept or retired (its name
-            // then goes to SettingsXml.Retired).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Options = OptionsPage.General,
-                HasTooltip = true,
-                Bool = Settings.SmootherCloudsSharp,
-                DefaultBool = Settings.Defaults.SmootherCloudsSharp,
-                Profiled = false,
-                Enabled = () => WholeShaders() && Settings.CloudTemporal != null && Settings.CloudTemporal.value,
-                AfterChange = State("smoother clouds without smearing", OnOff(Settings.SmootherCloudsSharp)),
-            });
+            // (2026-11-15 to 11-19: a TEST row, SmootherCloudsSharp, switched the blend against smearing off for a
+            // comparison. The author kept the blend; the row went, its name retired in SettingsXml.Retired.)
 
             // Simpler clouds (2026-11-02, Sky/CloudShaders): the light cloud shaders first, for an older or
             // weaker graphics card. The machine's choice: never in a profile; off by default (the mod picks

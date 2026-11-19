@@ -113,7 +113,7 @@
   <String key="WindDirection.Slowly">Follow the game slowly</String>
   <String key="WindDirection.Fixed">Fixed</String>
   <String key="WindAngle.Label">Fixed wind direction</String>
-  <String key="WindOverride.Label">Override the wind</String>
+  <String key="WindOverride.Label">Override wind</String>
   <String key="WindStrength.Label">Wind strength</String>
 
   <String key="FogOverride.Label">Override fog</String>
@@ -259,7 +259,7 @@
 
   <!-- ==================== Advanced: Weather ==================== -->
 
-  <String key="Group.WeatherMapping">How the game's weather sets the cloud cover</String>
+  <String key="Group.WeatherMapping">Weather cloud cover</String>
 
   <String key="WeatherFairCoverage.Label">Intensity: clear weather</String>
 
@@ -271,7 +271,7 @@
 
   <String key="CurvedClouds.Label">Curved clouds (100% = Earth's curve)</String>
 
-  <String key="Group.CloudPosition">Cloud position (this city only, saved with it)</String>
+  <String key="Group.CloudPosition">Cloud position</String>
 
   <String key="CloudPositionX.Label">Cloud position X</String>
 
@@ -475,16 +475,15 @@
   <String key="CloudDepthOcclusion.Label">Buildings and terrain hide clouds behind them</String>
 
   <String key="SmootherClouds.Label">Smoother clouds (blends frames together: less grain)</String>
+  <String key="SmootherClouds.Note">Turning this off worsens performance!</String>
   <String key="SmootherCloudsSize.Label">Cloud drawing size</String>
   <String key="SmootherCloudsSize.Tooltip">Smoother clouds draws the clouds smaller than the screen and blends them over a few frames. A smaller size is much faster; the finest wisps get softer</String>
-  <String key="SmootherCloudsSize.Half">Half the screen (sharpest)</String>
-  <String key="SmootherCloudsSize.ByScreen">By screen size (half up to 1440p, a third above)</String>
-  <String key="SmootherCloudsSize.Third">A third of the screen</String>
-  <String key="SmootherCloudsSize.Quarter">A quarter of the screen (fastest)</String>
-  <String key="SmootherCloudsSharp.Label">Smoother clouds without smearing (test)</String>
-  <String key="SmootherCloudsSharp.Tooltip">A new way of blending the frames: cloud edges and tops no longer trail behind when the camera moves. Off = the blend before</String>
+  <String key="SmootherCloudsSize.Half">Sharpest</String>
+  <String key="SmootherCloudsSize.ByScreen">Automatic (sharpest up to 1440p, faster on 4K)</String>
+  <String key="SmootherCloudsSize.Third">Balanced</String>
+  <String key="SmootherCloudsSize.Quarter">Fastest (softest clouds)</String>
 
-  <String key="SimplerClouds.Label">Simpler clouds for older graphics cards (starts with the next city you load)</String>
+  <String key="SimplerClouds.Label">Simpler clouds for older graphics cards (will apply next time you load the game)</String>
 
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Language</String>
@@ -496,7 +495,7 @@
 
   <String key="ToggleKey.Label">Open this panel</String>
 
-  <String key="WeatherKey.Label">Hide or show Volumetric Weather</String>
+  <String key="WeatherKey.Label">Quick toggle</String>
 
   <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
 
@@ -545,7 +544,7 @@
   <String key="ModVersion.Label">The version of the mod that last ran with this file and showed its news. Leave it as it is</String>
 
   <!-- The one-time notice of the new mod defaults (UI/NewDefaultsNotice.cs), the first time the panel is opened after the update. -->
-  <String key="NewDefaults.Text">Volumetric Weather has a lot of new features! You can keep your current settings or profile, but I recommend you try the new mod defaults to make sure you haven't missed anything. Make sure to save your current profile if you need to go back to it.</String>
+  <String key="NewDefaults.Text">Volumetric Weather has a lot of new features! You can keep your current settings or profile, but I recommend you try the new mod defaults to make sure you haven't missed anything. Your current settings will be saved if you have any.</String>
   <String key="NewDefaults.Try">Try new defaults</String>
   <String key="NewDefaults.Keep">No thanks</String>
   <String key="NewDefaults.SavePicked">Your profile "{0}" has unsaved changes. They will be saved into it first, so you can go back to them by picking it, and then the new defaults are put in.</String>

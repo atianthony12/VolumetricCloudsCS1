@@ -37,8 +37,8 @@ namespace VolumetricClouds.Sky
         /// <summary>How much of the frames before each frame keeps: about ten frames' average.</summary>
         public const float Keep = 0.9f;
 
-        /// <summary>Which blend was last logged (the test row SmootherCloudsSharp); null: none yet.</summary>
-        private bool? _loggedSharp;
+        /// <summary>Whether the blend has been logged (once per instance).</summary>
+        private bool _loggedBlend;
 
         /// <summary>While lightning flashes: the flash shows within a frame or two instead of fading in.</summary>
         public const float KeepInFlash = 0.5f;
@@ -170,11 +170,10 @@ namespace VolumetricClouds.Sky
             int width = SmootherSize.Size(basisWidth, divisor);
             int height = SmootherSize.Size(basisHeight, divisor);
 
-            // The smaller march (UpFactor): the blend keeps that size, the march is smaller again each way. Only the
-            // blend against smearing builds the larger picture up: 1.5.3's (the test row unticked) keeps its own size.
-            // And only on a screen (or a smaller render) of UpFromLines lines or more: under that the march keeps its size.
-            bool sharpBlend = Settings.SmootherCloudsSharp == null || Settings.SmootherCloudsSharp.value;
-            int up = sharpBlend && basisHeight >= UpFromLines ? Mathf.Clamp(UpFactor, 1, 4) : 1;
+            // The smaller march (UpFactor): the blend keeps that size, the march is smaller again each way (the blend
+            // against smearing builds the larger picture up). Only on a screen (or a smaller render) of UpFromLines lines
+            // or more: under that the march keeps its size.
+            int up = basisHeight >= UpFromLines ? Mathf.Clamp(UpFactor, 1, 4) : 1;
             int marchWidth = SmootherSize.Size(width, up);
             int marchHeight = SmootherSize.Size(height, up);
             if (_march == null || _history[0] == null || _history[0].width != width || _history[0].height != height ||
@@ -249,16 +248,14 @@ namespace VolumetricClouds.Sky
             _resolve.SetVector(IdTemporalEye, new Vector4(eye.x, eye.y, eye.z, _up));
             _resolve.SetVector(IdTemporalSize, size);
             _resolve.SetMatrix(IdTemporalPrevVP, _previousVP);
-            // w: the 2026-11-15 blend against smearing (1) or 1.5.3's (0), by the test row.
-            bool sharp = Settings.SmootherCloudsSharp == null || Settings.SmootherCloudsSharp.value;
-            if (sharp != _loggedSharp)
+            // w: the 2026-11-15 blend against smearing, always (1). The shader still holds 1.5.3's resolve behind w = 0
+            // (its test row went 2026-11-19): dead code until the next bundle build takes it out.
+            if (!_loggedBlend)
             {
-                _loggedSharp = sharp;
-                Log.Msg("smoother clouds: blend " + (sharp
-                    ? "against smearing -- three depths per pixel (base, middle, far side), variance clip, less kept where the depths disagree (a turn keeps it all), the march softened where history is given up"
-                    : "as in 1.5.3 -- the base plane, min/max clamp"));
+                _loggedBlend = true;
+                Log.Msg("smoother clouds: blend against smearing -- three depths per pixel (base, middle, far side), variance clip, less kept where the depths disagree (a turn keeps it all), the march softened where history is given up");
             }
-            _resolve.SetVector(IdTemporalParams, new Vector4(keep, drift.x, drift.y, sharp ? 1f : 0f));
+            _resolve.SetVector(IdTemporalParams, new Vector4(keep, drift.x, drift.y, 1f));
             // The smaller march: this frame's shift (the blend puts each ray back where it landed) and the factor.
             // A fresh start (nothing kept): every pixel takes all of this frame, read between its rays -- never a share of
             // the old picture, which the blend's target still holds.
@@ -346,8 +343,8 @@ namespace VolumetricClouds.Sky
         /// they landed (the march is moved by a part of a texel every frame) and builds the larger picture up over
         /// a few frames (CloudRaymarchPass.cginc TemporalResolve, _TemporalUp). Measured in the cloud bench, Auto at
         /// 81% cover with Softer cumulus, 4K screen: 15.8-20.1 ms a frame at 1, 4.8-5.8 at 2, the fringes' detail kept
-        /// still and moving where a plain quarter-size march blurs them. Unticking the test row "blend against
-        /// smearing" gives 1.5.3's blend and the march at its old size.
+        /// still and moving where a plain quarter-size march blurs them. (Until 2026-11-19 a test row gave 1.5.3's
+        /// blend and the march at its old size; the row went.)
         /// </summary>
         public static int UpFactor = 2;
 

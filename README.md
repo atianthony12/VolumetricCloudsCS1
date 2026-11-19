@@ -115,10 +115,12 @@ What the weather is doing right now, and your overrides.
 | **Ignore the game's weather**, **Fixed intensity** | Set the cloud cover yourself instead of following the game's weather. |
 | **Movement speed** | How fast the clouds drift. |
 | **Wind direction** | **Follow the game**, **Follow the game slowly** (so the sky doesn't swing round every few minutes), or **Fixed**. |
-| **Override the wind**, **Wind strength** | Set the city's wind by hand, from calm to a gale. These only show while something uses the wind: the trees, or another mod. |
+| **Override wind**, **Wind strength** | Set the city's wind by hand, from calm to a gale. These only show while something uses the wind: the trees, or another mod. |
 | **Override fog**, **Fog amount** | Set the fog yourself. |
 | **Override lightning**, **Lightning activity** | Set how much lightning there is. |
+| **Storms** | **Travelling storms** come in from upwind, pass over where you look and move away; **Around the camera** keeps the lightning near where you look. |
 | **Rainbow chance**, **Waterspout chance** | How often you see them. A waterspout is a small funnel hanging from a cloud over the sea or near the shore, only to look at. |
+| **Cloud position X / Y** | Move this city's clouds around. Saved with the city. |
 
 ### Clouds
 
@@ -176,7 +178,6 @@ Off by default.
 | **Intensity: clear weather**, **Intensity: rain** | How the game's weather sets the cloud cover. |
 | **Weather pattern size**, **Larger weather pattern** | The cloud layout repeats four times further apart, for zooming far out with a camera mod (same cloud size). |
 | **Curved clouds** | The cloud layer follows the curve of the Earth, so the clouds carry on down to the horizon (100% is the real Earth). Off by default. |
-| **Cloud position X / Y** | Move this city's clouds around. Saved with the city. |
 | **Replace the game's rain and snow** | Rain curtains hang under the clouds that are raining, and streaks fall near the camera, with their own length, width, brightness, color and speed. On winter maps the snow does the same. |
 | **Rainbows** | An arch standing in a sunlit shower near where you look, with its fainter second bow. |
 | **Rain sound, wet roads and road snow follow the clouds** | Instead of covering the whole map at once. |

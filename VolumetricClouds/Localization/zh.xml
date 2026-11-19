@@ -230,7 +230,7 @@
 
   <!-- ==================== Advanced: Weather ==================== -->
 
-  <String key="Group.WeatherMapping">游戏天气如何决定云量</String>
+  <String key="Group.WeatherMapping">天气云量</String>
 
   <String key="WeatherFairCoverage.Label">强度：晴天</String>
 
@@ -242,7 +242,7 @@
 
   <String key="CurvedClouds.Label">弧形云层（100% = 地球曲率）</String>
 
-  <String key="Group.CloudPosition">云层位置（仅本城市，随存档保存）</String>
+  <String key="Group.CloudPosition">云层位置</String>
 
   <String key="CloudPositionX.Label">云层位置 X</String>
 
@@ -443,16 +443,15 @@
   <String key="CloudDepthOcclusion.Label">建筑和地形遮挡后方云层</String>
 
   <String key="SmootherClouds.Label">更平滑的云层（混合多帧画面：减少颗粒感）</String>
+  <String key="SmootherClouds.Note">关闭此项会降低性能！</String>
   <String key="SmootherCloudsSize.Label">云层绘制尺寸</String>
   <String key="SmootherCloudsSize.Tooltip">“更平滑的云层”以小于屏幕的尺寸绘制云层，并在几帧之间混合。尺寸越小速度越快；最细的云丝会变得更柔和</String>
-  <String key="SmootherCloudsSize.Half">屏幕的一半（最清晰）</String>
-  <String key="SmootherCloudsSize.ByScreen">按屏幕尺寸（1440p 及以下为一半，以上为三分之一）</String>
-  <String key="SmootherCloudsSize.Third">屏幕的三分之一</String>
-  <String key="SmootherCloudsSize.Quarter">屏幕的四分之一（最快）</String>
-  <String key="SmootherCloudsSharp.Label">更平滑的云层且无拖影（测试）</String>
-  <String key="SmootherCloudsSharp.Tooltip">新的帧混合方式：镜头移动时，云的边缘和顶部不再拖影。关闭 = 之前的混合</String>
+  <String key="SmootherCloudsSize.Half">最清晰</String>
+  <String key="SmootherCloudsSize.ByScreen">自动（1440p 及以下最清晰，4K 更快）</String>
+  <String key="SmootherCloudsSize.Third">均衡</String>
+  <String key="SmootherCloudsSize.Quarter">最快（云层更柔和）</String>
 
-  <String key="SimplerClouds.Label">适用于较旧显卡的简化云层（从下一次载入城市开始生效）</String>
+  <String key="SimplerClouds.Label">适用于较旧显卡的简化云层（下次载入游戏时生效）</String>
 
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">语言</String>
@@ -464,7 +463,7 @@
 
   <String key="ToggleKey.Label">打开此面板</String>
 
-  <String key="WeatherKey.Label">隐藏或显示体积天气</String>
+  <String key="WeatherKey.Label">快速开关</String>
 
   <String key="ShowAdvancedInPanel.Label">在游戏内面板显示高级选项</String>
 
@@ -505,7 +504,7 @@
 
   <String key="ModVersion.Label">上次使用此文件并显示其新内容的模组版本。请勿修改</String>
 
-  <String key="NewDefaults.Text">Volumetric Weather 有很多新功能！你可以保留当前的设置或配置，但我建议你试试模组的新默认设置，以免错过任何内容。如果需要回到当前配置，请先保存它。</String>
+  <String key="NewDefaults.Text">Volumetric Weather 有很多新功能！你可以保留当前的设置或配置，但我建议你试试模组的新默认设置，以免错过任何内容。如果你有当前设置，它们会被保存。</String>
   <String key="NewDefaults.Try">试用新默认设置</String>
   <String key="NewDefaults.Keep">不用了</String>
   <String key="NewDefaults.SavePicked">你的配置“{0}”有未保存的更改。会先把它们保存到该配置中，之后选择它即可回到这些设置，然后再应用新的默认设置。</String>

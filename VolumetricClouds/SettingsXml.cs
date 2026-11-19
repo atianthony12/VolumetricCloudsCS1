@@ -920,6 +920,8 @@ namespace VolumetricClouds
         /// a trial row never released (only dev builds wrote them), now the top half of "LightInsideClouds".
         /// 2026-11-18: "CloudLightDifference", Brightness difference between clouds at its first default (100%, soft
         /// clouds half as bright as heaps), never released; now "CloudLightGap", default 0% (even). Not carried over.
+        /// 2026-11-19: "SmootherCloudsSharp", the test row for Smoother clouds' blend against smearing (2026-11-15,
+        /// never released): the author kept that blend, for everyone, and the row went. Not carried over.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -927,6 +929,7 @@ namespace VolumetricClouds
             "CloudsToHorizon",
             "CloudTemporal",
             "CloudLightDifference",
+            "SmootherCloudsSharp",
             "LightThroughClouds", "LightThroughCloudsSunset", "LightThroughCloudsNight",
             "LightThroughCloudsOvercast", "LightThroughCloudsSunsetOvercast", "LightThroughCloudsNightOvercast",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",

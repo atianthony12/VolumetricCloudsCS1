@@ -11,7 +11,7 @@ below; the mods list shows it after the mod's name, and the first line of
 
 - *Cloud variety* (Clouds tab, under the cumulus rows, 0%): some stretches of sky grow tall towering cumulus, others
   keep flat, small ones, the cloud bottoms on one level. Cumulus, Mixed and Auto. `VolumetricClouds.xml` gains one
-  line, `CloudVariety` (0%): nobody's sky changes.
+  line, `CloudVariety` (0% for existing players: nobody's sky changes; 50% in the new mod defaults).
 - *Wind covers the whole map* (Weather tab, Trees, off): with *Trees move in the wind* on, every tree on the
   map sways with the full wind wherever it stands. Off, as before, each tree gets the game's share by its
   height, so trees in hollows and among tall buildings barely move or stand still. On, Tree Control's sway
@@ -23,10 +23,10 @@ below; the mods list shows it after the mod's name, and the first line of
   blue-white to violet, pink and warm white, far strikes look dimmer and pinker, strikes come in bursts and
   twins, and thunder cracks up close and rumbles far off. 0% gives every player's strikes exactly as before.
   This is on for everyone.
-- *Storms* (Weather tab, Lightning): lightning now comes from storm cells that form upwind, pass over where you
+- *Storms* (Now tab, under the lightning): lightning now comes from storm cells that form upwind, pass over where you
   look and move away downwind (*Travelling storms*, the new default for everyone). *Around the camera* gives the
-  lightning as it was.
-- *Wind on the rain* (Weather tab, 100% for existing players, 50% in the new mod defaults): the rain streaks lean
+  lightning as it was. Like the rest of the Now tab it is not saved in profiles.
+- *Wind on the rain* (Weather tab, 100% for existing players, 105% in the new mod defaults): the rain streaks lean
   with the city's wind instead of always leaning like the rain curtains. In the weather's own wind that is about
   as much as before (20 to 25 degrees in full rain), less in a light breeze; only a gale set on the Now tab or a
   waterspout nearby leans them steeply, and never past 50 degrees (60 in a gust). Gusts sway the rain a little
@@ -72,20 +72,17 @@ below; the mods list shows it after the mod's name, and the first line of
   low cloud cover the heaped clouds get a little dimmer to keep it). Raise the row for the difference back; 100% is
   the sky as it was. Near a full overcast it does nothing. This changes every Mixed and Auto sky.
   `VolumetricClouds.xml` gains one line, `CloudLightGap` (0%).
-- *Smoother clouds without smearing* (options page, on, a test row): Smoother clouds blends its frames a new
-  way, so cloud edges, sides and tops no longer trail behind a moving camera. Off gives the blend before.
-- Distant clouds (Distant clouds tab) are twice as sharp (cut from 8K photographs instead of 4K), get four more
-  skies (more sheep clouds, far clouds and two more cloud layers), finer detail at their edges up close, and come
-  back mirrored in some of their lives, so the same picture repeats less. The mod's download grows by about
-  14 MB, and while distant clouds show they take about 256 MB of graphics memory (43 MB before).
+- *Smoother clouds* blends its frames a new way, so cloud edges, sides and tops no longer trail behind a moving
+  camera. A small warning under it on the options page says that turning it off hurts performance, and the
+  *Cloud drawing size* choices have plainer names (Sharpest, Automatic, Balanced, Fastest).
 - Every new row above is a new line in `VolumetricClouds.xml`, and every one of them is ON for every existing player,
   at its middle value (100%), with travelling storms: set a row to 0% (or untick it) for the look from before. The
   new mod defaults (below) set some of them differently.
 - **New mod defaults**, and a one-time message about them. A new install starts on a new sky: the Auto cloud style
-  with taller, softer Cumulus clouds with rounded bases, natural Classic clouds, higher and thicker clouds, brighter
-  clouds and fog, more glow inside the clouds, a stronger glow under them at night, curved clouds under a full
-  overcast, dynamic distant clouds, thinner rain streaks, stronger and more varied lightning, wetter streets, trees
-  that move in the wind, and the replacement light halos with a softer flare. *Reset all* and *(Mod defaults)* in
+  with taller, softer Cumulus clouds with rounded bases and more variety in their heights, natural Classic clouds,
+  higher and thicker clouds, brighter clouds and fog, more glow inside the clouds, fainter shadows under thin
+  clouds, a stronger glow under them at night, curved clouds under a full overcast, thinner and faster rain
+  streaks, stronger and more varied lightning, and the replacement light halos with a softer flare. *Reset all* and *(Mod defaults)* in
   the profile list give it too. Existing players keep their sky exactly as it was, and their saved profiles too;
   the first time they open the mod's panel after the update, a message (in the panel's look) offers to try the new defaults. *Try new
   defaults* first saves any unsaved changes, into the picked profile or, without one, as a new profile named
@@ -118,6 +115,9 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ### Changed
 
+- *Cloud position X / Y* moved from the Weather tab to the bottom of the Now tab, where everyone sees it (still
+  this city's own, saved with it). *Override the wind* is now *Override wind*, and the Weather tab's heading *How
+  the game's weather sets the cloud cover* is now *Weather cloud cover*.
 - Rain at street lights is the mod's own. The glow round every light used to carry the game's own rain: a
   streak picture scrolling through it, the last of the game's rain still drawn. While the mod's rain is on, the
   glow keeps swelling in the rain as much as it did on average but shows no streaks; the rain seen at a lamp is

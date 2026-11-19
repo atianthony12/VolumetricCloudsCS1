@@ -216,7 +216,7 @@
 
   <!-- ==================== Advanced: Weather ==================== -->
 
-  <String key="Group.WeatherMapping">Influence de la météo sur la couverture nuageuse</String>
+  <String key="Group.WeatherMapping">Couverture nuageuse de la météo</String>
 
   <String key="WeatherFairCoverage.Label">Intensité : ciel clair</String>
 
@@ -228,7 +228,7 @@
 
   <String key="CurvedClouds.Label">Nuages courbés (100 % = courbure de la Terre)</String>
 
-  <String key="Group.CloudPosition">Position des nuages (cette ville, sauvegardée)</String>
+  <String key="Group.CloudPosition">Position des nuages</String>
 
   <String key="CloudPositionX.Label">Position X des nuages</String>
 
@@ -429,16 +429,15 @@
   <String key="CloudDepthOcclusion.Label">Bâtiments et terrain masquent les nuages derrière eux</String>
 
   <String key="SmootherClouds.Label">Nuages plus lisses (mélange plusieurs images : moins de grain)</String>
+  <String key="SmootherClouds.Note">Le désactiver dégrade les performances !</String>
   <String key="SmootherCloudsSize.Label">Taille de dessin des nuages</String>
   <String key="SmootherCloudsSize.Tooltip">Nuages plus lisses dessine les nuages plus petits que l'écran et les mélange sur quelques images. Une taille plus petite est bien plus rapide ; les filaments les plus fins deviennent plus doux</String>
-  <String key="SmootherCloudsSize.Half">La moitié de l'écran (le plus net)</String>
-  <String key="SmootherCloudsSize.ByScreen">Selon l'écran (la moitié jusqu'à 1440p, un tiers au-delà)</String>
-  <String key="SmootherCloudsSize.Third">Un tiers de l'écran</String>
-  <String key="SmootherCloudsSize.Quarter">Un quart de l'écran (le plus rapide)</String>
-  <String key="SmootherCloudsSharp.Label">Nuages plus lisses sans traînées (test)</String>
-  <String key="SmootherCloudsSharp.Tooltip">Une nouvelle façon de mélanger les images : les bords et sommets des nuages ne traînent plus quand la caméra bouge. Désactivé = le mélange d'avant</String>
+  <String key="SmootherCloudsSize.Half">Le plus net</String>
+  <String key="SmootherCloudsSize.ByScreen">Automatique (le plus net jusqu'à 1440p, plus rapide en 4K)</String>
+  <String key="SmootherCloudsSize.Third">Équilibré</String>
+  <String key="SmootherCloudsSize.Quarter">Le plus rapide (nuages plus doux)</String>
 
-  <String key="SimplerClouds.Label">Nuages simplifiés pour cartes graphiques anciennes (à partir de la prochaine ville chargée)</String>
+  <String key="SimplerClouds.Label">Nuages simplifiés pour cartes graphiques anciennes (s'appliquera au prochain chargement du jeu)</String>
 
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Langue</String>
@@ -450,7 +449,7 @@
 
   <String key="ToggleKey.Label">Ouvrir ce panneau</String>
 
-  <String key="WeatherKey.Label">Masquer ou afficher Volumetric Weather</String>
+  <String key="WeatherKey.Label">Bascule rapide</String>
 
   <String key="ShowAdvancedInPanel.Label">Afficher les options avancées dans le panneau</String>
 
@@ -485,7 +484,7 @@
 
   <String key="ModVersion.Label">La version du mod qui a utilisé ce fichier en dernier et en a montré les nouveautés. Ne la modifiez pas</String>
 
-  <String key="NewDefaults.Text">Volumetric Weather a beaucoup de nouveautés ! Vous pouvez garder vos réglages ou votre profil actuels, mais je vous recommande d’essayer les nouveaux réglages par défaut du mod pour ne rien manquer. Pensez à enregistrer votre profil actuel si vous voulez pouvoir y revenir.</String>
+  <String key="NewDefaults.Text">Volumetric Weather a beaucoup de nouveautés ! Vous pouvez garder vos réglages ou votre profil actuels, mais je vous recommande d’essayer les nouveaux réglages par défaut du mod pour ne rien manquer. Vos réglages actuels seront enregistrés, si vous en avez.</String>
   <String key="NewDefaults.Try">Essayer les nouveaux réglages</String>
   <String key="NewDefaults.Keep">Non merci</String>
   <String key="NewDefaults.SavePicked">Votre profil « {0} » a des modifications non enregistrées. Elles y seront d’abord enregistrées, pour que vous puissiez y revenir en le choisissant, puis les nouveaux réglages par défaut seront appliqués.</String>

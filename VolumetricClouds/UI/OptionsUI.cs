@@ -168,19 +168,49 @@ namespace VolumetricClouds.UI
                     currentPanel = PanelOf(current);
                 }
 
-                // UIHelper has no plain label, so a row that carries a warning gets a group of
-                // its own with the warning as the title -- above the control rather than under
-                // it, which is if anything the better place for a sentence you must read.
-                if (row.Note != null)
-                {
-                    current = page.AddGroup(row.Note);
-                    currentPanel = PanelOf(current);
-                }
-
                 Control control = BuildRow(current, row, currentPanel);
                 if (control != null)
                     _controls.Add(control);
+
+                // A row's warning (2026-11-19, the author: "a small warning" beside Smoother clouds): a small
+                // yellow line of our own right under its control. (Before, a group whose title was the warning,
+                // above the control: a big heading, one line, cut off at the page's edge.)
+                if (row.Note != null && control != null && currentPanel != null)
+                {
+                    try
+                    {
+                        AddRowNote(currentPanel, row.Note);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error("Could not add the note under '" + row.Name + "' on the options page.", e);
+                    }
+                }
             }
+        }
+
+        /// <summary>
+        /// A row's warning under its control: our own UILabel on the group's panel, which lays its
+        /// children out top to bottom, so it lands right after the control just added. Small, yellow,
+        /// wrapping (fixed width + auto height + word wrap), indented to the checkbox's text.
+        /// </summary>
+        private static void AddRowNote(UIComponent panel, string text)
+        {
+            UIPanel layout = panel as UIPanel;
+            RectOffset layoutPadding = layout != null && layout.autoLayoutPadding != null
+                ? layout.autoLayoutPadding
+                : new RectOffset();
+
+            UILabel label = panel.AddUIComponent<UILabel>();
+            label.name = "VolumetricCloudsRowNote";
+            label.autoSize = false;
+            label.autoHeight = true;
+            label.wordWrap = true;
+            label.textScale = 0.8125f;
+            label.width = panel.width - layoutPadding.horizontal - 24f;
+            label.padding = new RectOffset(22, 0, 0, 6);
+            label.textColor = WarningColour;
+            label.text = text;
         }
 
         private static UIComponent PanelOf(UIHelperBase helper)

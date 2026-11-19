@@ -76,7 +76,7 @@
   <String key="WindDirection.Slowly">Seguir el juego despacio</String>
   <String key="WindDirection.Fixed">Fija</String>
   <String key="WindAngle.Label">Dirección fija del viento</String>
-  <String key="WindOverride.Label">Forzar el viento</String>
+  <String key="WindOverride.Label">Forzar viento</String>
   <String key="WindStrength.Label">Fuerza del viento</String>
 
   <String key="FogOverride.Label">Forzar niebla</String>
@@ -216,7 +216,7 @@
 
   <!-- ==================== Advanced: Weather ==================== -->
 
-  <String key="Group.WeatherMapping">Cómo el clima del juego fija la nubosidad</String>
+  <String key="Group.WeatherMapping">Nubosidad del clima</String>
 
   <String key="WeatherFairCoverage.Label">Intensidad: tiempo despejado</String>
 
@@ -228,7 +228,7 @@
 
   <String key="CurvedClouds.Label">Nubes curvas (100% = curvatura de la Tierra)</String>
 
-  <String key="Group.CloudPosition">Posición de nubes (solo esta ciudad, se guarda)</String>
+  <String key="Group.CloudPosition">Posición de nubes</String>
 
   <String key="CloudPositionX.Label">Posición X de nubes</String>
 
@@ -429,16 +429,15 @@
   <String key="CloudDepthOcclusion.Label">Edificios y terreno ocultan nubes detrás</String>
 
   <String key="SmootherClouds.Label">Nubes más suaves (mezcla varios fotogramas: menos grano)</String>
+  <String key="SmootherClouds.Note">¡Desactivarlo empeora el rendimiento!</String>
   <String key="SmootherCloudsSize.Label">Tamaño de dibujo de las nubes</String>
   <String key="SmootherCloudsSize.Tooltip">Nubes más suaves dibuja las nubes más pequeñas que la pantalla y las mezcla a lo largo de varios fotogramas. Un tamaño más pequeño es mucho más rápido; los jirones más finos se suavizan</String>
-  <String key="SmootherCloudsSize.Half">La mitad de la pantalla (lo más nítido)</String>
-  <String key="SmootherCloudsSize.ByScreen">Según la pantalla (la mitad hasta 1440p, un tercio por encima)</String>
-  <String key="SmootherCloudsSize.Third">Un tercio de la pantalla</String>
-  <String key="SmootherCloudsSize.Quarter">Un cuarto de la pantalla (lo más rápido)</String>
-  <String key="SmootherCloudsSharp.Label">Nubes más suaves sin estelas (prueba)</String>
-  <String key="SmootherCloudsSharp.Tooltip">Una nueva forma de mezclar los fotogramas: los bordes y cimas de las nubes ya no dejan estela al mover la cámara. Desactivado = la mezcla anterior</String>
+  <String key="SmootherCloudsSize.Half">Lo más nítido</String>
+  <String key="SmootherCloudsSize.ByScreen">Automático (lo más nítido hasta 1440p, más rápido en 4K)</String>
+  <String key="SmootherCloudsSize.Third">Equilibrado</String>
+  <String key="SmootherCloudsSize.Quarter">Lo más rápido (nubes más suaves)</String>
 
-  <String key="SimplerClouds.Label">Nubes más simples para tarjetas gráficas antiguas (a partir de la próxima ciudad que cargues)</String>
+  <String key="SimplerClouds.Label">Nubes más simples para tarjetas gráficas antiguas (se aplicará la próxima vez que cargues el juego)</String>
 
   <!-- "(more languages...)" goes when the first translation lands. -->
   <String key="Group.Language">Idioma</String>
@@ -450,7 +449,7 @@
 
   <String key="ToggleKey.Label">Abrir este panel</String>
 
-  <String key="WeatherKey.Label">Ocultar o mostrar Volumetric Weather</String>
+  <String key="WeatherKey.Label">Activar/desactivar rápido</String>
 
   <String key="ShowAdvancedInPanel.Label">Mostrar opciones avanzadas en el panel</String>
 
@@ -485,7 +484,7 @@
 
   <String key="ModVersion.Label">La versión del mod que se usó por última vez con este archivo y mostró sus novedades. Déjala como está</String>
 
-  <String key="NewDefaults.Text">¡Volumetric Weather tiene muchas novedades! Puedes conservar tu configuración o tu perfil actual, pero te recomiendo probar los nuevos valores predeterminados del mod para no perderte nada. Guarda tu perfil actual si quieres poder volver a él.</String>
+  <String key="NewDefaults.Text">¡Volumetric Weather tiene muchas novedades! Puedes conservar tu configuración o tu perfil actual, pero te recomiendo probar los nuevos valores predeterminados del mod para no perderte nada. Tu configuración actual se guardará, si tienes alguna.</String>
   <String key="NewDefaults.Try">Probar los nuevos valores</String>
   <String key="NewDefaults.Keep">No, gracias</String>
   <String key="NewDefaults.SavePicked">Tu perfil '{0}' tiene cambios sin guardar. Primero se guardarán en él, para que puedas volver a ellos eligiéndolo, y después se aplicarán los nuevos valores predeterminados.</String>

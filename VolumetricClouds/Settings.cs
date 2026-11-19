@@ -821,12 +821,6 @@ namespace VolumetricClouds
         public static BoolSetting SimplerClouds { get; private set; }
 
         /// <summary>
-        /// (2026-11-15, TEST row) Smoother clouds' new blend against smearing (CloudRaymarchPass.cginc
-        /// TemporalResolve, _TemporalParams.w): on = three depths, variance clip, sharp history; off = 1.5.3's.
-        /// </summary>
-        public static BoolSetting SmootherCloudsSharp { get; private set; }
-
-        /// <summary>
         /// World illumination at 100% coverage, 0..1. Overcast, not night. The CLOUD never takes it
         /// since 1.5.0 (Cloud brightness has its own Overcast values; with Auto brightness on it never
         /// did): it dims only the fog's sunlight. Kept for the players who set it,
@@ -1058,8 +1052,11 @@ namespace VolumetricClouds
             /// <summary>Softer cumulus (2026-11-16; New Defaults: 0, the heaps' edges as they were, before).</summary>
             public const float CumulusSoftness = 0.6f;
 
-            /// <summary>Cloud variety (2026-11-19): off, the heaps as they were.</summary>
-            public const float CloudVariety = 0f;
+            /// <summary>
+            /// Cloud variety (2026-11-19): 50% in New Defaults (his profile saved again that evening). A file
+            /// or profile without the row reads 0, the heaps as they were (SettingsCatalog.GuardNewDefaults).
+            /// </summary>
+            public const float CloudVariety = 0.5f;
 
             /// <summary>New Defaults (750 m and 400 m before).</summary>
             public const float Altitude = 1300f;
@@ -1144,7 +1141,7 @@ namespace VolumetricClouds
             public const float DayOpacityOvercast = DayOpacity;
             public const float SunsetOpacityOvercast = DayOpacity;
             public const float NightOpacityOvercast = NightOpacity;
-            public const float FogBrightnessOvercast = 1.65f;
+            public const float FogBrightnessOvercast = 1.85f;   // New Defaults 2026-11-19 (165% the day before)
             public const float FogBrightnessSunsetOvercast = 1.5f;
             public const float FogBrightnessNightOvercast = 1.5f;
             public const float FogTintOvercast = FogTint;
@@ -1184,7 +1181,7 @@ namespace VolumetricClouds
             /// 1.5.0-1.5.1, OFF since 1.5.2 (the author's call): new installs and a Reset only; a file
             /// written by 1.5.x keeps its own value. Off with the sliders at 0 nothing of it is loaded.
             /// </summary>
-            public const bool DynamicDistantClouds = true;   // New Defaults (off since 1.5.2 before)
+            public const bool DynamicDistantClouds = false;   // off since 1.5.2 (on in the 2026-11-18 New Defaults, off again in his 2026-11-19 profile)
 
             /// <summary>Distant clouds (1.5.0): the sliders all at 0, read only with DynamicDistantClouds off.</summary>
             public const float SkyCirrus = 0f;
@@ -1229,7 +1226,8 @@ namespace VolumetricClouds
             // ---- shadows ----
             public const bool CloudShadows = true;
             public const float ShadowDarkness = 0.85f;
-            public const float ShadowFullness = 3f;
+            /// <summary>New Defaults (2026-11-19): 0.5x (3x before).</summary>
+            public const float ShadowFullness = 0.5f;
 
             /// <summary>The Medium preset's (2026-11-18; High's 2048 before: <see cref="HighShadowMap"/>).</summary>
             public const int ShadowMapResolution = 1024;
@@ -1251,7 +1249,6 @@ namespace VolumetricClouds
 
             /// <summary>Simpler clouds: off, so the new row changes nothing for anyone (invariant 15).</summary>
             public const bool SimplerClouds = false;
-            public const bool SmootherCloudsSharp = true;
 
             /// <summary>
             /// Raymarch steps at the High preset. 96 is the slider's maximum, what the author runs, and
@@ -1293,14 +1290,16 @@ namespace VolumetricClouds
             public const float RainStreakOpacity = 0.7f;
             /// <summary>White: the streaks' colour exactly as before the setting existed.</summary>
             public static readonly Color32 RainStreakColor = new Color32(255, 255, 255, 255);
-            public const float RainFallSpeed = 1f;
+            /// <summary>New Defaults (2026-11-19): 155% (100% before).</summary>
+            public const float RainFallSpeed = 1.55f;
             // 2026-11-15: seen in game ("The new settings are perfect"), on for every player at their middle
             // value (the design's 100%), as Lightning variety (the author's call the same day).
-            // New Defaults (2026-11-18): Wind on the rain 50%, Wet roads and puddles 150% (100% each before).
-            public const float RainWind = 0.5f;
+            // New Defaults (2026-11-19, his profile saved again): Wind on the rain 105% (100% before; 50% in the
+            // 2026-11-18 round), Wet roads and puddles 100% (as before; 150% in the 2026-11-18 round).
+            public const float RainWind = 1.05f;
             public const bool RainDetail = true;
             public const float StormMist = 1f;
-            public const float WetGround = 1.5f;
+            public const float WetGround = 1f;
             public const float WetTerrain = 0.1f;
             public const float WetTrees = 0.1f;
             public const float WheelSpray = 1f;
@@ -1330,8 +1329,9 @@ namespace VolumetricClouds
             public const int StormMovement = 1;
 
             // ---- trees in the wind (2026-10-30) ----
-            // Off for everyone until the author had judged it in-game; ON in New Defaults (2026-11-18). The rest at the design's 100%.
-            public const bool TreeWind = true;
+            // Off for everyone until the author had judged it in-game; ON in the 2026-11-18 New Defaults, OFF again in
+            // his profile of 2026-11-19 (the defaults follow it). The rest at the design's 100%.
+            public const bool TreeWind = false;
             public const float TreeWindStrength = 1f;
             public const bool TreeWindEverywhere = false;
             public const float TreeGusts = 1f;
@@ -1384,9 +1384,9 @@ namespace VolumetricClouds
             /// cloud brightness of 25%, lit since through the fixed
             /// <see cref="Sky.CloudVolume.FogLightScale"/> of 0.5). Like every default, it reaches
             /// only new installs and a Reset: a file that holds the element keeps its number.
-            /// New Defaults (2026-11-18): 205% by day.
+            /// New Defaults: 200% by day (2026-11-19; 205% in the 2026-11-18 round).
             /// </summary>
-            public const float FogBrightness = 2.05f;
+            public const float FogBrightness = 2f;
 
             public const float FogTint = -0.4f;
 
@@ -1675,7 +1675,6 @@ namespace VolumetricClouds
                 CloudTemporal = new BoolSetting("SmootherClouds", Defaults.Temporal);
                 SmootherCloudsSize = new IntSetting("SmootherCloudsSize", Defaults.SmootherCloudsSize);
                 SimplerClouds = new BoolSetting("SimplerClouds", Defaults.SimplerClouds);
-                SmootherCloudsSharp = new BoolSetting("SmootherCloudsSharp", Defaults.SmootherCloudsSharp);
                 MinIllumination = new FloatSetting("MinIllumination", Defaults.MinIllumination);
 
                 CloudsVisible = new BoolSetting("CloudsVisible", Defaults.CloudsVisible);
