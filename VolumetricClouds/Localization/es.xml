@@ -417,6 +417,7 @@
   <String key="QualityPreset.Medium">Media</String>
   <String key="QualityPreset.High">Alta</String>
   <String key="QualityPreset.Custom">Personalizada</String>
+  <String key="QualityPreset.Tooltip">Baja es la más rápida: las nubes se dibujan al tamaño más pequeño, y sin Cúmulos más suaves, Nubes clásicas naturales, Variedad de nubes ni el brillo por encima del 100%. Media y Alta lo dibujan todo, Alta al tamaño más nítido. Personalizada muestra cada ajuste</String>
 
   <String key="CloudQuality.Label">Calidad de nubes y niebla</String>
 

@@ -178,13 +178,24 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>
-        /// The extras' variant is drawn: wanted and both its variants run here. Every material that marches
-        /// the clouds with the whole shader carries the keyword exactly while this is true (CloudVolume), and
-        /// every extra reads this before it hands the shader a value (DeepLight.Setting).
+        /// The Low quality preset draws none of the extras (1.6.1, UI.QualityChoice.ExtrasOff; the author after a test
+        /// on an M1 Mac, where the mod defaults' sky was far too slow even on Low): the lean variant, each extra as
+        /// off, whatever its row says. Read from the preset of the moment, so picking another preset on the options
+        /// page brings them back in the same city. Their rows are greyed meanwhile (SettingsCatalog).
+        /// </summary>
+        public static bool ExtrasOffByPreset
+        {
+            get { return Settings.QualityPreset != null && UI.QualityChoice.ExtrasOff(Settings.QualityPreset.value); }
+        }
+
+        /// <summary>
+        /// The extras' variant is drawn: wanted, both its variants run here and the quality preset draws extras.
+        /// Every material that marches the clouds with the whole shader carries the keyword exactly while this is
+        /// true (CloudVolume), and every extra reads this before it hands the shader a value (DeepLight.Setting).
         /// </summary>
         public static bool PlusOn
         {
-            get { return PlusDrawn && PlusWanted; }
+            get { return PlusDrawn && PlusWanted && !ExtrasOffByPreset; }
         }
 
         /// <summary>A setting's own value is over <paramref name="limit"/> (false before the settings exist).</summary>

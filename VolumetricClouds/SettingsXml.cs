@@ -196,6 +196,10 @@ namespace VolumetricClouds
             // An existing player: shown the new defaults once (UI.NewDefaultsNotice), or stamped now.
             NewDefaultsNotice.AtStartup(true);
 
+            // A file from before the presets set the clouds' drawing size (1.6.1): the preset's size, or Custom
+            // where the size was chosen by hand. The save below writes it.
+            SettingsCatalog.ReconcilePreset();
+
             // Lists every setting, with its comment: a file from an older version gains the new
             // ones, and a clamped value is written as it now is. Skipped when nothing differs.
             SaveNow();

@@ -431,6 +431,7 @@
   <String key="QualityPreset.Medium">中</String>
   <String key="QualityPreset.High">高</String>
   <String key="QualityPreset.Custom">自定义</String>
+  <String key="QualityPreset.Tooltip">“低”最快：云层以最小尺寸绘制，并且不含“更柔和的积云”、“自然的经典云”、“云的多样性”以及超过 100% 的辉光。“中”和“高”绘制全部效果，“高”使用最清晰的尺寸。“自定义”会显示每一项设置</String>
 
   <String key="CloudQuality.Label">云层和雾质量</String>
 

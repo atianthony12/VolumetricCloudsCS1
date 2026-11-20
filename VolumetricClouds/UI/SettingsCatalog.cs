@@ -944,9 +944,10 @@ namespace VolumetricClouds.UI
         }
 
         /// <summary>
-        /// The quality preset writes the three rows that cost frames and nothing else. It
-        /// describes the machine, so it is never carried by a profile and never touches the
-        /// fog, which is its own opt-in.
+        /// The quality preset writes the four rows that cost frames and nothing else (the fourth since 1.6.1:
+        /// Smoother clouds' drawing size, QualityChoice.DrawingSize). It describes the machine, so it is never
+        /// carried by a profile and never touches the fog, which is its own opt-in. Low also draws none of the
+        /// cloud shader's extras (CloudShaders.ExtrasOffByPreset): read from the preset, no row.
         /// </summary>
         public static void ApplyPreset(int preset)
         {
@@ -956,6 +957,7 @@ namespace VolumetricClouds.UI
             float steps = preset == 0 ? 32f : preset == 1 ? 64f : Settings.Defaults.HighSteps;
             int resolution = preset == 0 ? 512 : preset == 1 ? 1024 : Settings.Defaults.HighShadowMap;
             int rate = preset == 0 ? 10 : Settings.Defaults.ShadowMapRate;
+            int size = QualityChoice.DrawingSize(preset);
 
             // Restored, not cleared: ResetAll holds the same guard around this call.
             bool wasApplying = _applyingPreset;
@@ -967,6 +969,8 @@ namespace VolumetricClouds.UI
                     Settings.ShadowMapResolution.value = resolution;
                 if (Settings.ShadowMapRate != null)
                     Settings.ShadowMapRate.value = rate;
+                if (Settings.SmootherCloudsSize != null)
+                    Settings.SmootherCloudsSize.value = size;
             }
             finally
             {
@@ -974,7 +978,44 @@ namespace VolumetricClouds.UI
             }
 
             Log.Msg("quality preset: " + PresetName(preset) + " -> steps=" + steps.ToString("F0") +
-                    " shadowMap=" + resolution + "^2 @ " + rate + " Hz");
+                    " shadowMap=" + resolution + "^2 @ " + rate + " Hz, clouds drawn at " + SmootherSize.ChoiceName(size) +
+                    (QualityChoice.ExtrasOff(preset) ? ", without the cloud extras (Softer cumulus, Natural Classic clouds, Cloud variety, the glow above 100%)" : ""));
+        }
+
+        /// <summary>
+        /// A settings file read at startup (SettingsXml.LoadAtStartup), from before the presets set the drawing size
+        /// (1.6.1, QualityChoice.Reconcile): under Low or Medium a size never chosen becomes the preset's; a size
+        /// chosen by hand stays and the preset reads Custom. High with the default size: nothing. Logged either way.
+        /// </summary>
+        internal static void ReconcilePreset()
+        {
+            if (Settings.QualityPreset == null || Settings.SmootherCloudsSize == null)
+                return;
+
+            int preset = Settings.QualityPreset.value, size = Settings.SmootherCloudsSize.value;
+            int newPreset, newSize;
+            if (!QualityChoice.Reconcile(preset, size, out newPreset, out newSize))
+                return;
+
+            bool wasApplying = _applyingPreset;
+            _applyingPreset = true;
+            try
+            {
+                Settings.SmootherCloudsSize.value = newSize;
+                Settings.QualityPreset.value = newPreset;
+            }
+            finally
+            {
+                _applyingPreset = wasApplying;
+            }
+
+            if (newPreset != preset)
+                Log.Msg("quality preset: " + PresetName(preset) + " -> Custom -- the clouds' drawing size was set by hand (" +
+                        SmootherSize.ChoiceName(size) + ") and the presets set it since 1.6.1 (" + PresetName(preset) + ": " +
+                        SmootherSize.ChoiceName(QualityChoice.DrawingSize(preset)) + "); every value is kept as it was");
+            else
+                Log.Msg("quality preset: " + PresetName(preset) + " now draws the clouds at " + SmootherSize.ChoiceName(newSize) +
+                        " (was " + SmootherSize.ChoiceName(size) + ": the presets set the drawing size since 1.6.1)");
         }
 
         private static int? _machinePreset;
@@ -1913,7 +1954,7 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = 100f, Step = 5f,
                 HasTooltip = true,
                 Shown = CumulusPicked,
-                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn) && !CloudShaders.ExtrasOffByPreset,
             });
 
             Add(new Row
@@ -1939,7 +1980,7 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = 100f, Step = 5f,
                 HasTooltip = true,
                 Shown = CumulusPicked,
-                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn) && !CloudShaders.ExtrasOffByPreset,
             });
 
             Add(new Row
@@ -1979,7 +2020,7 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.ClassicShape,
                 Min = 0f, Max = 100f, Step = 5f,
                 HasTooltip = true,
-                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn),
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn) && !CloudShaders.ExtrasOffByPreset,
             });
 
             // Crisp edges, puffy billows and the light that shows them (Sky.CloudDetail); 0 is
@@ -2999,7 +3040,8 @@ namespace VolumetricClouds.UI
                 Min = 0f, Max = 200f, Step = 5f,
                 // Over 100% is drawn by the cloud shader's extras variant: where it does not run (Sky/CloudShaders
                 // PlusDrawn, its log line) the light is drawn as at 100%, and the readout of the moment says so.
-                NowValue = () => CloudShaders.Raymarch != null && !CloudShaders.Lite && !CloudShaders.PlusDrawn
+                // (1.6.1: nor under the Low quality preset, which draws no extras.)
+                NowValue = () => (CloudShaders.Raymarch != null && !CloudShaders.Lite && !CloudShaders.PlusDrawn) || CloudShaders.ExtrasOffByPreset
                     ? Math.Min(1f, LightThrough.Slider)
                     : LightThrough.Slider,
             };
@@ -3064,12 +3106,15 @@ namespace VolumetricClouds.UI
         private static void BuildRenderingOptions()
         {
             // The first row of the options page. The three rows it sets follow it, shown while it
-            // reads Custom ("It's not understandable what is Custom without them").
+            // reads Custom ("It's not understandable what is Custom without them"); the fourth, the clouds'
+            // drawing size (1.6.1), is under Smoother clouds further down, shown on Custom too. Its tooltip
+            // (1.6.1) says what Low leaves out: the rows of the extras are greyed under it.
             Add(new Row
             {
                 Kind = RowKind.Choice,
                 Options = OptionsPage.General,
                 Group = "Performance",
+                HasTooltip = true,
                 Int = Settings.QualityPreset,
                 // The computer's (2026-11-18): Medium, Low where the game's graphics were lowered.
                 DefaultInt = MachinePreset,
@@ -3157,10 +3202,15 @@ namespace VolumetricClouds.UI
             // default, as before), by the screen's size, a third, a quarter. The largest saving there is (a third: the
             // cloud pass -45% at 4K), the finest wisps softer. The machine's choice: never in a profile. Stored by value,
             // append-only. CloudTemporal logs the size it makes.
+            // 1.6.1 (the author, after a test on an M1 Mac): the quality preset sets it (ApplyPreset: Low a quarter,
+            // Medium a third, High half), so like the preset's other rows it shows only while the preset reads Custom,
+            // and a change by hand makes the preset Custom. It stays here, under the switch it belongs to.
+            Action sizeState = State("smoother clouds' drawing size", () => SmootherSize.ChoiceName(Settings.SmootherCloudsSize.value));
             Add(new Row
             {
                 Kind = RowKind.Choice,
                 Options = OptionsPage.General,
+                OptionsPageShown = CustomPreset,
                 HasTooltip = true,
                 Int = Settings.SmootherCloudsSize,
                 DefaultInt = Settings.Defaults.SmootherCloudsSize,
@@ -3168,7 +3218,11 @@ namespace VolumetricClouds.UI
                 ChoiceValues = new[] { SmootherSize.Half, SmootherSize.ByScreen, SmootherSize.Third, SmootherSize.Quarter },
                 Profiled = false,
                 Enabled = () => WholeShaders() && Settings.CloudTemporal != null && Settings.CloudTemporal.value,
-                AfterChange = State("smoother clouds' drawing size", () => SmootherSize.ChoiceName(Settings.SmootherCloudsSize.value)),
+                AfterChange = () =>
+                {
+                    MarkCustomPreset();
+                    sizeState();
+                },
             });
 
             // (2026-11-15 to 11-19: a TEST row, SmootherCloudsSharp, switched the blend against smearing off for a

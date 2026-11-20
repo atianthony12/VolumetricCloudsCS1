@@ -463,6 +463,7 @@
   <String key="QualityPreset.Medium">Medium</String>
   <String key="QualityPreset.High">High</String>
   <String key="QualityPreset.Custom">Custom</String>
+  <String key="QualityPreset.Tooltip">Low is the fastest: the clouds are drawn at the smallest size, and without Softer cumulus, Natural Classic clouds, Cloud variety and the glow above 100%. Medium and High draw everything, High at the sharpest size. Custom shows each setting</String>
 
   <String key="CloudQuality.Label">Cloud and fog quality</String>
 

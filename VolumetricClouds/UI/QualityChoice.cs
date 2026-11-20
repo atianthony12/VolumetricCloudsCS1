@@ -23,6 +23,56 @@ namespace VolumetricClouds.UI
 
         public const int Low = 0;
         public const int Medium = 1;
+        public const int High = 2;
+        public const int Custom = 3;
+
+        // Smoother clouds' drawing sizes as their row stores them (Sky.SmootherSize: Half 0, Third 2, Quarter 3).
+        // Written out here so this file still compiles alone.
+        private const int SizeHalf = 0, SizeThird = 2, SizeQuarter = 3;
+
+        /// <summary>
+        /// The size Smoother clouds draws the clouds at under a preset (1.6.1, the author after a test on an M1 Mac:
+        /// "we need to link the quality preset to the Smoother clouds. High = Smoothest as it is now"): Low a quarter
+        /// of the screen each way, Medium a third, High half (the size everyone had until then). Custom has none.
+        /// </summary>
+        public static int DrawingSize(int preset)
+        {
+            return preset == Low ? SizeQuarter : preset == Medium ? SizeThird : SizeHalf;
+        }
+
+        /// <summary>
+        /// The Low preset draws none of the cloud shader's extras (Softer cumulus, Natural Classic clouds, Cloud
+        /// variety, the glow above 100%): the plain cloud program, the look of 1.5.3's heaps (1.6.1). They are on in
+        /// the mod defaults, so without this a new install on Low still drew the heaviest program there is.
+        /// </summary>
+        public static bool ExtrasOff(int preset)
+        {
+            return preset == Low;
+        }
+
+        /// <summary>
+        /// A settings file read at startup, written before the presets set the drawing size: under Low, Medium or
+        /// High the size becomes the preset's when it was never chosen (half, the only value there was before the
+        /// row and its default since), and a size chosen by hand is kept and the preset reads Custom from now on.
+        /// Under Custom, or with the preset's size already there, nothing changes. True when something did.
+        /// </summary>
+        public static bool Reconcile(int preset, int size, out int newPreset, out int newSize)
+        {
+            newPreset = preset;
+            newSize = size;
+            if (preset < Low || preset > High)
+                return false;
+
+            int wanted = DrawingSize(preset);
+            if (size == wanted)
+                return false;
+
+            if (size == SizeHalf)
+                newSize = wanted;
+            else
+                newPreset = Custom;
+            return true;
+        }
 
         /// <summary>
         /// The preset (0 Low, 1 Medium) for these game levels and this much graphics memory (MB, 0 or

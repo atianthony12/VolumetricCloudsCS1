@@ -48,6 +48,44 @@ Check "the game's level of detail medium: Medium" ($r[0] -eq 1) $r[1]
 $r = Pick 3 2 0 8000
 Check "the game's textures low: Low" ($r[0] -eq 0) $r[1]
 
+"=== the presets' drawing size and extras (1.6.1) ==="
+$q = [VolumetricClouds.UI.QualityChoice]
+# Sky.SmootherSize's values: Half 0, ByScreen 1, Third 2, Quarter 3.
+Check "Low draws at a quarter, Medium a third, High half" (($q::DrawingSize(0) -eq 3) -and ($q::DrawingSize(1) -eq 2) -and ($q::DrawingSize(2) -eq 0))
+Check "only Low draws no extras" ($q::ExtrasOff(0) -and (-not $q::ExtrasOff(1)) -and (-not $q::ExtrasOff(2)) -and (-not $q::ExtrasOff(3)))
+function Reconcile([int]$preset, [int]$size) {
+    $p = 0; $s = 0
+    $changed = [VolumetricClouds.UI.QualityChoice]::Reconcile($preset, $size, [ref]$p, [ref]$s)
+    return @($changed, $p, $s)
+}
+$r = Reconcile 2 0
+Check "an older file on High, size never chosen: nothing changes" ((-not $r[0]) -and $r[1] -eq 2 -and $r[2] -eq 0)
+$r = Reconcile 1 0
+Check "an older file on Medium, size never chosen: a third, still Medium" ($r[0] -and $r[1] -eq 1 -and $r[2] -eq 2)
+$r = Reconcile 0 0
+Check "an older file on Low, size never chosen: a quarter, still Low" ($r[0] -and $r[1] -eq 0 -and $r[2] -eq 3)
+$r = Reconcile 2 2
+Check "High with a third chosen by hand: Custom, the size kept" ($r[0] -and $r[1] -eq 3 -and $r[2] -eq 2)
+$r = Reconcile 0 1
+Check "Low with 'by the screen' chosen by hand: Custom, the size kept" ($r[0] -and $r[1] -eq 3 -and $r[2] -eq 1)
+$r = Reconcile 1 3
+Check "Medium with a quarter chosen by hand: Custom, the size kept" ($r[0] -and $r[1] -eq 3 -and $r[2] -eq 3)
+$r = Reconcile 3 0
+Check "Custom: never touched" ((-not $r[0]) -and $r[1] -eq 3 -and $r[2] -eq 0)
+$r = Reconcile 3 3
+Check "Custom with a quarter: never touched" ((-not $r[0]) -and $r[1] -eq 3 -and $r[2] -eq 3)
+$r = Reconcile 7 2
+Check "a preset value from a newer version: never touched" ((-not $r[0]) -and $r[1] -eq 7 -and $r[2] -eq 2)
+$again = $true
+foreach ($preset in 0, 1, 2) {
+    foreach ($size in 0, 1, 2, 3) {
+        $first = Reconcile $preset $size
+        $second = Reconcile $first[1] $first[2]
+        if ($second[0]) { $again = $false }
+    }
+}
+Check "a file is changed once: read again, nothing more changes (12 cases)" $again
+
 "=== NoticeRule ==="
 $rule = [VolumetricClouds.UI.NoticeRule]
 Check "a new install (no file): not shown" (-not $rule::ShouldShow($false, ""))

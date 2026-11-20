@@ -417,6 +417,7 @@
   <String key="QualityPreset.Medium">Moyenne</String>
   <String key="QualityPreset.High">Élevée</String>
   <String key="QualityPreset.Custom">Personnalisée</String>
+  <String key="QualityPreset.Tooltip">Faible est le plus rapide : les nuages sont dessinés à la plus petite taille, et sans Cumulus plus doux, Nuages classiques naturels, Variété des nuages ni la lueur au-dessus de 100 %. Moyenne et Élevée dessinent tout, Élevée à la taille la plus nette. Personnalisée affiche chaque réglage</String>
 
   <String key="CloudQuality.Label">Qualité des nuages et du brouillard</String>
 

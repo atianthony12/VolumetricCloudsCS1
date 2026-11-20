@@ -1000,6 +1000,8 @@ namespace VolumetricClouds.Sky
                 why = asked;
             else if (CloudShaders.Lite)
                 why = "Simpler clouds draw none of them";
+            else if (asked != null && CloudShaders.ExtrasOffByPreset)
+                why = asked + ", but the Low quality preset draws none of them (the options page: Medium, High or Custom brings them back)";
             else if (asked != null)
                 why = asked + ", but the extras' variant does not run on this graphics driver";
             else

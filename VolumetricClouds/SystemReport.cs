@@ -56,7 +56,9 @@ namespace VolumetricClouds
                 Log.Msg("mod quality: preset=" + UI.SettingsCatalog.PresetName(preset) +
                         " steps=" + Value(Settings.CloudQuality, Settings.Defaults.Quality).ToString("F0") +
                         " shadowMap=" + Int(Settings.ShadowMapResolution, Settings.Defaults.ShadowMapResolution) + "^2 @ " +
-                        Int(Settings.ShadowMapRate, Settings.Defaults.ShadowMapRate) + " Hz");
+                        Int(Settings.ShadowMapRate, Settings.Defaults.ShadowMapRate) + " Hz" +
+                        " cloudDrawingSize=" + Sky.SmootherSize.ChoiceName(Int(Settings.SmootherCloudsSize, Settings.Defaults.SmootherCloudsSize)) +
+                        " cloudExtras=" + (Sky.CloudShaders.ExtrasOffByPreset ? "off (the Low preset draws none)" : "as their rows say"));
 
                 // The feature switches, always, whatever the logging level: anything that can
                 // suppress or replace what is drawn has to be visible in the log. This is the

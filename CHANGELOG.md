@@ -7,8 +7,10 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.1 — unreleased
 
-Fixes for lightning, wet ground and cloud shadows, and new mod defaults for a few settings. No setting is added,
-removed or renamed: `VolumetricClouds.xml`, profiles and saved cities stay exactly as they are.
+Fixes for lightning, wet ground and cloud shadows, new mod defaults for a few settings, and quality presets that
+do more. No setting is added, removed or renamed: profiles and saved cities stay exactly as they are, and so does
+`VolumetricClouds.xml`, except for the *Cloud drawing size* of players on the *Low* or *Medium* quality preset
+(see Changed).
 
 ### Changed
 
@@ -18,6 +20,14 @@ removed or renamed: `VolumetricClouds.xml`, profiles and saved cities stay exact
   and at night (was 150%); *Clouds hide the sky* 50% at every time and weather (was 0% by day and at sunset, 100%
   at night). Existing players keep their own values; the one-time message offering the mod defaults shows once
   more (to players who already answered it in 1.6.0 too), and new installs start with them.
+- The *Quality preset* now also sets the *Cloud drawing size*: *Low* draws the clouds at a quarter of the screen,
+  *Medium* at a third, *High* at half (the size everyone had). *Low* also leaves out *Softer cumulus*, *Natural
+  Classic clouds*, *Cloud variety* and the glow above 100% of *Glow and softer shade*; their rows are greyed under
+  it and come back with any other preset. Until now *Low* only took fewer steps, and was still slow on a weaker
+  graphics card with the mod defaults' sky. *Cloud drawing size* shows on the options page under *Custom*, with
+  the preset's other settings. For existing players: on *High* nothing changes; on *Low* or *Medium* the clouds
+  are drawn at the preset's smaller size from now on (faster, the finest wisps softer); whoever chose a drawing
+  size by hand keeps it, and the preset reads *Custom*.
 
 ### Fixed
 
