@@ -1528,11 +1528,15 @@ namespace VolumetricClouds.UI
         /// and HaloFlareFar (already here: a file without them is older than both rounds and keeps the value it read
         /// then), RainCurtainLightNight (a clock's child: a file without it takes RainCurtainLight's value, which is
         /// safe only because RainCurtainLight's own default did not move -- it is NOT in this table; add it if it ever moves).
+        /// Its second save (15:40) moved ten more: CloudLightGap and CloudDayOpacity (first time, 0 before each); the
+        /// light inside's Night, Overcast and Night Overcast (children: they take LightInsideClouds' value, guarded here);
+        /// "Clouds hide the sky"'s Sunset and three Overcast values (children: the Day / Clear sky value as read), and its
+        /// Night, a child whose missing element never meant the Day value: its own rule reads 100 (its default before).
         /// </summary>
         private static readonly string[] BeforeNewDefaults =
         {
-            "ClassicShape", "0", "CloudAltitude", "750", "CloudBreakupScale", "4", "CloudDetail", "100",
-            "CloudFragmentStyle", "1", "CloudLight", "150", "CloudShadowFullness", "3", "CloudThickness", "400",
+            "ClassicShape", "0", "CloudAltitude", "750", "CloudBreakupScale", "4", "CloudDayOpacity", "0", "CloudDetail", "100",
+            "CloudFragmentStyle", "1", "CloudLight", "150", "CloudLightGap", "0", "CloudShadowFullness", "3", "CloudThickness", "400",
             "CloudVariety", "0", "CumulusAmount", "100",
             "CumulusBases", "0", "CumulusHeight", "100", "CumulusSize", "100", "CumulusSoftness", "0",
             "DynamicDistantClouds", "false", "FogBrightness", "150", "HaloEnabled", "false", "HaloFlareFar", "100",
@@ -2931,8 +2935,9 @@ namespace VolumetricClouds.UI
             // Brightness difference between clouds (2026-11-16, the author: "I do like clouds slightly differentiating
             // in colors ... but this should be behind a slider"): under Mixed and Auto, soft clouds where the sky does
             // not lean to heaps are lit at their own, lower level (Sky/CloudStyle.CloudLightScale). 100% = that sky
-            // exactly (1.5.3's); 0% = soft clouds and heaps equally bright where the sun reaches them, the default since
-            // 2026-11-18 (the author: soft clouds "super dark compared to other clouds"), stored as "CloudLightGap".
+            // exactly (1.5.3's); 0% = soft clouds and heaps equally bright where the sun reaches them, the default from
+            // 2026-11-18 (the author: soft clouds "super dark compared to other clouds"), stored as "CloudLightGap";
+            // 50% since New Defaults 1.6.1 (2026-11-20).
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -3018,7 +3023,8 @@ namespace VolumetricClouds.UI
             // "Clouds hide the sky": by day (1.5.0, asked for by a player with a daytime cubemap: its sky,
             // sun included, showed through a full overcast, where the far clouds fade into whatever is
             // behind them; 0% for everyone = the clouds as before, and not switched on by itself for a
-            // sky that is not the game's) and at night (the stars, since 1.0: 100%), one row with a
+            // sky that is not the game's) and at night (the stars, since 1.0: 100%; New Defaults 1.6.1 made
+            // every value 50% for new installs and a Reset), one row with a
             // clock since 1.5.0 (CloudVolume.ApplyNight). CloudNightOpacity keeps its name: it already
             // meant the night's. Sunset: an older file's Day value, which is how its twilight began.
             Row hide = new Row
@@ -3030,11 +3036,11 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.DayOpacity,
                 Min = 0f, Max = 100f, Step = 5f,
             };
-            // A file without the night's element (none since release has lacked it) means its default,
-            // as it always did -- not the Day value.
+            // A file without the night's element (none since release has lacked it) means 100%, its default
+            // until New Defaults 1.6.1 (50% since), as it always did -- not the Day value, and not today's default.
             AddTimed(hide, Settings.CloudSunsetOpacity, Settings.Defaults.SunsetOpacity,
                 Settings.CloudNightOpacity, Settings.Defaults.NightOpacity,
-                values => SettingsXmlFormat.FormatNumber(Settings.Defaults.NightOpacity * 100f));
+                values => "100");
             AddOvercast(hide, Settings.CloudDayOpacityOvercast, Settings.Defaults.DayOpacityOvercast,
                 Settings.CloudSunsetOpacityOvercast, Settings.Defaults.SunsetOpacityOvercast,
                 Settings.CloudNightOpacityOvercast, Settings.Defaults.NightOpacityOvercast);

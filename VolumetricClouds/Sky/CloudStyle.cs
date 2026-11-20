@@ -397,7 +397,7 @@ namespace VolumetricClouds.Sky
         // and lifted back to 1 where it leans to heaps (HeapLightBoost): a sunlit soft cloud in a stretch that
         // does not lean to heaps got half a heap's light (measured 2026-11-16 at his settings, two cities: a sunlit
         // heap 1.9x a sunlit soft cloud's light per opacity there, at Glow 100 and 150 alike; 1.66x / 1.82x over
-        // all their opaque pixels, shade included). The row at 100% (the default) is that sky exactly; at 0% the
+        // all their opaque pixels, shade included). The row at 100% (its first default) is that sky exactly; at 0% the
         // two levels are EVEN: a sunlit soft cloud there as bright per opacity as a sunlit heap. Evened from both
         // sides, so the whole sky keeps about its brightness: the soft stretches up and the heaps' level down from
         // 1, by how much of the sky's cloud light the soft stretches carry at the cover (EvenSoftShare). The

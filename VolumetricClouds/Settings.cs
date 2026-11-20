@@ -493,7 +493,7 @@ namespace VolumetricClouds
         /// <summary>
         /// 0..1 (1.5.0): the same as <see cref="CloudNightOpacity"/>, by day. At 1 the sky behind
         /// a far cloud cannot be seen through it -- a cubemap's painted sun included. 0, the
-        /// default, is the clouds as they always were: by day they fade into the sky behind.
+        /// default until New Defaults 1.6.1 (0.5 since), is the clouds as they always were: by day they fade into the sky behind.
         /// Since the clock (1.5.0) the Day value of "Clouds hide the sky"; the other two below.
         /// </summary>
         public static FloatSetting CloudDayOpacity { get; private set; }
@@ -785,7 +785,8 @@ namespace VolumetricClouds
         /// "Brightness difference between clouds" (2026-11-16, Sky.CloudStyle.CloudLightScale), 0..1, under Mixed and
         /// Auto only: 1 = the sky as before (soft clouds where the sky does not lean to heaps lit at their own lower
         /// level), 0 = soft clouds and heaps equally bright where the sun reaches them. Stored as "CloudLightGap"
-        /// since 2026-11-18 (default 0, even): its first name, "CloudLightDifference" (default 100%), only dev builds
+        /// since 2026-11-18 (default 0, even; 50% since New Defaults 1.6.1, 2026-11-20, for new installs and a Reset
+        /// only): its first name, "CloudLightDifference" (default 100%), only dev builds
         /// wrote, and it is retired (SettingsXml.Retired) so the even sky reaches the files that hold 100%.
         /// </summary>
         public static FloatSetting CloudLightDifference { get; private set; }
@@ -1100,8 +1101,8 @@ namespace VolumetricClouds
             public const float DensitySunset = Density;
             public const float DensityNight = Density;
             public const float LightInsideCloudsSunset = 1.7f;
-            public const float LightInsideCloudsNight = 1.5f;
-            public const float SunsetOpacity = DayOpacity;
+            public const float LightInsideCloudsNight = 1f;   // New Defaults 1.6.1 (150% before)
+            public const float SunsetOpacity = 0.5f;          // New Defaults 1.6.1 (0% before, = the Day's)
             public const float ShadowDarknessSunset = ShadowDarkness;
             public const float ShadowDarknessNight = ShadowDarkness;
             public const float FogDensitySunset = FogDensity;
@@ -1130,12 +1131,14 @@ namespace VolumetricClouds
             public const float DensityOvercast = 0.8f;
             public const float DensitySunsetOvercast = DensityOvercast;
             public const float DensityNightOvercast = DensityOvercast;
-            public const float LightInsideCloudsOvercast = 1.5f;
+            // New Defaults 1.6.1 (2026-11-20): the light inside 100% at night and under a full overcast by day and
+            // at night (150% before), "Clouds hide the sky" 50% (0% by day and at sunset, 100% at night, before).
+            public const float LightInsideCloudsOvercast = 1f;
             public const float LightInsideCloudsSunsetOvercast = 2f;
-            public const float LightInsideCloudsNightOvercast = 1.5f;
-            public const float DayOpacityOvercast = DayOpacity;
-            public const float SunsetOpacityOvercast = DayOpacity;
-            public const float NightOpacityOvercast = NightOpacity;
+            public const float LightInsideCloudsNightOvercast = 1f;
+            public const float DayOpacityOvercast = 0.5f;
+            public const float SunsetOpacityOvercast = 0.5f;
+            public const float NightOpacityOvercast = 0.5f;
             public const float FogBrightnessOvercast = 1.85f;   // New Defaults 2026-11-19 (165% the day before)
             public const float FogBrightnessSunsetOvercast = 1.5f;
             public const float FogBrightnessNightOvercast = 1.5f;
@@ -1206,7 +1209,8 @@ namespace VolumetricClouds
             /// Brightness difference between clouds: 0%, soft clouds as bright as the heaps beside them (2026-11-18, the
             /// author: soft clouds "super dark compared to other clouds"). It was 100% (the sky of 1.5.3) under its first name.
             /// </summary>
-            public const float CloudLightDifference = 0f;
+            // New Defaults 1.6.1 (2026-11-20): 50% (0% before).
+            public const float CloudLightDifference = 0.5f;
 
             /// <summary>
             /// 0 (1.5.0): by day the far clouds fade into the sky behind them, as they always have.
@@ -1214,8 +1218,10 @@ namespace VolumetricClouds
             /// The price of 100%: a solid far deck loses its haze into the distance -- why the night's
             /// twin was night-only.
             /// </summary>
-            public const float DayOpacity = 0f;
-            public const float NightOpacity = 1f;
+            // New Defaults 1.6.1 (2026-11-20): "Clouds hide the sky" 50% at every time and weather (Day 0% and
+            // Night 100% before; a file without the night's element still means 100%: SettingsCatalog).
+            public const float DayOpacity = 0.5f;
+            public const float NightOpacity = 0.5f;
             public const float NightGlow = 1.05f;   // New Defaults (50% before)
 
             // ---- shadows ----

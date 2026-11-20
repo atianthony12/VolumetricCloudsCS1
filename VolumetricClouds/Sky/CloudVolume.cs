@@ -1793,7 +1793,7 @@ namespace VolumetricClouds.Sky
         private void ApplyNight(float night, Color shadeTint)
         {
             // "Clouds hide the sky" (1.5.0): by day, at sunset and at night, one row with a clock,
-            // blended by the time of day. Its Day default 0% with the Night's 100% is night * opacity,
+            // blended by the time of day. Day 0% with Night 100% (its defaults until 1.6.1's 50% each) is night * opacity,
             // as before 1.5.0; all three at 100% stay solid round the clock. Each time's Overcast value
             // blended in by the cover first (1.5.0).
             float shut = Mathf.Clamp01(Settings.Now(Settings.CloudDayOpacity, Settings.CloudSunsetOpacity,

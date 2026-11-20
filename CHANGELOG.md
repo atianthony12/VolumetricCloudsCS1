@@ -7,14 +7,16 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.1 — unreleased
 
-Fixes for lightning, wet ground and cloud shadows, and four new mod defaults. No setting is added, removed or
-renamed: `VolumetricClouds.xml`, profiles and saved cities stay exactly as they are.
+Fixes for lightning, wet ground and cloud shadows, and new mod defaults for a few settings. No setting is added,
+removed or renamed: `VolumetricClouds.xml`, profiles and saved cities stay exactly as they are.
 
 ### Changed
 
-- New mod defaults for four settings: *Rain curtains under clouds* 200% (was 100%), *Rain curtain brightness* at
-  night 200% (was 100%), *Shadow fullness* 1.75x (was 0.5x), and the flare's *Distant lights: strength* 100%
-  (was 70%). Existing players keep their own values; the one-time message offering the mod defaults shows once
+- New mod defaults: *Rain curtains under clouds* 200% (was 100%); *Rain curtain brightness* at night 200% (was
+  100%); *Shadow fullness* 1.75x (was 0.5x); the flare's *Distant lights: strength* 100% (was 70%); *Brightness
+  difference between clouds* 50% (was 0%); *Glow and softer shade* 100% at night and under an overcast sky by day
+  and at night (was 150%); *Clouds hide the sky* 50% at every time and weather (was 0% by day and at sunset, 100%
+  at night). Existing players keep their own values; the one-time message offering the mod defaults shows once
   more (to players who already answered it in 1.6.0 too), and new installs start with them.
 
 ### Fixed
