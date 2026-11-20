@@ -1,0 +1,23 @@
+[h1]Version 1.6.1[/h1]
+[b]New[/b]
+[list]
+[*][b](new defaults) and (old defaults)[/b]: two built-in profiles at the top of the profile list, in place of (mod defaults). (old defaults) is the sky from before 1.6, lighter on the graphics card.
+[*][b]Wet roads and ground in rain[/b]: a switch for the whole wet ground (Weather tab). On for everyone, off in (old defaults).
+[*][b]Lightning lights the city[/b]: the mod's own strikes now light the ground, not only the game's.
+[*]New installs get a welcome message the first time they open the panel.
+[/list]
+[b]Changed[/b]
+[list]
+[*]The [i]Quality preset[/i] now also sets the [i]Cloud drawing size[/i]: Low a quarter, Medium a third, High half. Low also leaves out the heavier cloud extras. A size chosen by hand is kept.
+[*]New mod defaults for a few settings. Existing players keep theirs and are offered the new defaults once more.
+[/list]
+[b]Fixed[/b]
+[list]
+[*]Roads and puddles are only wet where it has actually rained, not over the whole map.
+[*]Lightning starts inside the clouds as they are drawn, and sideways bolts run along their undersides.
+[*]Shadows of tall clouds have soft edges again instead of blocky ones.
+[*]Fog no longer shows as a bright band in front of heavy rain.
+[*][i]Cloud variety[/i] now works on its own.
+[*]Far clouds no longer turn teal with the game's static fog switched on by another mod.
+[*]The sky near the horizon no longer turns grainy while lightning flashes.
+[/list]

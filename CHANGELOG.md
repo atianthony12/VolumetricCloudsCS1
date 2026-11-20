@@ -5,7 +5,7 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
-## 1.6.1 — unreleased
+## 1.6.1 — 2026-11-20
 
 Fixes for lightning, wet ground and cloud shadows, new mod defaults for a few settings, the old defaults back as
 a built-in profile, a switch for wet ground, and quality presets that do more. One setting is added (*Wet roads
