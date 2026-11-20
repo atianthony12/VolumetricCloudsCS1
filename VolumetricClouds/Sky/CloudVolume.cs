@@ -82,6 +82,7 @@ namespace VolumetricClouds.Sky
 
         private CloudDensityField _field;
         private CloudShadowMap _shadowMap;
+        private CloudColumnMap _columnMap;
         private Camera _camera;
         private GameObject _holder;
         private MeshRenderer _renderer;
@@ -387,6 +388,8 @@ namespace VolumetricClouds.Sky
                 Log.Warn("sky layer: its shader is missing from the bundle; the distant clouds stay off.");
 
             _shadowMap = CloudShadowMap.TryCreate();
+            // 1.6.1: the drawn clouds column by column, for lightning (drawn only while it can happen).
+            _columnMap = CloudColumnMap.TryCreate();
 
             // The noise volume is tens of millions of hash evaluations: generate it off
             // the main thread and upload when it lands. Clouds appear a moment after load.
@@ -468,6 +471,8 @@ namespace VolumetricClouds.Sky
             _field.MeasureGpuDecoding();
 
             UpdateShadowMap();
+            if (_columnMap != null)
+                _columnMap.Update(_field, _noise);
 
             if (_camera == null)
             {
@@ -1844,6 +1849,27 @@ namespace VolumetricClouds.Sky
         /// the sun's size (a skybox material value) and which of the skybox's two variants is drawn.
         /// The 1.4.0 share is kept for the shader's other path (no sun: nothing painted).
         /// </remarks>
+        private Camera _classicFogCamera;
+        private FogEffect _classicFog;
+        private float _classicFogLookAgain;
+        private bool _classicFogWas;
+
+        /// <summary>
+        /// The game's classic fog (FogEffect on the GAME's camera, GameCamera; never Camera.main) is there and on. Read only;
+        /// found once per camera, looked for again once a second while there is none (another mod may add it later).
+        /// </summary>
+        private bool ClassicFogOn()
+        {
+            Camera camera = GameCamera.Get();
+            if (camera != _classicFogCamera || (_classicFog == null && Time.time >= _classicFogLookAgain))
+            {
+                _classicFogCamera = camera;
+                _classicFog = camera != null ? camera.GetComponent<FogEffect>() : null;
+                _classicFogLookAgain = Time.time + 1f;
+            }
+            return _classicFog != null && _classicFog.enabled;
+        }
+
         private void ApplySkyGlow(DayNightProperties properties)
         {
             Material skybox = RenderSettings.skybox;
@@ -1876,6 +1902,21 @@ namespace VolumetricClouds.Sky
             // 30%, not cut: it fades in and out with the sun, x1.00 to x1.3 round sunset, and a cut
             // there flipped the painting on and off every second (2026-10-18 log).
             float paintShare = 1f - Mathf.Clamp01((SceneAmbient.CloudLight - 1f) / RealLightPaintFade);
+
+            // 1.6.1: the game's CLASSIC fog (FogEffect, an opaque image effect another mod can switch on) fogs every
+            // opaque pixel, the sky's too, before the clouds are drawn: what is behind the far clouds is no longer the
+            // game's sky, and painting it there turned them teal over a grey sky. Then nothing is painted and no glow
+            // held back -- they fade into what is really behind them, as on another mod's sky.
+            bool classicFog = ClassicFogOn();
+            if (classicFog != _classicFogWas)
+            {
+                _classicFogWas = classicFog;
+                Log.Msg(classicFog
+                    ? "sun glow: the game's classic fog is on -- the far clouds fade into the fogged sky behind them, nothing painted and the sun's glow not held back"
+                    : "sun glow: the game's classic fog is off -- the far clouds fade into the game's sky painted without the sun's glow again");
+            }
+            if (classicFog)
+                paintShare = 0f;
             bool paint = paintShare > 0f;
 
             // The glow held back (SkyGlowPass) eases out with it: its share is the GAME's glow, and at
@@ -1890,7 +1931,7 @@ namespace VolumetricClouds.Sky
             // What the shader computes, worked out here with the same inputs: on the log when it
             // starts or the sky or its variant switch changes, every 10 s on the detailed log. (Real
             // Light's sky coming and going is on its own "lighting:" line.)
-            int mode = (globalHdr ? 2 : 1) + (materialHdr ? 2 : 0) + (gameSky ? 0 : 10);
+            int mode = (globalHdr ? 2 : 1) + (materialHdr ? 2 : 0) + (gameSky ? 0 : 10) + (classicFog ? 100 : 0);
             bool detail = Log.Detailed && Time.time >= _nextSkyGlowDetail;
             if (mode == _skyGlowLogged && !detail)
                 return;
@@ -1907,7 +1948,9 @@ namespace VolumetricClouds.Sky
             _skyGlow.SkyMultiplier = Shader.GetGlobalVector("_SkyMultiplier");
             _skyGlow.ColorCorrection = Shader.GetGlobalVector("_ColorCorrection");
 
-            var text = new StringBuilder(paint
+            var text = new StringBuilder(classicFog
+                ? "sun glow: the game's classic fog is on -- the far clouds let the fogged sky through, nothing painted (sun "
+                : paint
                 ? "sun glow: the far clouds fade into the game's sky painted without the sun's glow, " + (paintShare * 100f).ToString("F0") + "% painted (sun "
                 : "sun glow: Real Light's sky is drawn -- the far clouds let it all through, nothing painted (sun ");
             text.Append((Mathf.Asin(Mathf.Clamp(sunDir.y, -1f, 1f)) * Mathf.Rad2Deg).ToString("F1"))
@@ -2223,6 +2266,12 @@ namespace VolumetricClouds.Sky
             {
                 _shadowMap.Dispose();
                 _shadowMap = null;
+            }
+
+            if (_columnMap != null)
+            {
+                _columnMap.Dispose();
+                _columnMap = null;
             }
 
             if (_temporal != null)

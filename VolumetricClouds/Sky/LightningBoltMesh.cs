@@ -87,9 +87,10 @@ namespace VolumetricClouds.Sky
         /// TEXCOORD1 gains z = the path position the leader reveals (LightningRibbon.cginc).
         /// </summary>
         public static Mesh Build(LightningBoltShape.Kind kind, Vector3 top, Vector3 ground, float cloudBase,
-            System.Random random, System.Func<Vector3, bool> cloudy)
+            System.Random random, System.Func<Vector3, bool> cloudy, System.Func<Vector3, float> underside)
         {
-            LightningBoltShape.Build(kind, top, ground, cloudBase, random, ShapeRibbons, cloudy);
+            // underside (1.6.1): the drawn clouds' underside (LightningBoltShape.BuildFollowing); null = the flat base.
+            LightningBoltShape.BuildFollowing(kind, top, ground, cloudBase, random, ShapeRibbons, cloudy, underside);
 
             Builder builder = new Builder();
             ShapeBranches.Clear();

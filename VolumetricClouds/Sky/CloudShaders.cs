@@ -172,7 +172,9 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static bool PlusWanted
         {
-            get { return !Lite && (LightAskedNow || HeapsAsked || ClassicAsked); }
+            // (1.6.1: Cloud variety added -- in 1.6.0 it was in ExtrasAsked's words but not here, so the row alone never
+            // turned the variant on and drew nothing.)
+            get { return !Lite && (LightAskedNow || HeapsAsked || ClassicAsked || VarietyAsked); }
         }
 
         /// <summary>

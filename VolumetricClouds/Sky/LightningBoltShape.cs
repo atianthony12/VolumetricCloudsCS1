@@ -123,6 +123,21 @@ namespace VolumetricClouds.Sky
         public static void Build(Kind kind, Vector3 top, Vector3 ground, float cloudBase, System.Random random,
             List<Ribbon> ribbons, Func<Vector3, bool> cloudy)
         {
+            BuildFollowing(kind, top, ground, cloudBase, random, ribbons, cloudy, null);
+        }
+
+        /// <summary>
+        /// <see cref="Build"/>, with the drawn clouds' underside (1.6.1): <paramref name="underside"/> gives the height of
+        /// the drawn underside over a point (x, z), or NaN where there is no cloud (CloudColumns: the cloud column map,
+        /// the 2D test past it). With it the sideways kinds (Crawler, CloudToCloud) follow the underside along their
+        /// path, a little inside it, run only where it has cloud, and nothing of them hangs more than
+        /// <see cref="ShortHang"/> under it (the author, 2026-11-18: "should only be within or right under but touching
+        /// the clouds"); <paramref name="cloudy"/> is then not read. Null: exactly <see cref="Build"/> (the flat base).
+        /// The ground kinds are unchanged: where their top is, is the caller's (CloudLightning).
+        /// </summary>
+        public static void BuildFollowing(Kind kind, Vector3 top, Vector3 ground, float cloudBase, System.Random random,
+            List<Ribbon> ribbons, Func<Vector3, bool> cloudy, Func<Vector3, float> underside)
+        {
             ribbons.Clear();
             switch (kind)
             {
@@ -130,8 +145,18 @@ namespace VolumetricClouds.Sky
                 case Kind.Heavy: BuildHeavy(top, ground, random, ribbons); break;
                 case Kind.Staccato: BuildStaccato(top, ground, random, ribbons); break;
                 case Kind.AirDischarge: BuildAirDischarge(top, ground, random, ribbons); break;
-                case Kind.Crawler: BuildCrawler(top, cloudBase, random, ribbons, cloudy); break;
-                case Kind.CloudToCloud: BuildCloudToCloud(top, cloudBase, random, ribbons, cloudy); break;
+                case Kind.Crawler:
+                    if (underside != null)
+                        BuildCrawlerUnder(top, cloudBase, random, ribbons, underside);
+                    else
+                        BuildCrawler(top, cloudBase, random, ribbons, cloudy);
+                    break;
+                case Kind.CloudToCloud:
+                    if (underside != null)
+                        BuildCloudToCloudUnder(top, cloudBase, random, ribbons, underside);
+                    else
+                        BuildCloudToCloud(top, cloudBase, random, ribbons, cloudy);
+                    break;
                 default: BuildClassic(top, ground, random, ribbons); break;
             }
         }
@@ -360,6 +385,207 @@ namespace VolumetricClouds.Sky
             Add(ribbons, first, MainWidth * weight, 1f, 1f, 0f, 0.5f);
             Add(ribbons, second, MainWidth * weight, 1f, 1f, 0.5f, 1f);
             AddForks(ribbons, first, mid + Vector3.down * 200f, 0f, 0.5f, 0.2f, 0.95f, 0.06f, weight, 0.1f, 0.25f, random);
+        }
+
+        // ---- the sideways kinds along the drawn underside (1.6.1) ------------------------------
+
+        /// <summary>How far into the cloud, over its drawn underside, a sideways channel runs.</summary>
+        public const float InsideLow = 15f, InsideHigh = 60f;
+
+        /// <summary>The most anything of a sideways bolt hangs under the drawn underside: a bow's dip, a tendril, a fork.</summary>
+        public const float ShortHang = 50f;
+
+        /// <summary>The underside over p, or <paramref name="fallback"/> where there is none.</summary>
+        private static float Under(Func<Vector3, float> underside, Vector3 p, float fallback)
+        {
+            float u = underside(p);
+            return float.IsNaN(u) ? fallback : u;
+        }
+
+        /// <summary>
+        /// Every point of the ribbons from <paramref name="first"/> on, held between <paramref name="below"/> m under the
+        /// underside over it and <paramref name="above"/> m into the cloud (where there is no cloud over a point, the last
+        /// underside met along the ribbon holds).
+        /// </summary>
+        private static void HoldToUnderside(List<Ribbon> ribbons, int first, Func<Vector3, float> underside, float fallback,
+            float below, float above)
+        {
+            for (int r = first; r < ribbons.Count; r++)
+            {
+                List<Vector3> points = ribbons[r].Points;
+                float last = Under(underside, points[0], fallback);
+                for (int i = 0; i < points.Count; i++)
+                {
+                    Vector3 p = points[i];
+                    last = Under(underside, p, last);
+                    p.y = Mathf.Clamp(p.y, last - below, last + above);
+                    points[i] = p;
+                }
+            }
+        }
+
+        /// <summary>
+        /// How far the underside a sideways channel follows may differ from where it started: past that it is another
+        /// cloud's (a heap's base hundreds of metres over the layer's), and the run ends there rather than climb to it.
+        /// </summary>
+        public const float DeckStep = 250f;
+
+        /// <summary>The underside a channel follows is averaged over this many metres each way along it (no sawing up and down over every heap).</summary>
+        public const float SmoothReach = 300f;
+
+        /// <summary>
+        /// The underside under each point (where there is none, the last one met), and the same averaged over
+        /// <see cref="SmoothReach"/> each way along the channel (by the points' horizontal distance along it).
+        /// </summary>
+        private static void UndersideAlong(List<Vector3> points, Func<Vector3, float> underside, float fallback,
+            out float[] local, out float[] smooth)
+        {
+            int n = points.Count;
+            local = new float[n];
+            smooth = new float[n];
+            float[] along = new float[n];
+            float last = fallback;
+            for (int i = 0; i < n; i++)
+            {
+                last = Under(underside, points[i], last);
+                local[i] = last;
+                if (i > 0)
+                {
+                    Vector3 d = points[i] - points[i - 1];
+                    along[i] = along[i - 1] + Mathf.Sqrt(d.x * d.x + d.z * d.z);
+                }
+            }
+            for (int i = 0; i < n; i++)
+            {
+                float sum = 0f;
+                int count = 0;
+                for (int j = 0; j < n; j++)
+                {
+                    if (Mathf.Abs(along[j] - along[i]) <= SmoothReach)
+                    {
+                        sum += local[j];
+                        count++;
+                    }
+                }
+                smooth[i] = sum / Mathf.Max(1, count);
+            }
+        }
+
+        private static void BuildCrawlerUnder(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons,
+            Func<Vector3, float> underside)
+        {
+            float fallback = cloudBase + 0.5f * (InBaseLow + InBaseHigh);
+
+            // Along the drawn underside, a little inside it, for 2-6 km (less where the cloud ends, or where the underside
+            // steps to another cloud's: DeckStep), wandering sideways.
+            float inside = Mathf.Lerp(InsideLow, InsideHigh, Next(random));
+            Vector3 start = new Vector3(top.x, 0f, top.z);
+            float startUnder = Under(underside, start, fallback);
+            start.y = startUnder + inside;
+            Func<Vector3, bool> sameDeck = p => { float u = underside(p); return !float.IsNaN(u) && Mathf.Abs(u - startUnder) <= DeckStep; };
+            float wanted = Mathf.Lerp(2000f, 6000f, Next(random));
+            Vector3 heading;
+            float length = Mathf.Max(300f, CloudyRun(start, wanted, random, sameDeck, out heading));
+            Vector3 end = start + heading * length;
+
+            List<Vector3> main = Channel(start, end, MainLevels, 0.12f, random);
+            // Flat-ish along the underside it follows, averaged along the path (the displacement pushed it in 3D), then held
+            // to the band round the underside right over each point: never out of the cloud, never sawing up and down.
+            float[] local, smooth;
+            UndersideAlong(main, underside, startUnder, out local, out smooth);
+            for (int i = 0; i < main.Count; i++)
+            {
+                Vector3 p = main[i];
+                p.y = smooth[i] + inside + (p.y - start.y) * 0.25f;
+                p.y = Mathf.Clamp(p.y, local[i] - ShortHang, local[i] + AboveBaseMost);
+                main[i] = p;
+            }
+
+            float weight = Mathf.Lerp(0.8f, 1.3f, Next(random));
+            Add(ribbons, main, MainWidth * weight, 0.9f, 0.6f, 0f, 1f);
+
+            // Branches crawl off sideways along the underside; tendrils hang from it, a little.
+            int branches = 2 + random.Next(0, 4);
+            for (int k = 0; k < branches; k++)
+            {
+                int from = random.Next(main.Count / 8, main.Count - 1);
+                float path = from / (float)(main.Count - 1);
+                Vector3 side = Vector3.Cross(heading, Vector3.up) * (random.NextDouble() < 0.5 ? -1f : 1f);
+                Vector3 dir = (heading * Next(random) + side).normalized;
+                Vector3 to = main[from] + dir * Mathf.Lerp(400f, 1500f, Next(random));
+                to.y = Under(underside, to, main[from].y - inside) + inside - Mathf.Lerp(0f, 40f, Next(random));
+                to = UnderCloud(main[from], to, sameDeck);
+                int before = ribbons.Count;
+                Add(ribbons, Channel(main[from], to, ForkLevels, 0.15f, random), ForkWidth * weight, 0.55f, 0.15f, path, Mathf.Min(1f, path + 0.3f));
+                HoldToUnderside(ribbons, before, underside, fallback, ShortHang, AboveBaseMost);
+            }
+
+            int tendrils = 3 + random.Next(0, 6);
+            for (int k = 0; k < tendrils; k++)
+            {
+                int from = random.Next(0, main.Count);
+                float path = from / (float)Mathf.Max(1, main.Count - 1);
+                Vector3 to = main[from] + Horizontal(random) * Mathf.Lerp(20f, 150f, Next(random));
+                to.y = Under(underside, to, main[from].y - inside) - Mathf.Lerp(10f, ShortHang, Next(random));
+                int before = ribbons.Count;
+                Add(ribbons, Channel(main[from], to, ForkLevels - 1, 0.2f, random), ForkWidth * weight * 0.7f, 0.35f, 0.05f, path, Mathf.Min(1f, path + 0.1f));
+                HoldToUnderside(ribbons, before, underside, fallback, ShortHang, AboveBaseMost);
+            }
+        }
+
+        /// <summary>One half of a bow, from <paramref name="fromY"/> to <paramref name="toY"/> (its straight line), over the bow's share f0..f1.</summary>
+        private static void ReLevelBow(List<Vector3> points, float fromY, float toY, float f0, float f1, float inside, float dip,
+            Func<Vector3, float> underside, float fallback)
+        {
+            float[] local, smooth;
+            UndersideAlong(points, underside, fallback, out local, out smooth);
+            int n = points.Count;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Mathf.Max(1, n - 1);
+                float f = Mathf.Lerp(f0, f1, t);
+                float line = Mathf.Lerp(fromY, toY, t);
+                Vector3 p = points[i];
+                float sag = (inside + dip) * Mathf.Sin(Mathf.PI * f);
+                p.y = smooth[i] + inside - sag + (p.y - line) * 0.25f;
+                p.y = Mathf.Clamp(p.y, local[i] - ShortHang, local[i] + AboveBaseMost);
+                points[i] = p;
+            }
+        }
+
+        private static void BuildCloudToCloudUnder(Vector3 top, float cloudBase, System.Random random, List<Ribbon> ribbons,
+            Func<Vector3, float> underside)
+        {
+            float fallback = cloudBase + 0.5f * (InBaseLow + InBaseHigh);
+
+            // A bow between two points 1-3 km apart, both a little inside the drawn underside, sagging at most
+            // ShortHang under it in the middle.
+            float wanted = Mathf.Lerp(1000f, 3000f, Next(random));
+            float dip = Mathf.Lerp(0f, ShortHang, Next(random));
+            float inside = Mathf.Lerp(InsideLow, InsideHigh, Next(random));
+            Vector3 a = new Vector3(top.x, 0f, top.z);
+            float aUnder = Under(underside, a, fallback);
+            a.y = aUnder + inside;
+            Func<Vector3, bool> sameDeck = p => { float u = underside(p); return !float.IsNaN(u) && Mathf.Abs(u - aUnder) <= DeckStep; };
+            Vector3 heading;
+            float span = Mathf.Max(300f, CloudyRun(a, wanted, random, sameDeck, out heading));
+            Vector3 b = a + heading * span;
+            b.y = Under(underside, b, aUnder) + inside;
+            Vector3 mid = (a + b) * 0.5f + Horizontal(random) * (span * 0.1f);
+            mid.y = Under(underside, mid, 0.5f * (a.y + b.y) - inside) - dip;
+
+            List<Vector3> first = Channel(a, mid, MainLevels - 1, 0.14f, random);
+            List<Vector3> second = Channel(mid, b, MainLevels - 1, 0.14f, random);
+            // The bow rides the underside averaged along it (SmoothReach): inside it at its ends, `dip` under it in the
+            // middle, the displacement's wiggle a quarter as tall; then held to the band round the underside over each point.
+            ReLevelBow(first, a.y, mid.y, 0f, 0.5f, inside, dip, underside, aUnder);
+            ReLevelBow(second, mid.y, b.y, 0.5f, 1f, inside, dip, underside, aUnder);
+            float weight = Mathf.Lerp(0.8f, 1.3f, Next(random));
+            Add(ribbons, first, MainWidth * weight, 1f, 1f, 0f, 0.5f);
+            Add(ribbons, second, MainWidth * weight, 1f, 1f, 0.5f, 1f);
+            AddForks(ribbons, first, mid + Vector3.down * 200f, 0f, 0.5f, 0.2f, 0.95f, 0.06f, weight, 0.1f, 0.25f, random);
+            // The displacement pushes in 3D and the forks lean down: all of it held to the underside's band.
+            HoldToUnderside(ribbons, 0, underside, fallback, ShortHang, AboveBaseMost);
         }
 
         // ---- the parts ------------------------------------------------------------------------

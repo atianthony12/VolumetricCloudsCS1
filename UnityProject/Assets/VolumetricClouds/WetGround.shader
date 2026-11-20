@@ -5,7 +5,8 @@
 // what the water reflects. The game's own fog (an opaque image effect) comes after and fogs it.
 //
 // Per pixel:
-//   how wet   the ground's wetness (the game's m_groundWetness) x its kind's row x how level it lies: roads
+//   how wet   the ground's wetness (the game's m_groundWetness x this place's share of it: Sky/WetMap, where it
+//             has rained, 1.6.1) x its kind's row x how level it lies: roads
 //             and everything built (Wet roads and puddles), bare terrain (Wet grass and soil: the game's
 //             surface, unclipped by roads and unpaved; WetTerrainMap), trees (Wet trees: normals' alpha 0)
 //   what      hard (grey asphalt, concrete), porous (saturated: soil, brick) or leaves (green, or a tree's
@@ -44,7 +45,10 @@ Shader "VolumetricClouds/WetGround"
             sampler2D _CameraNormalsTexture;
             sampler2D _VWWetScene;
 
-            float4 _VWWet;        // x wetness 0..1 (x the row), y puddles' share of level hard ground, z ripple clock (s), w 1 = trace
+            float4 _VWWet;        // x the game's wetness x the row (unclamped), y the puddles' share at full wetness, z ripple clock (s), w 1 = trace
+            // Where it has rained (Sky/WetMap, 1.6.1): 128^2 over the 17.28 km map, each cell's share of the game's wetness
+            // (r, 0..1, linear, bilinear). White = the game's one wetness everywhere (1.6.0's look).
+            sampler2D _VWWetPlaceMap;
             float4 _VWWetSun;     // rgb the sun's light (linear, x its intensity), w the glint's share (0 under cloud / at night)
             float4 _VWWetSunDir;  // xyz toward the sun (world, unit)
             float4 _VWWetSky;     // rgb the sky's light near the zenith (linear), w the rain rings' strength
@@ -63,7 +67,7 @@ Shader "VolumetricClouds/WetGround"
             // there (0: no terrain told apart yet, wet as a road).
             sampler2D _VWWetTerrainMap;
             float4 _VWWetTerrain;
-            float4 _VWWetKinds;   // x bare terrain's wetness (Wet grass and soil), y trees' (Wet trees), 0..1
+            float4 _VWWetKinds;   // x bare terrain's wetness (Wet grass and soil), y trees' (Wet trees): the game's x the row, unclamped
             // (_VWWet.x is the roads' and everything built: Wet roads and puddles; _VWWet.y the puddles' share)
             #define WET_NEAR_SPAN 2048.0
             #define WET_FAR_SPAN 8192.0
@@ -310,9 +314,12 @@ Shader "VolumetricClouds/WetGround"
                 UNITY_BRANCH
                 if (_VWWetTerrain.w > 0.5)
                     bare = BareTerrain(wpos, eye) * (1.0 - thin);
+                // Where it has rained (1.6.1): this spot's share of the game's wetness (1 everywhere = as before).
+                float here = tex2Dlod(_VWWetPlaceMap, float4(wpos.xz / WET_MAP_SIZE + 0.5, 0.0, 0.0)).r;
+                float roadWet = saturate(_VWWet.x * here);
                 // Each kind its own row (2026-11-18): roads and everything built (Wet roads and puddles), bare
                 // terrain (Wet grass and soil), trees (Wet trees). Level and open surfaces most, walls a little.
-                float kindWet = lerp(lerp(_VWWet.x, _VWWetKinds.x, bare), _VWWetKinds.y, thin);
+                float kindWet = lerp(lerp(roadWet, saturate(_VWWetKinds.x * here), bare), saturate(_VWWetKinds.y * here), thin);
                 float wet = saturate(kindWet) * lerp(0.12, 1.0, smoothstep(0.3, 0.8, n.y));
                 // Not under the water: the seabed, the river bed (dry again over 0.5 m above its surface).
                 // Only where there is water near (the map's g): on land the 67 m map's height is the ground
@@ -342,7 +349,9 @@ Shader "VolumetricClouds/WetGround"
                 float low = saturate(1.0 - slope * 25.0);
 
                 // Puddles: level hard ground only, never on bare terrain or trees.
-                float puddle = smoothstep(0.95, 0.98, n.y) * Puddle(wpos, _VWWet.y, low) * (1.0 - porous) * (1.0 - bare) * (1.0 - thin);
+                // Their share as C#'s PuddleShare had it for the whole map, from this spot's wetness.
+                float puddleShare = saturate(_VWWet.y * saturate(roadWet * 2.5));
+                float puddle = smoothstep(0.95, 0.98, n.y) * Puddle(wpos, puddleShare, low) * (1.0 - porous) * (1.0 - bare) * (1.0 - thin);
 
                 // Raindrops' rings in the puddles, where it rains now.
                 float3 nw = normalize(lerp(n, float3(0, 1, 0), puddle));

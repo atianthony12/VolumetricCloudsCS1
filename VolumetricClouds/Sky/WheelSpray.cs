@@ -69,7 +69,7 @@ namespace VolumetricClouds.Sky
 
         private static readonly int IdLight = Shader.PropertyToID("_SprayLight");
 
-        private static float Row
+        public static float Row
         {
             get { return Settings.WheelSpray != null ? Mathf.Clamp(Settings.WheelSpray.value, 0f, 3f) : Settings.Defaults.WheelSpray; }
         }
@@ -335,7 +335,9 @@ namespace VolumetricClouds.Sky
                 buffer[id].GetSmoothPosition(id, out position, out rotation);
                 Vector3 velocity = buffer[id].GetSmoothVelocity(id);
                 float speed = new Vector2(velocity.x, velocity.z).magnitude;
-                float amount = WheelSprayRules.Amount(speed, wetness) * row * (_kept[k].Large ? 2f : 1f);
+                // The road under it as wet as the rain left it there (WetMap, 1.6.1; 1 = the game's wetness).
+                float wetHere = wetness * WetMap.At(position);
+                float amount = WheelSprayRules.Amount(speed, wetHere) * row * (_kept[k].Large ? 2f : 1f);
                 if (amount <= 0f)
                     continue;
 

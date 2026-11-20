@@ -45,6 +45,9 @@ public static class BundleBuilder
         // that cannot run the whole of them.
         "Assets/VolumetricClouds/CloudRaymarchLite.shader",
         "Assets/VolumetricClouds/CloudShadowMapLite.shader",
+        // 1.6.1: the cloud column map lightning places its bolts by (Sky/CloudColumnMap.cs), and its Simpler clouds twin.
+        "Assets/VolumetricClouds/CloudColumnMap.shader",
+        "Assets/VolumetricClouds/CloudColumnMapLite.shader",
     };
 
     private struct Target

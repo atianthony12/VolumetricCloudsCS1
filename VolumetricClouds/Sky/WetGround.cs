@@ -11,8 +11,10 @@ namespace VolumetricClouds.Sky
     /// </summary>
     /// <remarks>
     /// How wet: the game's own m_groundWetness (it rises in rain and dries after by the game's rule; read,
-    /// never written: invariant 2), x the row. Nothing here touches a game material or _WeatherParams: the
-    /// game's own slight wet look stays underneath.
+    /// never written: invariant 2), x the place's share of it (<see cref="WetMap"/>, 1.6.1: the same rule per
+    /// cell with the rain that fell there, so only where it has rained; 1 everywhere with "follow the clouds"
+    /// off), x the row. Nothing here touches a game material or _WeatherParams: the game's own slight wet look
+    /// stays underneath.
     ///
     /// Off means nothing runs (invariant 10): with the row at 0, the ground dry, a winter map, the weather
     /// hidden or the camera high over the city, the buffer is taken off the camera.
@@ -24,7 +26,8 @@ namespace VolumetricClouds.Sky
     /// mod renders by hand: command buffers run then too.
     ///
     /// Another mod with a wet look of its own: VW publishes the global _VWWetDrawn (x 1 while this draws, y the
-    /// wetness drawn) for it to stand down; VW reads nothing back. Its buffer goes after the ones already
+    /// wetness drawn: the most anywhere, the game's wetness x the row -- since 1.6.1 a place where it has not rained
+    /// is drawn drier than y, but the meaning of x and y is unchanged) for it to stand down; VW reads nothing back. Its buffer goes after the ones already
     /// at the event, so it wets a picture that has theirs in it.
     /// </remarks>
     public class WetGround : MonoBehaviour
@@ -66,6 +69,7 @@ namespace VolumetricClouds.Sky
         private static readonly int IdTerrainMap = Shader.PropertyToID("_VWWetTerrainMap");
         private static readonly int IdTerrain = Shader.PropertyToID("_VWWetTerrain");
         private static readonly int IdKinds = Shader.PropertyToID("_VWWetKinds");
+        private static readonly int IdPlaceMap = Shader.PropertyToID("_VWWetPlaceMap");
 
         private readonly WetTerrainMap _terrain = new WetTerrainMap();
 
@@ -103,6 +107,9 @@ namespace VolumetricClouds.Sky
             Camera camera = GameCamera.Get();
             float wetness = GroundWetness;
 
+            // Where it has rained (1.6.1): runs whatever the camera does (high up, an info view), while anything reads it.
+            WetMap.Update(row > 0f || terrainRow > 0f || treesRow > 0f || WheelSpray.Row > 0f);
+
             string why = null;
             if (row <= 0f && terrainRow <= 0f && treesRow <= 0f) why = "the three wet rows are at 0%";
             else if (!Settings.WeatherShown) why = "the weather is hidden";
@@ -127,7 +134,12 @@ namespace VolumetricClouds.Sky
             float drawn = Mathf.Clamp01(wetness * row);
             Drawn = drawn;
             WantsWaterMap = true;
-            UpdateMaterial(drawn);
+            UpdateMaterial(drawn, wetness * row);
+
+            // Where it has rained (WetMap): each kind's wetness and the puddles' share are worked out per pixel from the
+            // map's share (WetGround.shader WetHere); white = the game's wetness everywhere (the look of 1.6.0).
+            Texture places = WetMap.Texture;
+            _material.SetTexture(IdPlaceMap, places != null ? places : (Texture)Texture2D.whiteTexture);
 
             // Under water stays dry: the seabed would be darkened and mirrored under the water's surface.
             bool water = TerrainHeightMap.Ready && TerrainHeightMap.Texture != null && TerrainHeightMap.Places != null;
@@ -149,7 +161,8 @@ namespace VolumetricClouds.Sky
             _material.SetVector(IdTerrain, new Vector4(_terrain.Centre.x, _terrain.Centre.y, _terrain.BaseHeight, terrainMap != null ? 1f : 0f));
             float terrainWet = Mathf.Clamp01(wetness * terrainRow);
             float treesWet = Mathf.Clamp01(wetness * treesRow);
-            _material.SetVector(IdKinds, new Vector4(terrainWet, treesWet, 0f, 0f));
+            // Unclamped: the shader clamps after the map's share (clamp01(w x row) x share would not be the same).
+            _material.SetVector(IdKinds, new Vector4(wetness * terrainRow, wetness * treesRow, 0f, 0f));
             Shader.SetGlobalVector(IdPublished, new Vector4(1f, drawn, 1f, 0f));
 
             if (Log.Detailed && Time.time >= _nextLog)
@@ -158,7 +171,9 @@ namespace VolumetricClouds.Sky
                 Log.Detail("wet ground: wetness " + (wetness * 100f).ToString("F0") + "% x row " + (row * 100f).ToString("F0") +
                            "% = " + (drawn * 100f).ToString("F0") + "% on roads, terrain " + (terrainWet * 100f).ToString("F0") +
                            "%, trees " + (treesWet * 100f).ToString("F0") + "%, puddles on up to " + (PuddleShare(drawn) * 100f).ToString("F0") +
-                           "% of level hard ground, rain at the camera " + CloudRain.LocalRain(camera.transform.position).ToString("F2"));
+                           "% of level hard ground, rain at the camera " + CloudRain.LocalRain(camera.transform.position).ToString("F2") +
+                           (WetMap.Following ? ", the ground under the camera " + (WetMap.At(camera.transform.position) * 100f).ToString("F0") +
+                                               "% as wet as the game's number (where it has rained)" : ", the same everywhere (wet map not following)"));
             }
         }
 
@@ -182,7 +197,13 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public static float PuddleShare(float drawn)
         {
-            return Mathf.Clamp01(0.3f * Mathf.Max(1f, Row) * Mathf.Clamp01(drawn * 2.5f));
+            return Mathf.Clamp01(PuddleMost * Mathf.Clamp01(drawn * 2.5f));
+        }
+
+        /// <summary>The puddles' share at full wetness (WetGround.shader multiplies it by clamp01(wet here x 2.5) and clamps).</summary>
+        private static float PuddleMost
+        {
+            get { return 0.3f * Mathf.Max(1f, Row); }
         }
 
         private bool EnsureMaterial()
@@ -263,7 +284,8 @@ namespace VolumetricClouds.Sky
             return preset <= 0 ? 0 : preset == 1 ? 1 : 2;
         }
 
-        private void UpdateMaterial(float drawn)
+        /// <summary><paramref name="drawn"/> = clamp01(wetness x row), for the log; <paramref name="unclamped"/> = wetness x row, for the shader.</summary>
+        private void UpdateMaterial(float drawn, float unclamped)
         {
             // SampleRain for the rings: where it rains, the wind, the cloud base.
             if (_field != null)
@@ -274,7 +296,10 @@ namespace VolumetricClouds.Sky
             if (!paused)
                 _clock = (_clock + Time.deltaTime * Mathf.Min(2, Mathf.Max(1, simulation.FinalSimulationSpeed))) % 3600.0;
 
-            _material.SetVector(IdWet, new Vector4(drawn, PuddleShare(drawn), (float)_clock, TraceLevel()));
+            // x the wetness x the row, unclamped; y the puddles' most share (PuddleShare without its wetness term): the shader
+            // takes the map's share at the pixel first, then clamps and curves as PuddleShare does (1.6.1; before, x was
+            // clamp01(wetness x row) and y PuddleShare(x), the same where the share is 1).
+            _material.SetVector(IdWet, new Vector4(unclamped, PuddleMost, (float)_clock, TraceLevel()));
 
             bool linear = QualitySettings.activeColorSpace == ColorSpace.Linear;
             DayNightProperties properties = DayNightProperties.instance;
@@ -320,6 +345,7 @@ namespace VolumetricClouds.Sky
         {
             Detach("the city closes");
             Shader.SetGlobalVector(IdPublished, Vector4.zero);
+            WetMap.Release("the city closes");
             _terrain.Destroy();
             if (_material != null)
                 Destroy(_material);

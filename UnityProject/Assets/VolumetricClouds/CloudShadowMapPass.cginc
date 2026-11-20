@@ -17,6 +17,11 @@ float _ShadowSteps;
 float _DetailShadowLod;  // cloud detail's mip level for a texel of this map (Sky/CloudDetail.cs)
 float _VCProbe;          // 1: write the check's colour and nothing else (Sky/CloudShaders.cs)
 
+// The march's most steps (CloudShadowMap.MostSteps, the same number).
+#ifndef SHADOW_MOST_STEPS
+#define SHADOW_MOST_STEPS 48
+#endif
+
 float4 frag(v2f_img i) : SV_Target
 {
     // The driver check: a uniform, so the whole program is still built and run.
@@ -44,18 +49,24 @@ float4 frag(v2f_img i) : SV_Target
     float thickness = _CloudTop - _CloudBottom;
     sExit = min(sExit, sEnter + thickness * 8.0);
 
-    float steps = max(_ShadowSteps, 4.0);
+    // The steps follow the slab's height since 1.6.1 (CloudShadowMap.StepsFor: about 40 m of height a step, never
+    // under 20; it was 20 whatever the slab, and a 2.9 km slab of heaps cast its shadows in blocks). The loop's bound
+    // is the most C# ever asks for (CloudShadowMap.MostSteps): keep the two equal.
+    float steps = min(max(_ShadowSteps, 4.0), SHADOW_MOST_STEPS);
     float stepLen = (sExit - sEnter) / steps;
     float s = sEnter + stepLen * 0.5;
 
     float opticalDepth = 0.0;
 
     [loop]
-    for (int n = 0; n < 32; n++)
+    for (int n = 0; n < SHADOW_MOST_STEPS; n++)
     {
         if ((float)n >= steps)
             break;
 
+        // (1.6.1: skipping the steps in cells of the weather map that hold no cloud -- the cloud march's empty-sky skip --
+        // was tried here: the same map to the bit, but 10-15% SLOWER in the bench, Auto at 60 and 92%: the empty columns
+        // were already cheap, and the look-up costs every step. Not kept.)
         opticalDepth += SampleDensityLod(origin + dir * s, true, _DetailShadowLod);
         s += stepLen;
     }

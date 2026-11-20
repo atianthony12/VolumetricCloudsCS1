@@ -250,6 +250,53 @@ Check "Crawler: runs only under cloud (its end within a test step of the cloud's
 Check "CloudToCloud: the bow dips at most 220 m under the base and stays out of the cloud's upper part" $bowOk
 Check "CloudToCloud: both ends under cloud" $bowUnder
 
+# 1.6.1: the sideways kinds along the DRAWN underside (BuildFollowing with an underside: the cloud column map). A sloping,
+# lumpy underside (1700 m rising 1 m in 20 along x, +-60 m bumps), cloud only where x < 2500 (NaN past it).
+$follow = $shapeType.GetMethod("BuildFollowing", $flags)
+$hang = [single]$shapeType.GetField("ShortHang").GetValue($null)
+$under = [Func[UnityEngine.Vector3, single]] { param($p) if ($p.x -lt 2500) { [single](1700 + 0.05 * $p.x + 60 * [math]::Sin($p.z / 300.0)) } else { [single]::NaN } }
+$uAt = { param($p) 1700 + 0.05 * $p.x + 60 * [math]::Sin($p.z / 300.0) }
+$crawlBand = $true; $crawlAll = $true; $crawlCloud = $true; $bowBand = $true; $bowAll = $true; $sameAsBuild = $true
+$worstUnder = 0.0; $worstOver = 0.0; $deepest = 0.0
+foreach ($seed in 1..60) {
+    foreach ($kk in $crawler, $bow) {
+        $list = [Activator]::CreateInstance($listType)
+        [object[]]$a = $kk, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $list, $null, $under
+        [void]$follow.Invoke($null, $a)
+        $r0 = 0
+        foreach ($r in $list) {
+            foreach ($p in $r.Points) {
+                $u = & $uAt $p
+                if ($p.x -ge 2500) { continue }   # past the cloud: held at the last underside met (checked by the end test)
+                $below = $u - $p.y; $above = $p.y - $u
+                if ($below -gt $deepest) { $deepest = $below }
+                if ($kk -eq $crawler -and $r0 -eq 0) {
+                    if ($below -gt $hang + 0.5 -or $above -gt $high + 0.5) { $crawlBand = $false }
+                }
+                if ($below -gt $hang + 0.5 -or $above -gt $high + 0.5) { if ($kk -eq $crawler) { $crawlAll = $false } else { $bowAll = $false } }
+            }
+            $r0++
+        }
+        $end = $list[0].Points[$list[0].Points.Count - 1]
+        if ($kk -eq $crawler -and $end.x -gt 2500 + 300 + 1) { $crawlCloud = $false }
+        if ($kk -eq $bow) {
+            foreach ($r in $list[0..1]) { foreach ($p in $r.Points) { if ($p.x -lt 2500 -and ((& $uAt $p) - $p.y -gt $hang + 0.5)) { $bowBand = $false } } }
+        }
+    }
+    # Without an underside, BuildFollowing is Build exactly (the old path, point for point).
+    $l1 = [Activator]::CreateInstance($listType); $l2 = [Activator]::CreateInstance($listType)
+    [void]$build.Invoke($null, [object[]]@($crawler, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $l1, $cloudy))
+    [void]$follow.Invoke($null, [object[]]@($crawler, $top.psobject.BaseObject, $ground.psobject.BaseObject, $base, (New-Object System.Random $seed).psobject.BaseObject, $l2, $cloudy, $null))
+    if ($l1.Count -ne $l2.Count) { $sameAsBuild = $false } else { for ($q = 0; $q -lt $l1.Count; $q++) { for ($w = 0; $w -lt $l1[$q].Points.Count; $w++) { if (($l1[$q].Points[$w] - $l2[$q].Points[$w]).magnitude -gt 0) { $sameAsBuild = $false } } } }
+}
+"  along a drawn underside (sloped, lumpy, cloud to x 2500): the deepest any point hangs under it $([math]::Round($deepest, 1)) m (allowed $hang)"
+Check "Crawler (drawn underside): its main channel stays $hang m under .. $high m into the underside over each point" $crawlBand
+Check "Crawler (drawn underside): nothing of it (branches, tendrils) hangs more than $hang m under the underside" $crawlAll
+Check "Crawler (drawn underside): runs only where there is cloud (its end within a test step and its 300 m least of the edge)" $crawlCloud
+Check "CloudToCloud (drawn underside): the bow sags at most $hang m under the underside" $bowBand
+Check "CloudToCloud (drawn underside): nothing of it (forks) hangs more than $hang m under the underside" $bowAll
+Check "BuildFollowing without an underside = Build, point for point (the flat base as in 1.6.0)" $sameAsBuild
+
 $pick = $shapeType.GetMethod("Pick", $flags)
 $counts = @{}
 $rnd = New-Object System.Random 7

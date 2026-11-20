@@ -5,6 +5,37 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
+## 1.6.1 — unreleased
+
+Fixes for lightning, wet ground and cloud shadows. No setting is added, removed or renamed: `VolumetricClouds.xml`,
+profiles and saved cities stay exactly as they are.
+
+### Fixed
+
+- Our own lightning now lights the city. Until now only the game's few strikes did; the many strikes of ours
+  flashed in the clouds and left the ground dark. A stroke to the ground lights the city as the game's own strike
+  does, a flash inside the cloud more faintly, both following *Lightning brightness*. Nothing changes with
+  lightning off or an info view open.
+- Wet roads, puddles and spray from wheels only where it has actually rained. The game keeps one wetness for the
+  whole map, so the whole city was wet, even far from the rain under a clear sky. Each part of the city now gets
+  wet under the rain and dries afterwards by the game's own rule. With *Rain sound, wet roads and road snow follow
+  the clouds* off, the whole city is wet as before.
+- Lightning comes out of the clouds as they are drawn: a stroke to the ground starts inside thick cloud instead of
+  sometimes above the cloud or in clear sky, and bolts running sideways (crawlers, cloud-to-cloud bows) run along
+  the underside of the clouds instead of under them. The game's own strikes still land where the game puts them.
+- Cloud shadows of tall clouds (*Cumulus*, *Mixed*, *Auto*, especially with *Cumulus height* and *Cloud variety*)
+  have soft edges again instead of blocky ones. *Classic* clouds up to 800 m thick (the default is 700 m) cast
+  exactly the shadows they did; thicker ones get the same finer shadows.
+- Fog and rain curtains seen together blend by distance: from inside a fog layer in heavy rain, the far fog no
+  longer shows as a bright band in front of the rain, and nothing jumps as the camera rises out of the fog. Rain
+  alone or fog alone looks exactly as before.
+- *Cloud variety* now works on its own. In 1.6.0 it only showed when *Softer cumulus*, *Natural Classic clouds* or
+  a *Glow and softer shade* over 100% was also on; with all of those off, the row changed nothing.
+- With the game's classic fog switched on by another mod (for example a "static fog" option), the far clouds near
+  the horizon no longer turn teal over a grey sky: they fade into the fogged sky behind them. Without it, nothing
+  changes.
+- While our bolt replaces the game's, the light of the game's own strikes keeps its colour (it turned white).
+
 ## 1.6.0 — 2026-11-19
 
 New cloud shapes (*Cloud variety*, *Softer cumulus*, *Rounded cumulus bases*, *Natural Classic clouds*), rain that

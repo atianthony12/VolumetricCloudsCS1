@@ -24,7 +24,34 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public const float CookieSize = 26000f;
 
-        private const float Steps = 20f;
+        /// <summary>
+        /// Metres of the slab's height a step of the map's march takes (1.6.1). Until 1.6.0 the march took 20 steps
+        /// whatever the slab: 40 m a step for Classic's 800 m, but ~145 m for the ~2.9 km slab of tall heaps (Cumulus
+        /// height, Cloud variety), and the shadows of soft and heap skies came out in blocks. Now the count follows the
+        /// slab so a step is about as tall as Classic's always was. Fields, so the bench can try others.
+        /// </summary>
+        public static float StepHeight = 40f;
+
+        /// <summary>Never fewer than 1.6.0's 20: Classic at its thickness (800 m or less) marches exactly as before.</summary>
+        public static int FewestSteps = 20;
+
+        /// <summary>
+        /// The most steps a texel's ray takes: CloudShadowMapPass.cginc's loop stops at SHADOW_MOST_STEPS (keep the two
+        /// equal; the shader clamps to its own bound, so more here would only be ignored). 48 (measured 2026-11-20 in the
+        /// cloud bench, his file, sun 35 deg, docs/probe-2026-11-20): Auto's ~2.9 km slab then takes 60 m of height a step,
+        /// which already puts its shadows nearer the fine march than Classic's own 20 steps are (mean error 3.6/255 against
+        /// Classic's 6.8; the blocks gone), at 3.6-4.5 ms per update of the 2048 map (1.0-1.9 with 20 steps; 0.5-1.4 vs
+        /// 0-0.9 at 1024: ranges, the bench's tick floor hides part of each); 40 m a step (73) cost 5.7-6.6 ms for mean error 2.4.
+        /// </summary>
+        public static int MostSteps = 48;
+
+        /// <summary>The march's steps for a slab this many metres tall.</summary>
+        public static int StepsFor(float slab)
+        {
+            return Mathf.Clamp(Mathf.CeilToInt(slab / Mathf.Max(1f, StepHeight) - 1e-3f), FewestSteps, Mathf.Max(FewestSteps, MostSteps));
+        }
+
+        private int _loggedSteps = -1;
 
         /// <summary>
         /// The map's size and how often it is re-marched, both from the settings: it is a fixed
@@ -235,7 +262,20 @@ namespace VolumetricClouds.Sky
             _material.SetFloat(IdCookieSize, CookieSize);
             _material.SetFloat(IdShadowDepth, ShadowDepth(CloudShaderParams.Coverage));
             _material.SetFloat(IdShadowFullness, ShadowFullness);
-            _material.SetFloat(IdShadowSteps, Steps);
+            int steps = StepsFor(_drawnTop - _drawnBottom);
+            _material.SetFloat(IdShadowSteps, steps);
+            // The slab moves with the cover under Auto: the first count always in the log, a change only in the detailed one.
+            if (steps != _loggedSteps && (_loggedSteps < 0 || Log.Detailed))
+            {
+                string line = "cloud shadow map: " + steps + " steps through the " + (_drawnTop - _drawnBottom).ToString("F0") + " m the clouds can be in (" +
+                        ((_drawnTop - _drawnBottom) / steps).ToString("F0") + " m of height a step; 20 steps up to " +
+                        (StepHeight * FewestSteps).ToString("F0") + " m, as before 1.6.1)";
+                if (_loggedSteps < 0)
+                    Log.Msg(line);
+                else
+                    Log.Detail(line);
+                _loggedSteps = steps;
+            }
 
             // Cloud detail's billows, averaged over what one texel of this map covers.
             _material.SetFloat(IdDetailShadowLod, CloudShaderParams.DetailLod(CookieSize / _resolution));

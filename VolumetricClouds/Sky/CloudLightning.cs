@@ -197,12 +197,18 @@ namespace VolumetricClouds.Sky
         private void LateUpdate()
         {
             if (_field == null || !Singleton<WeatherManager>.exists || !Singleton<SimulationManager>.exists)
+            {
+                GroundLightsOff();
                 return;
+            }
 
             if (_camera == null)
                 _camera = GameCamera.Get();
             if (_camera == null)
+            {
+                GroundLightsOff();
                 return;
+            }
 
             bool enabled = (Settings.LightningEnabled == null || Settings.LightningEnabled.value)
                         && Settings.WeatherShown;
@@ -215,6 +221,10 @@ namespace VolumetricClouds.Sky
                 Clear();
                 return;
             }
+
+            // The drawn clouds column by column (CloudColumnMap), while a strike can come or is still alive.
+            if (Activity() > 0f || _ownStrikes.Count > 0 || _gameStrikes.Count > 0)
+                CloudColumnMap.Want();
 
             SimulationManager simulation = Singleton<SimulationManager>.instance;
             bool paused = simulation.SimulationPaused || simulation.ForcedSimulationPaused;
@@ -258,15 +268,21 @@ namespace VolumetricClouds.Sky
                                " | last 5s: game strikes=" + _gameSeen + " own=" + _ownSpawned +
                                " ofWhichInView=" + _ownInView +
                                " skippedNoCloud=" + _ownSkippedNoCloud +
+                               " | tops in the drawn clouds=" + _topsInColumns + " by the weather map=" + _topsByMap +
+                               " (column map " + (CloudColumnMap.Columns != null ? "ready" : CloudColumnMap.Current != null ? "not read yet" : "not here") + ")" +
                                " followUps=" + _ownFollowUps + " inCell=" + _ownInCell +
                                " | variety " + (Variety * 100f).ToString("F0") + "%, storms " +
                                (Travelling ? "travelling: " + _cells.Describe() + ", clouds drift " + _cells.DriftSpeed.ToString("F1") + " m/s" : "around the camera") +
                                " | active=" + _active.Count + " flashingReduction=" + _reduction.ToString("F2") +
+                               " groundLights(most at once)=" + _groundLightsMost +
                                " gameBolt=" + (_gameBoltHidden ? "hidden" : "shown") +
                                " | bolt map " + (_boltMap != null ? _boltMap.Describe() : "none"));
                 }
 
                 _gameSeen = 0;
+                _groundLightsMost = 0;
+                _topsInColumns = 0;
+                _topsByMap = 0;
                 _ownSpawned = 0;
                 _ownInView = 0;
                 _ownSkippedNoCloud = 0;
@@ -510,7 +526,9 @@ namespace VolumetricClouds.Sky
                     _camera.fieldOfView, _camera.aspect, ground, preferView,
                     (float)_random.NextDouble(), (float)_random.NextDouble(), (float)_random.NextDouble(),
                     out inView);
-                found = CloudAt(spot) > 0.6f;
+                // 1.6.1: real cloud overhead as drawn (the column map) -- thick cloud first, any cloud for the last
+                // tries, so a sky of thin cloud moves the storm rather than thinning it; the weather map past the map.
+                found = SpotPasses(spot, attempt < 10 ? CloudColumns.TauStrong : CloudColumns.TauSome, 0.6f);
             }
 
             if (!found)
@@ -596,13 +614,18 @@ namespace VolumetricClouds.Sky
                 }
 
                 _pending.RemoveAt(i);
-                if (variety <= 0f || CloudAt(p.Near) <= 0.45f)
+                if (variety <= 0f)
+                    continue;
+
+                // Tested where it lands (1.6.1): KeepAway can move it off its cloud (until 1.6.0 the test came before).
+                Vector3 camera = _camera.transform.position;
+                Vector2 kept = StormCellRules.KeepAway(camera.x, camera.z, new Vector2(p.Near.x, p.Near.z));
+                Vector3 there = new Vector3(kept.x, p.Near.y, kept.y);
+                if (!SpotPasses(there, CloudColumns.TauSome, 0.45f))
                     continue;
 
                 bool toGround = p.Twin || _random.NextDouble() < 0.45;
-                Vector3 camera = _camera.transform.position;
-                Vector2 kept = StormCellRules.KeepAway(camera.x, camera.z, new Vector2(p.Near.x, p.Near.z));
-                AddOwnStrike(frame, new Vector3(kept.x, p.Near.y, kept.y), toGround, false, 0, true);
+                AddOwnStrike(frame, there, toGround, false, 0, true);
             }
         }
 
@@ -647,7 +670,7 @@ namespace VolumetricClouds.Sky
                     continue;
 
                 Vector3 candidate = new Vector3(s.x, 0f, s.y);
-                if (CloudAt(candidate) <= 0.45f)
+                if (!SpotPasses(candidate, attempt < 8 ? CloudColumns.TauStrong : CloudColumns.TauSome, 0.45f))
                     continue;
 
                 spot = candidate;
@@ -668,7 +691,8 @@ namespace VolumetricClouds.Sky
             // tallest cloud (CloudShaderParams.LayerHeight).
             float thickness = CloudShaderParams.LayerHeight;
 
-            System.Random random = new System.Random(unchecked((int)(frame * 2654435761u) ^ ground.GetHashCode()));
+            int seed = unchecked((int)(frame * 2654435761u) ^ ground.GetHashCode());
+            System.Random random = new System.Random(seed);
             // Where in the cloud it starts varies too: a stroke to the ground leaves the lower
             // part of the layer, sheet lightning can be anywhere inside it.
             float depth = withBolt
@@ -679,6 +703,10 @@ namespace VolumetricClouds.Sky
                 ground.x + ((float)random.NextDouble() - 0.5f) * 500f,
                 bottom + Mathf.Max(50f, thickness) * depth,
                 ground.z + ((float)random.NextDouble() - 0.5f) * 500f);
+
+            // 1.6.1: in the drawn clouds (CloudColumnMap), with a random of its own so the strike's own stream (its kind,
+            // profile and shape) is the one it always had. Past the map, or before it is read: the source above.
+            source = InDrawnCloud(source, ground, withBolt, fromGame, new System.Random(seed ^ 0x5bd1e995));
 
             // Lightning variety (2026-11-15): a kind of channel per strike. 0% = the 1.5.3 code paths.
             float variety = Variety;
@@ -712,7 +740,8 @@ namespace VolumetricClouds.Sky
             {
                 if (kind >= 0)
                     strike.Bolt = LightningBoltMesh.Build((LightningBoltShape.Kind)kind, source, ground, bottom, random,
-                                                          _field != null ? (Func<Vector3, bool>)(p => CloudAt(p) > CloudUnderBolt) : null);
+                                                          _field != null ? (Func<Vector3, bool>)(p => CloudAt(p) > CloudUnderBolt) : null,
+                                                          CloudColumnMap.Columns != null ? (Func<Vector3, float>)UndersideAt : null);
                 else if (withBolt)
                     strike.Bolt = LightningBoltMesh.Build(source, ground, random);
             }
@@ -735,6 +764,113 @@ namespace VolumetricClouds.Sky
             return _field.SampleCloud(position.x / tile - phase.x,
                                       position.z / tile - phase.y,
                                       CloudStyle.CloudTestCoverage(CloudWeather.Coverage));
+        }
+
+        // ---- the drawn clouds (1.6.1: the cloud column map) -------------------------------------
+
+        private int _topsInColumns, _topsByMap;
+
+        /// <summary>The drawn clouds' column over p now, when the column map is read and covers p.</summary>
+        private static bool ColumnAt(Vector3 p, out CloudColumns.Column column)
+        {
+            CloudColumns map = CloudColumnMap.Columns;
+            if (map == null)
+            {
+                column = default(CloudColumns.Column);
+                return false;
+            }
+            return map.At(p.x, p.z, CloudWind.X + CloudWind.ShiftX, CloudWind.Z + CloudWind.ShiftZ, out column);
+        }
+
+        /// <summary>
+        /// A strike may come down at <paramref name="spot"/>: the drawn cloud over it has at least <paramref name="tau"/> of
+        /// optical depth straight up (the column map), or -- past the map or before it is read -- the weather map's test
+        /// as before 1.6.1 (over <paramref name="fallback"/>).
+        /// </summary>
+        private bool SpotPasses(Vector3 spot, float tau, float fallback)
+        {
+            CloudColumns.Column c;
+            if (ColumnAt(spot, out c))
+                return c.HasCloud && c.Tau >= tau;
+            return CloudAt(spot) > fallback;
+        }
+
+        /// <summary>How far round its first guess a strike's top is looked for: ours, and the game's (whose ground is fixed).</summary>
+        private const float TopSearch = 250f, GameTopSearch = 500f;
+
+        /// <summary>
+        /// Where the strike leaves its cloud, in the drawn clouds. A stroke to the ground (and the game's strikes): the
+        /// channel's top INSIDE dense cloud a little above the drawn underside (CloudColumns.StrikeTop), at a column with
+        /// real cloud (optical depth <see cref="CloudColumns.TauStrong"/>) near <paramref name="guess"/>, tested at the
+        /// top's own x/z; the game's strikes take the thickest column within <see cref="GameTopSearch"/> m (they cannot be
+        /// moved: their fire). In-cloud strikes (sheets, sideways bolts): somewhere in the cloud's body. No column map,
+        /// or no cloud near: <paramref name="guess"/> as before.
+        /// </summary>
+        private Vector3 InDrawnCloud(Vector3 guess, Vector3 ground, bool withBolt, bool fromGame, System.Random place)
+        {
+            if (CloudColumnMap.Columns == null)
+                return guess;
+
+            float radius = fromGame ? GameTopSearch : TopSearch;
+            Vector3 best = guess;
+            CloudColumns.Column bestColumn = default(CloudColumns.Column);
+            bool found = false;
+            for (int k = 0; k < 12; k++)
+            {
+                // First the guess itself, then straight over the ground point (the tested spot), then points round it
+                // (area weighted).
+                Vector3 p = k == 1 ? new Vector3(ground.x, guess.y, ground.z) : guess;
+                if (k > 1)
+                {
+                    float a = (float)place.NextDouble() * Mathf.PI * 2f, r = radius * Mathf.Sqrt((float)place.NextDouble());
+                    p = new Vector3(ground.x + Mathf.Cos(a) * r, guess.y, ground.z + Mathf.Sin(a) * r);
+                }
+
+                CloudColumns.Column c;
+                if (!ColumnAt(p, out c))
+                    break;   // off the map: the old guess
+                if (!c.HasCloud || c.Cloud < 0.5f)
+                    continue;
+                if (!found || c.Tau > bestColumn.Tau)
+                {
+                    best = p;
+                    bestColumn = c;
+                    found = true;
+                }
+                // Ours: the first column with real cloud; the game's: the thickest one found.
+                if (!fromGame && c.Tau >= CloudColumns.TauStrong)
+                    break;
+            }
+
+            if (!found)
+            {
+                _topsByMap++;
+                return guess;
+            }
+
+            _topsInColumns++;
+            float y = withBolt
+                ? CloudColumns.StrikeTop(bestColumn, place.NextDouble())
+                : CloudColumns.InCloud(bestColumn, Mathf.Lerp(0.15f, 0.6f, (float)place.NextDouble()));
+            return new Vector3(best.x, y, best.z);
+        }
+
+        /// <summary>
+        /// The drawn underside over p for the sideways bolts (LightningBoltShape.BuildFollowing): the column map's where it
+        /// covers p (NaN: no cloud, or a cloud's very edge), past it the old guess -- the altitude setting and a little --
+        /// where the weather map's test finds cloud.
+        /// </summary>
+        private float UndersideAt(Vector3 p)
+        {
+            CloudColumns.Column c;
+            if (ColumnAt(p, out c))
+                return c.HasCloud && c.Cloud >= 0.5f ? c.Under : float.NaN;
+            if (_field != null && CloudAt(p) > CloudUnderBolt)
+            {
+                float bottom = Settings.CloudAltitude != null ? Settings.CloudAltitude.value : Settings.Defaults.Altitude;
+                return bottom + 0.5f * (LightningBoltShape.InBaseLow + LightningBoltShape.InBaseHigh);
+            }
+            return float.NaN;
         }
 
         private void Evaluate(uint gameFrame, uint ownFrame, bool paused)
@@ -779,7 +915,156 @@ namespace VolumetricClouds.Sky
                 }
             }
 
+            LightGround(ownFrame, reduction, brightness);
             PlayThunder(paused);
+        }
+
+        // ---- our strikes light the ground (1.6.1) ---------------------------------------------
+
+        /// <summary>
+        /// How bright each kind of our strikes lights the ground, against a stroke to the ground (1): from inside
+        /// the cloud a flash is spread and dimmed by the cloud round it. First values, not measured against
+        /// anything: fields, so the bench can try others.
+        /// </summary>
+        public static float GroundLightAir = 0.6f, GroundLightSideways = 0.5f, GroundLightSheet = 0.3f;
+
+        /// <summary>The game's own strike light (WeatherManager.EndRenderingImpl): 500 m over the strike, intensity 8 at full, 10 km.</summary>
+        private const float GroundLightHeight = 500f, GroundLightIntensity = 8f, GroundLightRange = 10000f;
+
+        private GameObject _lightRoot;
+        private Light[] _groundLights;
+        private bool _groundLightsLit;
+        private bool _groundLightLogged;
+        private int _groundLightsMost;
+
+        /// <summary>
+        /// Our own strikes light the city (2026-11-20, his report: only the game's strikes ever did -- the game draws,
+        /// for each of ITS strikes, a pooled plain point light 500 m over it, intensity 8, range 10 km, plus a small
+        /// volume light at its foot; ours had neither). Up to <see cref="MaxFlashes"/> of our flashing strikes, the
+        /// strongest, each get a plain Unity point light of our own, set as the game sets its pooled one (LightSystem
+        /// .DrawLight(LightData): type point, colour, intensity, range; no shadows). Its level is the game's rule for
+        /// its own: clamp01(flicker x (1 - flashing reduction x 0.75 x (1 - the sun's factor))) x 8, where our flicker
+        /// is the strike's intensity x power, then x the Lightning brightness row and the kind's share. A stroke to the
+        /// ground lights from 500 m over its ground point, as the game's; one that dies in the air, a sideways bolt or
+        /// a sheet from its source in the cloud, dimmer. Nothing for the game's strikes: the game lights those. No
+        /// LightSystem call and no patch: the lights are ours alone, made once, switched off when nothing flashes and
+        /// destroyed with the city.
+        /// </summary>
+        private void LightGround(uint ownFrame, float reduction, float brightness)
+        {
+            bool infoView = Singleton<InfoManager>.exists && Singleton<InfoManager>.instance.CurrentMode != InfoManager.InfoMode.None;
+            if (infoView)
+            {
+                GroundLightsOff();
+                return;
+            }
+
+            float damp = 1f - reduction * 0.75f * (1f - SunIntensityFactor());
+            int lit = 0;
+            for (int i = 0; i < _active.Count && lit < MaxFlashes; i++)
+            {
+                Strike strike = _active[i];
+                if (strike.FromGame || strike.Intensity <= 0f)
+                    continue;
+
+                // Not while the leader crawls down: the ground is lit by the return stroke.
+                if (LightningFlicker.LeaderReveal(ownFrame, strike.StartFrame, strike.Profile) >= 0f)
+                    continue;
+
+                bool landed = strike.Bolt != null && (strike.Kind < 0 || LightningBoltShape.ReachesGround((LightningBoltShape.Kind)strike.Kind));
+                float share = landed ? 1f
+                    : strike.Bolt == null ? GroundLightSheet
+                    : strike.Kind == (int)LightningBoltShape.Kind.AirDischarge ? GroundLightAir
+                    : GroundLightSideways;
+                float level = Mathf.Clamp01(strike.Intensity * strike.Power * damp) * GroundLightIntensity * brightness * share;
+                if (level <= 0.01f)
+                    continue;
+
+                if (!EnsureGroundLights())
+                    return;
+
+                Light light = _groundLights[lit];
+                Color tint = strike.Profile.Tint;
+                float most = Mathf.Max(1e-4f, tint.maxColorComponent);
+                light.transform.position = landed ? strike.Ground + Vector3.up * GroundLightHeight : strike.Source;
+                light.color = new Color(tint.r / most, tint.g / most, tint.b / most, 1f);
+                light.intensity = level;
+                light.range = GroundLightRange;
+                if (!light.enabled)
+                    light.enabled = true;
+                lit++;
+            }
+
+            for (int i = lit; _groundLights != null && i < _groundLights.Length; i++)
+                if (_groundLights[i].enabled)
+                    _groundLights[i].enabled = false;
+            _groundLightsLit = lit > 0;
+            _groundLightsMost = Mathf.Max(_groundLightsMost, lit);
+        }
+
+        /// <summary>WeatherManager.GetSunIntensityFactor (private in the game), from the same public fields: 1 by day, 0 at night, x (1 - half the rain or fog).</summary>
+        private static float SunIntensityFactor()
+        {
+            SimulationManager simulation = Singleton<SimulationManager>.instance;
+            WeatherManager weather = Singleton<WeatherManager>.instance;
+            float hour = simulation.m_dayTimeFrame * SimulationManager.DAYTIME_FRAME_TO_HOUR;
+            float day = Mathf.Clamp01(0.5f + Mathf.Min(hour - SimulationManager.SUNRISE_HOUR, SimulationManager.SUNSET_HOUR - hour) * 2f);
+            return day * (1f - Mathf.Max(weather.m_currentRain, weather.m_currentFog) * 0.5f);
+        }
+
+        private bool EnsureGroundLights()
+        {
+            if (_groundLights != null)
+                return true;
+
+            _lightRoot = new GameObject("VolumetricClouds lightning lights");
+            _groundLights = new Light[MaxFlashes];
+            for (int i = 0; i < MaxFlashes; i++)
+            {
+                GameObject go = new GameObject("VolumetricClouds lightning light " + i);
+                go.transform.parent = _lightRoot.transform;
+                Light light = go.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.shadows = LightShadows.None;
+                light.range = GroundLightRange;
+                light.intensity = 0f;
+                light.enabled = false;
+                _groundLights[i] = light;
+            }
+
+            if (!_groundLightLogged)
+            {
+                _groundLightLogged = true;
+                Log.Msg("lightning: our strikes light the ground now -- up to " + MaxFlashes + " plain point lights of our own (no shadows, " +
+                        (GroundLightRange / 1000f).ToString("F0") + " km), as the game lights its own strikes: a stroke to the ground from " +
+                        GroundLightHeight.ToString("F0") + " m over it at up to " + GroundLightIntensity.ToString("F0") +
+                        " x the Lightning brightness row, in the cloud " + (GroundLightAir * 100f).ToString("F0") + "% (dies in the air), " +
+                        (GroundLightSideways * 100f).ToString("F0") + "% (sideways), " + (GroundLightSheet * 100f).ToString("F0") +
+                        "% (sheet); the game's strikes keep the game's light (its bolt material's colour: " + GameBoltColour() + ")");
+            }
+            return true;
+        }
+
+        /// <summary>The colour of the game's own strike light (its bolt material's _Color), for the log.</summary>
+        private string GameBoltColour()
+        {
+            Material m = _gameBoltHidden ? _gameBoltMaterial
+                       : Singleton<WeatherManager>.exists && Singleton<WeatherManager>.instance.m_properties != null
+                           ? Singleton<WeatherManager>.instance.m_properties.m_lightningMaterial : null;
+            if (m == null || !m.HasProperty("_Color"))
+                return "unknown";
+            Color c = m.color;
+            return "(" + c.r.ToString("F2") + ", " + c.g.ToString("F2") + ", " + c.b.ToString("F2") + ", " + c.a.ToString("F2") + ")";
+        }
+
+        private void GroundLightsOff()
+        {
+            if (!_groundLightsLit || _groundLights == null)
+                return;
+            foreach (Light light in _groundLights)
+                if (light != null && light.enabled)
+                    light.enabled = false;
+            _groundLightsLit = false;
         }
 
         private float Activate(Strike strike, uint frame, float reduction)
@@ -989,10 +1274,14 @@ namespace VolumetricClouds.Sky
                     _gameBoltMaterial = properties.m_lightningMaterial;
                     _gameBoltHidden = true;
                     Log.Msg("lightning: game bolt hidden (its material was " +
-                            (_gameBoltMaterial == null ? "none" : "'" + _gameBoltMaterial.name + "'") +
+                            (_gameBoltMaterial == null ? "none" : "'" + _gameBoltMaterial.name + "', colour " + GameBoltColour()) +
                             "); its ground lights and thunder are untouched");
                 }
 
+                // The game lights its strike with the slot's colour (EndRenderingImpl: material.color x the flicker):
+                // Invisible carries the hidden material's, so the game's lights keep their colour (1.6.1; white before).
+                if (_gameBoltMaterial != null && _gameBoltMaterial.HasProperty("_Color") && _invisible.color != _gameBoltMaterial.color)
+                    _invisible.color = _gameBoltMaterial.color;
                 if (properties.m_lightningMaterial != _invisible)
                     properties.m_lightningMaterial = _invisible;
             }
@@ -1019,6 +1308,7 @@ namespace VolumetricClouds.Sky
             _pending.Clear();
             _cells.Clear("lightning off or the weather hidden");
             _flashCount = 0;
+            GroundLightsOff();
 
             if (_boltMap != null)
                 _boltMap.Off();
@@ -1047,6 +1337,10 @@ namespace VolumetricClouds.Sky
                 _boltMap.Dispose();
             if (_invisible != null)
                 Destroy(_invisible);
+            if (_lightRoot != null)
+                Destroy(_lightRoot);
+            _lightRoot = null;
+            _groundLights = null;
         }
     }
 }
