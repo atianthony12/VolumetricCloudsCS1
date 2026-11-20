@@ -54,9 +54,10 @@ Check "a new install (no file): not shown" (-not $rule::ShouldShow($false, ""))
 Check "a file from before stamps (no ModVersion): shown" ($rule::ShouldShow($true, ""))
 Check "a file stamped 1.5.3 (older than the defaults' version): shown" ($rule::ShouldShow($true, "1.5.3"))
 Check "a file stamped $($rule::DefaultsChangedIn): not shown" (-not $rule::ShouldShow($true, $rule::DefaultsChangedIn))
-Check "a file stamped later (1.6.1, 1.7.0): not shown" ((-not $rule::ShouldShow($true, "1.6.1")) -and (-not $rule::ShouldShow($true, "1.7.0")))
+Check "a file stamped 1.6.0 (the first round's defaults; 1.6.1 moved four more): shown" ($rule::ShouldShow($true, "1.6.0"))
+Check "a file stamped later (1.6.2, 1.7.0): not shown" ((-not $rule::ShouldShow($true, "1.6.2")) -and (-not $rule::ShouldShow($true, "1.7.0")))
 Check "an unreadable stamp: read as before stamps, shown" ($rule::ShouldShow($true, "abc"))
-Check "a stamp with spaces: read" (-not $rule::ShouldShow($true, " 1.6.0 "))
+Check "a stamp with spaces: read" ((-not $rule::ShouldShow($true, " " + $rule::DefaultsChangedIn + " ")) -and $rule::ShouldShow($true, " 1.6.0 "))
 
 ""
 if ($failed -eq 0) { "ALL CHECKS PASSED" } else { "$failed CHECK(S) FAILED"; exit 1 }

@@ -4,7 +4,7 @@ namespace VolumetricClouds.UI
 {
     /// <summary>
     /// Whether an existing player is shown the new-defaults notice (2026-11-18, UI.NewDefaultsNotice).
-    /// Pure (tools\test-notice.ps1 compiles it).
+    /// Pure (tools\test-quality.ps1 checks it).
     /// </summary>
     /// <remarks>
     /// The settings file carries &lt;ModVersion&gt;: the mod's version that last ran with it and had its news
@@ -16,7 +16,8 @@ namespace VolumetricClouds.UI
     public static class NoticeRule
     {
         /// <summary>The version whose defaults the notice is about: a file stamped older than it is shown it once.</summary>
-        public const string DefaultsChangedIn = "1.6.0";
+        // (1.6.1: the author's "New Defaults 1.6.1" profile moved four rows: a file stamped 1.6.0 is offered them once.)
+        public const string DefaultsChangedIn = "1.6.1";
 
         /// <summary>
         /// True when a settings file that was there at startup (<paramref name="fileExisted"/>), stamped

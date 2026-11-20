@@ -1221,8 +1221,8 @@ namespace VolumetricClouds
             // ---- shadows ----
             public const bool CloudShadows = true;
             public const float ShadowDarkness = 0.85f;
-            /// <summary>New Defaults (2026-11-19): 0.5x (3x before).</summary>
-            public const float ShadowFullness = 0.5f;
+            /// <summary>New Defaults (2026-11-19): 0.5x (3x before); New Defaults 1.6.1 (2026-11-20): 1.75x.</summary>
+            public const float ShadowFullness = 1.75f;
 
             /// <summary>The Medium preset's (2026-11-18; High's 2048 before: <see cref="HighShadowMap"/>).</summary>
             public const int ShadowMapResolution = 1024;
@@ -1269,10 +1269,12 @@ namespace VolumetricClouds
 
             // ---- rain ----
             public const bool RainEnabled = true;
-            public const float RainCurtains = 1f;
+            /// <summary>New Defaults 1.6.1 (2026-11-20): 200% (100% before).</summary>
+            public const float RainCurtains = 2f;
             public const float RainCurtainLight = 1f;
-            public const float RainCurtainLightSunset = RainCurtainLight;
-            public const float RainCurtainLightNight = RainCurtainLight;
+            // A clock's children are literals (2026-11-18 rule): New Defaults 1.6.1 moved the night's alone, 200% (100% before).
+            public const float RainCurtainLightSunset = 1f;
+            public const float RainCurtainLightNight = 2f;
             public const float RainStreaks = 1f;
             public const float RainStreakHeight = 500f;
 
@@ -1425,9 +1427,9 @@ namespace VolumetricClouds
             // The flare (2026-11-17). Like the glare, it reaches existing players who opted into
             // the halos (the halos stay off until asked for): at the designed strength near and far.
             // New Defaults (2026-11-18): far lights 70%; sizes 40% near, 65% far, 60% vehicles; rays 50% thick
-            // (100% each, vehicles 75%, before).
+            // (100% each, vehicles 75%, before). New Defaults 1.6.1 (2026-11-20): far lights 100% again.
             public const float HaloFlareNear = 1f;
-            public const float HaloFlareFar = 0.7f;
+            public const float HaloFlareFar = 1f;
 
             // Its shape (2026-11-17, the author: "more control over flares, especially size").
             public const float HaloFlareSizeNear = 0.4f;

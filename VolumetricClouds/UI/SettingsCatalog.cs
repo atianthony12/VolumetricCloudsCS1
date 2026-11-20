@@ -1524,6 +1524,10 @@ namespace VolumetricClouds.UI
         /// (2026-11-18), with the value it had before, in the file's words (slider units). The rows of
         /// a clock or a cloud button are not here: a file without one takes its Day / Clear sky value,
         /// which is guarded. The cloud style keeps its own (Row.OlderFileInt: Classic).
+        /// New Defaults 1.6.1 (2026-11-20) moved four more: RainCurtains (first time: 100 before), CloudShadowFullness
+        /// and HaloFlareFar (already here: a file without them is older than both rounds and keeps the value it read
+        /// then), RainCurtainLightNight (a clock's child: a file without it takes RainCurtainLight's value, which is
+        /// safe only because RainCurtainLight's own default did not move -- it is NOT in this table; add it if it ever moves).
         /// </summary>
         private static readonly string[] BeforeNewDefaults =
         {
@@ -1536,7 +1540,7 @@ namespace VolumetricClouds.UI
             "HaloFlareThickness", "100", "HaloGlare", "10", "HaloGlareSize", "170", "HaloNearLightBrightness", "90",
             "HaloNearLightDistance", "280", "HaloNearLightTightness", "175", "HaloRadius", "120",
             "LightInsideClouds", "100", "LightningBrightness", "100", "LightningVariety", "100", "NightGlow", "50",
-            "RainFallSpeed", "100", "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
+            "RainCurtains", "100", "RainFallSpeed", "100", "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
             "TreeWind", "false", "WetGround", "100",
         };
 
