@@ -40,8 +40,18 @@ namespace VolumetricClouds.Sky
         /// <summary>Whether the blend has been logged (once per instance).</summary>
         private bool _loggedBlend;
 
-        /// <summary>While lightning flashes: the flash shows within a frame or two instead of fading in.</summary>
+        /// <summary>
+        /// While lightning flashes: the keep where the flash lit (or stopped lighting) the clouds, so it shows within a frame
+        /// or two instead of fading in. 1.6.1: only there (TemporalResolve, _TemporalUp2.w) -- until then the whole screen
+        /// kept this little while any flash was alight anywhere, and the far clouds near the horizon, which show under an
+        /// overcast sky, when it storms, went grainy for every flash (measured in the cloud bench: x1.65 their grain).
+        /// </summary>
         public const float KeepInFlash = 0.5f;
+
+        /// <summary>Frames the flash's rule holds after the last flash went out (the clouds it lit darken again as fast).</summary>
+        private const int FlashAfterFrames = 3;
+
+        private int _flashFrames;
 
         /// <summary>A camera that moves more than this in one frame starts afresh (a jump, not a pan).</summary>
         private const float CutDistance = 1000f;
@@ -238,7 +248,13 @@ namespace VolumetricClouds.Sky
             if (fresh)
                 _resets++;
 
-            float keep = fresh ? 0f : (clouds.GetFloat(IdFlashCount) > 0.5f ? KeepInFlash : Keep);
+            float keep = fresh ? 0f : Keep;
+            // A flash alight (or just out): the resolve gives up the past where it changed the clouds, nowhere else.
+            if (clouds.GetFloat(IdFlashCount) > 0.5f)
+                _flashFrames = FlashAfterFrames + 1;
+            else if (_flashFrames > 0)
+                _flashFrames--;
+            float flashKeep = _flashFrames > 0 ? KeepInFlash : 0f;
 
             SetCorners(inverse, toWorld, 0f, 0f);
             _resolve.SetVector(IdCorner0, _corners[0]);
@@ -260,7 +276,7 @@ namespace VolumetricClouds.Sky
             // A fresh start (nothing kept): every pixel takes all of this frame, read between its rays -- never a share of
             // the old picture, which the blend's target still holds.
             _resolve.SetVector(IdTemporalUp, new Vector4(shiftX, shiftY, up, keep > 0f ? UpTake : 1e6f));
-            _resolve.SetVector(IdTemporalUp2, new Vector4(UpSharp, UpLeast, UpClip, 0f));
+            _resolve.SetVector(IdTemporalUp2, new Vector4(UpSharp, UpLeast, UpClip, flashKeep));
             // A pass has 16 samplers and the cloud shader had one left: the blend reads this frame's
             // march through _TemporalTex and the blend so far through the rainbow's _BowTex (never the
             // rainbow on this material).
@@ -397,7 +413,7 @@ namespace VolumetricClouds.Sky
                     (marchWidth != width ? " and built up to " + width + "x" + height + " over the frames" : "") +
                     " (" + SmootherSize.DivisorName(divisor) + " of " + of + " each way; drawing size: " +
                     SmootherSize.ChoiceName(choice) + ") every frame and blended with the frames before (keep " +
-                    Keep.ToString("F2") + ", " + KeepInFlash.ToString("F2") + " in a flash); 3 ARGBHalf targets, " +
+                    Keep.ToString("F2") + ", " + KeepInFlash.ToString("F2") + " where a lightning flash lights the clouds); 3 ARGBHalf targets, " +
                     megabytes.ToString("F0") + " MB; target up " + _up +
                     "; pixels with a building or hill inside the clouds, or a bolt, marched as before");
             return true;

@@ -118,7 +118,8 @@ float4 _TemporalUp;         // mode 2: xy = this frame's shift of the march, in 
                             // many times the usual share of this frame a ray right on the pixel gives
 float4 _TemporalUp2;        // mode 2: x = how fast that falls with the ray's distance from the pixel (exp(-x d^2), d
                             // in the blend's pixels), y = the least of it (a ray far off), z = the variance clip's
-                            // width, times the usual
+                            // width, times the usual; w (1.6.1) = while a lightning flash is alight, the keep where
+                            // the flash changed the clouds (0: no flash)
 
 float3 _SunColor;      // (_SunDir, towards the light, is in CloudMedia)
 float3 _AmbientColor;
@@ -1166,6 +1167,12 @@ float4 TemporalResolve(float2 uvPixel, float3 worldPos)
     // Keep less of the past where the guesses disagree and where the history had to be pulled far;
     // what is given up comes from the softened march, not the raw one.
     float keep = _TemporalParams.x * lerp(1.0, 0.55, saturate(spread / 6.0)) * (1.0 - 0.2 * saturate(moved * 6.0));
+    // A lightning flash (1.6.1, _TemporalUp2.w = the keep in a flash, 0 = none): the past is given up only where this
+    // frame's march left what the history allows -- the clouds the flash lights or stops lighting -- not over the whole
+    // screen, which let the far clouds' grain through for as long as any flash was alight anywhere.
+    UNITY_BRANCH
+    if (_TemporalUp2.w > 0.0)
+        keep = lerp(keep, min(keep, _TemporalUp2.w), saturate(moved * 8.0));
     float givenUp = 1.0 - keep / max(_TemporalParams.x, 1e-3);
     float4 blendedT = lerp(lerp(nowT, tent, givenUp), clipped, keep);
     UNITY_BRANCH

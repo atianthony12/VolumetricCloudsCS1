@@ -45,6 +45,8 @@ removed or renamed: `VolumetricClouds.xml`, profiles and saved cities stay exact
   the horizon no longer turn teal over a grey sky: they fade into the fogged sky behind them. Without it, nothing
   changes.
 - While our bolt replaces the game's, the light of the game's own strikes keeps its colour (it turned white).
+- The distant clouds near the horizon no longer turn grainy while lightning flashes somewhere in a storm: only the
+  clouds a flash lights catch up with it quickly; the rest of the sky stays as smooth as without the flash.
 
 ## 1.6.0 — 2026-11-19
 
