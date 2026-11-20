@@ -325,8 +325,8 @@ namespace VolumetricClouds.Sky
             Raymarch = ShaderBundle.Get(RaymarchLite);
             ShadowMap = Runs(ShadowMapLite) ? ShaderBundle.Get(ShadowMapLite) : null;
             Reason = reason;
-            Log.Msg("cloud shaders: SIMPLER CLOUDS (" + reason + "): no Soft or Mixed style (drawn Classic), Curved clouds, " +
-                    "Smoother clouds, Clouds to the horizon, fog in valleys or over water, waterspouts, painted sky or bolt map" +
+            Log.Msg("cloud shaders: SIMPLER CLOUDS (" + reason + "): no Soft, Mixed or Auto style (drawn Classic), Curved clouds, " +
+                    "Smoother clouds, the cloud extras, fog in valleys or over water, waterspouts, painted sky or bolt map" +
                     (ShadowMap == null ? "; no cloud shadows (" + Describe(ShadowMapLite) + ")" : "") + ProbeNote());
             return Raymarch != null;
         }

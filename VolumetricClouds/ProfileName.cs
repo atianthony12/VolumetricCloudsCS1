@@ -86,9 +86,10 @@ namespace VolumetricClouds
         }
 
         /// <summary>
-        /// A whole name in parentheses, "(unsaved profile)" or "(mod defaults)", is the list's own entries'
-        /// (1.5.0), in every language -- the Chinese ones are in full-width parentheses. A file
-        /// already named so is still listed (these rules are for making one), as its own entry.
+        /// A whole name in parentheses, "(unsaved profile)", "(new defaults)" or "(old defaults)", is the list's own
+        /// entries' (1.5.0; the built-in profiles 1.6.1), in every language -- the Chinese ones are in full-width
+        /// parentheses. A file already named so is still listed (these rules are for making one), as its own
+        /// entry, except a file with a built-in profile's name (Profiles.List skips it).
         /// </summary>
         private static bool IsInParentheses(string name)
         {

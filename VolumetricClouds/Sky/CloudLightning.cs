@@ -268,7 +268,8 @@ namespace VolumetricClouds.Sky
                                " | last 5s: game strikes=" + _gameSeen + " own=" + _ownSpawned +
                                " ofWhichInView=" + _ownInView +
                                " skippedNoCloud=" + _ownSkippedNoCloud +
-                               " | tops in the drawn clouds=" + _topsInColumns + " by the weather map=" + _topsByMap +
+                               " | tops in the drawn clouds=" + _topsInColumns + " guessed (no cloud near)=" + _topsByMap +
+                               " guessed (map not trusted)=" + _topsUntrusted +
                                " (column map " + (CloudColumnMap.Columns != null ? "ready" : CloudColumnMap.Current != null ? "not read yet" : "not here") + ")" +
                                " followUps=" + _ownFollowUps + " inCell=" + _ownInCell +
                                " | variety " + (Variety * 100f).ToString("F0") + "%, storms " +
@@ -283,6 +284,7 @@ namespace VolumetricClouds.Sky
                 _groundLightsMost = 0;
                 _topsInColumns = 0;
                 _topsByMap = 0;
+                _topsUntrusted = 0;
                 _ownSpawned = 0;
                 _ownInView = 0;
                 _ownSkippedNoCloud = 0;
@@ -768,7 +770,7 @@ namespace VolumetricClouds.Sky
 
         // ---- the drawn clouds (1.6.1: the cloud column map) -------------------------------------
 
-        private int _topsInColumns, _topsByMap;
+        private int _topsInColumns, _topsByMap, _topsUntrusted;
 
         /// <summary>The drawn clouds' column over p now, when the column map is read and covers p.</summary>
         private static bool ColumnAt(Vector3 p, out CloudColumns.Column column)
@@ -809,7 +811,10 @@ namespace VolumetricClouds.Sky
         private Vector3 InDrawnCloud(Vector3 guess, Vector3 ground, bool withBolt, bool fromGame, System.Random place)
         {
             if (CloudColumnMap.Columns == null)
+            {
+                _topsUntrusted++;
                 return guess;
+            }
 
             float radius = fromGame ? GameTopSearch : TopSearch;
             Vector3 best = guess;
@@ -828,7 +833,7 @@ namespace VolumetricClouds.Sky
 
                 CloudColumns.Column c;
                 if (!ColumnAt(p, out c))
-                    break;   // off the map: the old guess
+                    continue;   // off the map: the next point (none on it = the old guess)
                 if (!c.HasCloud || c.Cloud < 0.5f)
                     continue;
                 if (!found || c.Tau > bestColumn.Tau)

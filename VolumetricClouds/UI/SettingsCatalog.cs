@@ -508,7 +508,7 @@ namespace VolumetricClouds.UI
             get
             {
                 return ResetText != null
-                    ? Localization.Get("Reset.TooltipProfile", Profiles.Selected)
+                    ? Localization.Get("Reset.TooltipProfile", Profiles.Shown(Profiles.Selected))
                     : Localization.Get("Reset.Tooltip");
             }
         }

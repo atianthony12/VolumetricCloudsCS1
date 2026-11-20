@@ -444,7 +444,7 @@ namespace VolumetricClouds
 
             LetGo();
             Log.Msg("profile: no profile picked (" + why + ")" +
-                    (previous.Length > 0 ? "; '" + previous + "' keeps its file" : "") + "; the sky stays as it is");
+                    (previous.Length > 0 && !IsBuiltIn(previous) ? "; '" + previous + "' keeps its file" : "") + "; the sky stays as it is");
         }
 
         /// <summary>

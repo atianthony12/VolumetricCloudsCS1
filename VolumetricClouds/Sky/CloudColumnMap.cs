@@ -327,7 +327,15 @@ namespace VolumetricClouds.Sky
                     useMipMap = false,
                 };
                 if (!_target.Create())
+                {
+                    // Once, not a new target every frame (out of video memory, say).
+                    _failed = true;
+                    Object.Destroy(_target);
+                    _target = null;
+                    Log.Msg("cloud column map: its " + Size + "x" + Size + " target could not be made; lightning places its bolts by " +
+                            "the weather map, as before 1.6.1");
                     return false;
+                }
             }
             if (_read == null)
                 _read = new Texture2D(Size, Size, TextureFormat.RGBA32, false, true);

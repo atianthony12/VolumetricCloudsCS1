@@ -7,10 +7,11 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.1 — unreleased
 
-Fixes for lightning, wet ground and cloud shadows, new mod defaults for a few settings, and quality presets that
-do more. No setting is added, removed or renamed: profiles and saved cities stay exactly as they are, and so does
-`VolumetricClouds.xml`, except for the *Cloud drawing size* of players on the *Low* or *Medium* quality preset
-(see Changed).
+Fixes for lightning, wet ground and cloud shadows, new mod defaults for a few settings, the old defaults back as
+a built-in profile, a switch for wet ground, and quality presets that do more. One setting is added (*Wet roads
+and ground in rain*, on for everyone) and none is removed or renamed: profiles and saved cities stay exactly as
+they are, and so does `VolumetricClouds.xml`, except for the *Cloud drawing size* of players on the *Low* or
+*Medium* quality preset (see Changed).
 
 ### Changed
 
@@ -18,7 +19,7 @@ do more. No setting is added, removed or renamed: profiles and saved cities stay
   100%); *Shadow fullness* 1.75x (was 0.5x); the flare's *Distant lights: strength* 100% (was 70%); *Brightness
   difference between clouds* 50% (was 0%); *Glow and softer shade* 100% at night and under an overcast sky by day
   and at night (was 150%); *Clouds hide the sky* 50% at every time and weather (was 0% by day and at sunset, 100%
-  at night). Existing players keep their own values; the one-time message offering the mod defaults shows once
+  at night). Existing players keep their own values; the one-time message offering the new defaults shows once
   more (to players who already answered it in 1.6.0 too), and new installs start with them.
 - Two built-in profiles at the top of the profile list, in place of *(mod defaults)*: *(new defaults)*, the
   mod's defaults, and *(old defaults)*, the defaults from before 1.6, lighter on the graphics card. They work like
