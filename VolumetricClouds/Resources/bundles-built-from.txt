@@ -2,4 +2,4 @@
 # release.ps1 refuses a release unless every line matches the sources (build-bundle.ps1 -All).
 win 6224f59030402177d95c8f9b0b692c85a297525c14d94b4fc8e30e1467d8d566
 linux 152aedeca26a33ea38771c6f82cfd7271fa3fdf2e1b45c513db4895c53d21448
-mac 152aedeca26a33ea38771c6f82cfd7271fa3fdf2e1b45c513db4895c53d21448
+mac 6224f59030402177d95c8f9b0b692c85a297525c14d94b4fc8e30e1467d8d566

@@ -6,6 +6,7 @@
 #                               # no Mac or Linux builds until release -- they took the build past 10 minutes)
 #   .\build-bundle.ps1 -All     # Windows, Linux and Mac: for a release (release.ps1 refuses without it) and
 #                               # before a Mac or Linux test build; then run tools\test-metal.ps1
+#   .\build-bundle.ps1 -Mac     # Windows and Mac, no Linux: a Mac test build between releases; then test-metal
 #
 # The bundles it does not build stay as they are. VolumetricClouds\Resources\bundles-built-from.txt records,
 # per platform, the hash of the sources it was last built from (tools\bundle-sources.ps1), so a release can
@@ -26,6 +27,8 @@
 
 param(
     [switch]$All,
+    # Windows and Mac, no Linux: for a Mac test build between releases (then run tools\test-metal.ps1).
+    [switch]$Mac,
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
 
@@ -44,7 +47,9 @@ $allTargets = @(
     @{ Name = "linux"; Platforms = "15";    Needs = "OpenGL Core" },
     @{ Name = "mac";   Platforms = "14,15"; Needs = "Metal + OpenGL Core" }
 )
-$targets = if ($All) { $allTargets } else { @($allTargets | Where-Object { $_.Name -eq "win" }) }
+$targets = if ($All) { $allTargets }
+           elseif ($Mac) { @($allTargets | Where-Object { $_.Name -ne "linux" }) }
+           else { @($allTargets | Where-Object { $_.Name -eq "win" }) }
 $names = ($targets | ForEach-Object { $_.Name }) -join ","
 $stampFile = Join-Path $resources "bundles-built-from.txt"
 $sourcesTool = Join-Path $root "tools\bundle-sources.ps1"
@@ -74,7 +79,7 @@ foreach ($t in $targets) {
 
 if (Test-Path $log) { Remove-Item $log -Force }
 
-Write-Host ("Building the {0} with Unity (headless)..." -f $(if ($All) { "three bundles" } else { "WINDOWS bundle only (-All for Linux and Mac too)" }))
+Write-Host ("Building the {0} with Unity (headless)..." -f $(if ($All) { "three bundles" } elseif ($Mac) { "WINDOWS and MAC bundles (-All for Linux too)" } else { "WINDOWS bundle only (-All for Linux and Mac too)" }))
 # BundleBuilder sets the game's rendering for the build (legacy deferred tiers, linear colour space) and
 # puts it back, but Unity rewrites the settings files as it saves them: they are put back byte for byte.
 $settings = Join-Path $project "ProjectSettings"
