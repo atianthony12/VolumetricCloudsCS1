@@ -52,7 +52,7 @@ rain, lightning, rainbows and fog. Works on Windows, Mac and Linux.
 
 <table>
   <tr>
-    <td><img src="Workshop/Screenshots/BirdsEye.jpg" alt="Clouds and their shadows over a city, seen from above"></td>
+    <td><img src="Workshop/Screenshots/PlaneView.jpg" alt="A city seen through a gap in the clouds from above"></td>
     <td><img src="Workshop/Screenshots/VolumetricFog.jpg" alt="Volumetric fog over a city"></td>
   </tr>
   <tr>
@@ -95,8 +95,10 @@ night, or a **cloud** button, for a clear sky and a full overcast.
 
 ### Profiles
 
-At the top of the panel. Save the whole sky under a name and switch skies from the list, or go
-back to **(mod defaults)**. **Revert** undoes your changes since the last save. Each profile is a
+At the top of the panel. Save the whole sky under a name and switch skies from the list. Two
+profiles are built in: **(new defaults)**, the mod's defaults, and **(old defaults)**, the defaults
+from before 1.6, lighter on the graphics card if the game feels slow. They can't be saved over or
+deleted; **Save** on one makes a new profile. **Revert** undoes your changes since the last save. Each profile is a
 plain XML file in the `VolumetricCloudsProfiles` folder (see [Files and logs](#files-and-logs)),
 so they're easy to share. The Now tab isn't saved in profiles: picking one leaves the weather of
 the moment as it is.
@@ -192,9 +194,12 @@ Off by default.
 
 In the Pause menu → Options → Volumetric Weather:
 
-- **Quality preset** (Low, Medium, High, the default, or Custom) sets the clouds', the fog's and
-  the shadows' quality together. Custom gives you **Cloud and fog quality**, **Cloud shadow
-  resolution**, **Cloud shadow updates** and **Buildings and terrain hide clouds behind them**.
+- **Quality preset** (Low, Medium, High, or Custom) sets the clouds', the fog's and the shadows'
+  quality together, and the size the clouds are drawn at (Low a quarter of the screen, Medium a
+  third, High half). Low also leaves out Softer cumulus, Natural Classic clouds, Cloud variety and
+  the glow above 100%. A new install starts on Medium, or on Low with the game's own graphics set low
+  or under 4 GB of video memory. Custom gives you **Cloud and fog quality**, **Cloud shadow resolution**, **Cloud
+  shadow updates**, **Cloud drawing size** and **Buildings and terrain hide clouds behind them**.
 - **Smoother clouds** blends frames together for less grain. It's on by default, and it's also the
   faster way to draw the clouds. If you notice smearing when the camera moves, untick it.
 - **Simpler clouds for older graphics cards**: a lighter cloud shader, without the Soft and Mixed
