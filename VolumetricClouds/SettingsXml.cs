@@ -158,6 +158,7 @@ namespace VolumetricClouds
                 else if (!ImportFromCgs())
                 {
                     SettingsCatalog.FirstRun();
+                    NewDefaultsNotice.AtStartup(false);   // the welcome (1.6.1)
                     SaveNow();
                     Log.Msg("settings: no settings file yet; created " + Path + " with every default");
                 }
@@ -633,9 +634,43 @@ namespace VolumetricClouds
         }
 
         /// <summary>
+        /// The built-in "(old defaults)" profile (1.6.1, Profiles.OldDefaults): Resources\OldDefaults.xml, every
+        /// profiled row's default in the last build before the new mod defaults (docs' make-old-defaults.ps1), read
+        /// as any profile is -- a row newer than it gets what an older profile means. Not an empty profile: that
+        /// reads a clock's or cloud button's child as a file from before the child existed (Overcast = Clear
+        /// sky), and three rows differed from the old defaults (overcast cloud density 150% for 80%). Should the
+        /// resource be missing, an empty profile.
+        /// </summary>
+        internal static string OldDefaultsText
+        {
+            get
+            {
+                if (_oldDefaultsText == null)
+                {
+                    try
+                    {
+                        using (Stream stream = typeof(SettingsXml).Assembly.GetManifestResourceStream("VolumetricClouds.Resources.OldDefaults.xml"))
+                        using (var reader = new StreamReader(stream, Encoding.UTF8))
+                            _oldDefaultsText = reader.ReadToEnd();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warn("profiles: the old defaults' file is not in the mod (" + e.Message + "); an empty profile stands in");
+                        _oldDefaultsText = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<" + SettingsXmlFormat.RootName + " version=\"" +
+                            SettingsXmlFormat.Version.ToString(CultureInfo.InvariantCulture) + "\">\r\n</" + SettingsXmlFormat.RootName + ">\r\n";
+                    }
+                }
+
+                return _oldDefaultsText;
+            }
+        }
+
+        private static string _oldDefaultsText;
+
+        /// <summary>
         /// The mod's defaults as <see cref="ProfileValues"/> gives a sky (1.5.0, the built-in
-        /// "(Mod defaults)" entry): each row a profile carries at its default, worked out without
-        /// changing the sky, as <see cref="ProfileValuesOf"/> does.
+        /// "(Mod defaults)" entry; since 1.6.1 "(new defaults)"): each row a profile carries at its default,
+        /// worked out without changing the sky, as <see cref="ProfileValuesOf"/> does.
         /// </summary>
         internal static Dictionary<string, string> DefaultProfileValues()
         {
@@ -671,7 +706,7 @@ namespace VolumetricClouds
         }
 
         /// <summary>
-        /// Puts every row a profile carries back to its default (1.5.0, picking "(Mod defaults)"):
+        /// Puts every row a profile carries back to its default (1.5.0, picking "(Mod defaults)"; "(new defaults)" since 1.6.1):
         /// what an empty profile would put in, but the default itself even for a row with a
         /// <see cref="Row.OlderFileInt"/>. The rows a profile does not carry -- the computer's,
         /// the Now tab -- are left alone (invariant 11). What changed, as "Name was -> now".
@@ -1084,6 +1119,7 @@ namespace VolumetricClouds
             {
                 // The new file was deleted since: a fresh start, as a new install.
                 SettingsCatalog.FirstRun();
+                NewDefaultsNotice.AtStartup(false);   // the welcome (1.6.1)
                 SaveNow();
                 Log.Msg("settings: " + CgsName + ".cgs was imported before, so it is not read again; created " +
                         Path + " with every default");

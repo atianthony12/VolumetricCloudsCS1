@@ -50,7 +50,8 @@
 
   <String key="Profiles.Label">配置</String>
   <String key="Profiles.UnsavedProfile">（未保存的配置）</String>
-  <String key="Profiles.Defaults">（模组默认）</String>
+  <String key="Profiles.NewDefaults">（新默认设置）</String>
+  <String key="Profiles.OldDefaults">（旧默认设置）</String>
   <String key="Profiles.Save">保存</String>
   <String key="Profiles.Revert">还原</String>
   <String key="Profiles.Reverted">已还原！</String>
@@ -282,6 +283,8 @@
   <String key="RainLocalised.Label">雨声、湿路和路面积雪跟随云层</String>
 
   <String key="Group.WetGround">湿地面</String>
+  <String key="WetGroundOn.Label">下雨时路面和地面变湿</String>
+  <String key="WetGroundOn.Tooltip">下雨时及雨后，道路、水洼、草地和树木会变湿，程度由下方滑块设置。关闭 = 一切保持干燥</String>
 
   <String key="WetGround.Label">湿路面和水洼</String>
   <String key="WetGround.Tooltip">雨中和雨后，道路和地面变暗发亮，映出城市和天空，平地上积起水洼。0% = 关闭</String>
@@ -503,16 +506,23 @@
 
   <String key="ModVersion.Label">上次使用此文件并显示其新内容的模组版本。请勿修改</String>
 
-  <String key="NewDefaults.Text">Volumetric Weather 有很多新功能！你可以保留当前的设置或配置，但我建议你试试模组的新默认设置，以免错过任何内容。如果你有当前设置，它们会被保存。</String>
+  <String key="NewDefaults.Text">Volumetric Weather 有很多新功能！你可以保留当前的设置或配置，但我建议你试试新默认设置，以免错过任何内容。如果你有当前设置，它们会被保存。</String>
+  <String key="NewDefaults.Performance">新默认设置对显卡的要求稍高一些。如果使用后游戏变慢，可以在面板顶部的配置列表中选择（旧默认设置）。</String>
   <String key="NewDefaults.Try">试用新默认设置</String>
   <String key="NewDefaults.Keep">不用了</String>
-  <String key="NewDefaults.SavePicked">你的配置“{0}”有未保存的更改。会先把它们保存到该配置中，之后选择它即可回到这些设置，然后再应用新的默认设置。</String>
-  <String key="NewDefaults.SaveNew">你当前的设置没有保存在任何配置中。会先把它们保存为新配置“{0}”，之后选择它即可回到这些设置，然后再应用新的默认设置。</String>
+  <String key="NewDefaults.SavePicked">你的配置“{0}”有未保存的更改。会先把它们保存到该配置中，之后选择它即可回到这些设置，然后再应用{1}。</String>
+  <String key="NewDefaults.SaveNew">你当前的设置没有保存在任何配置中。会先把它们保存为新配置“{0}”，之后选择它即可回到这些设置，然后再应用{1}。</String>
   <String key="NewDefaults.SaveAndSwitch">保存并切换</String>
   <String key="NewDefaults.Back">返回</String>
   <String key="NewDefaults.SaveFailed">无法保存你的设置，因此没有做任何更改。</String>
   <String key="NewDefaults.Ok">确定</String>
   <String key="NewDefaults.SavedName">{0} 之前未保存的配置</String>
+
+  <String key="Welcome.Thanks">感谢安装 Volumetric Weather！</String>
+  <String key="Welcome.Performance">这个模组可能比较占用性能，尤其是在较旧的硬件上。如果新默认设置导致卡顿或帧数下降，请试试旧默认设置。</String>
+  <String key="Welcome.Change">你可以随时在面板顶部的配置列表中更改。</String>
+  <String key="Welcome.Keep">保留新默认设置</String>
+  <String key="Welcome.TryOld">试用旧默认设置</String>
 
   <String key="HudButtonX.Label">模组按钮（不使用 Unified UI）：距左边缘</String>
   <String key="HudButtonY.Label">模组按钮（不使用 Unified UI）：距上边缘</String>

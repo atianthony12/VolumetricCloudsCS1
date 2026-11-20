@@ -1,6 +1,7 @@
 # Offline checks of UI/QualityChoice.cs -- the quality preset a NEW install starts on (2026-11-18): Medium,
 # Low where the game's graphics options were lowered or the card has under 4 GB, never High on its own --
-# and of UI/NoticeRule.cs, which decides whether an existing player is shown the new-defaults notice.
+# and of UI/NoticeRule.cs, which decides whether an existing player is shown the new-defaults notice, or a new
+# install the welcome (1.6.1).
 # Both have no Unity dependency, so the SOURCES are compiled directly.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-quality.ps1
@@ -88,14 +89,20 @@ Check "a file is changed once: read again, nothing more changes (12 cases)" $aga
 
 "=== NoticeRule ==="
 $rule = [VolumetricClouds.UI.NoticeRule]
-Check "a new install (no file): not shown" (-not $rule::ShouldShow($false, ""))
-Check "a file from before stamps (no ModVersion): shown" ($rule::ShouldShow($true, ""))
-Check "a file stamped 1.5.3 (older than the defaults' version): shown" ($rule::ShouldShow($true, "1.5.3"))
-Check "a file stamped $($rule::DefaultsChangedIn): not shown" (-not $rule::ShouldShow($true, $rule::DefaultsChangedIn))
-Check "a file stamped 1.6.0 (the first round's defaults; 1.6.1 moved four more): shown" ($rule::ShouldShow($true, "1.6.0"))
-Check "a file stamped later (1.6.2, 1.7.0): not shown" ((-not $rule::ShouldShow($true, "1.6.2")) -and (-not $rule::ShouldShow($true, "1.7.0")))
-Check "an unreadable stamp: read as before stamps, shown" ($rule::ShouldShow($true, "abc"))
-Check "a stamp with spaces: read" ((-not $rule::ShouldShow($true, " " + $rule::DefaultsChangedIn + " ")) -and $rule::ShouldShow($true, " 1.6.0 "))
+$none = [VolumetricClouds.UI.NoticeRule+Kind]::None
+$existing = [VolumetricClouds.UI.NoticeRule+Kind]::Existing
+$welcome = [VolumetricClouds.UI.NoticeRule+Kind]::Welcome
+Check "a new install (no file): the welcome (1.6.1)" ($rule::Decide($false, "") -eq $welcome)
+Check "a new install that has not answered it yet (stamped '$($rule::NewInstall)'): the welcome again" ($rule::Decide($true, $rule::NewInstall) -eq $welcome)
+Check "that stamp read whatever its case and spaces" ($rule::Decide($true, " New Install ") -eq $welcome)
+Check "the stamp is no version (an older version reads it as none)" ($null -eq $rule::Parse($rule::NewInstall))
+Check "a file from before stamps (no ModVersion): the notice" ($rule::Decide($true, "") -eq $existing)
+Check "a file stamped 1.5.3 (older than the defaults' version): the notice" ($rule::Decide($true, "1.5.3") -eq $existing)
+Check "a file stamped $($rule::DefaultsChangedIn): nothing" ($rule::Decide($true, $rule::DefaultsChangedIn) -eq $none)
+Check "a file stamped 1.6.0 (the first round's defaults; 1.6.1 moved four more): the notice" ($rule::Decide($true, "1.6.0") -eq $existing)
+Check "a file stamped later (1.6.2, 1.7.0): nothing" (($rule::Decide($true, "1.6.2") -eq $none) -and ($rule::Decide($true, "1.7.0") -eq $none))
+Check "an unreadable stamp: read as before stamps, the notice" ($rule::Decide($true, "abc") -eq $existing)
+Check "a stamp with spaces: read" (($rule::Decide($true, " " + $rule::DefaultsChangedIn + " ") -eq $none) -and ($rule::Decide($true, " 1.6.0 ") -eq $existing))
 
 ""
 if ($failed -eq 0) { "ALL CHECKS PASSED" } else { "$failed CHECK(S) FAILED"; exit 1 }

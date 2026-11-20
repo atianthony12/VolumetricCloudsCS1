@@ -42,7 +42,8 @@
 
   <String key="Profiles.Label">Perfil</String>
   <String key="Profiles.UnsavedProfile">(perfil sin guardar)</String>
-  <String key="Profiles.Defaults">(valores del mod)</String>
+  <String key="Profiles.NewDefaults">(valores nuevos)</String>
+  <String key="Profiles.OldDefaults">(valores antiguos)</String>
   <String key="Profiles.Save">Guardar</String>
   <String key="Profiles.Revert">Revertir</String>
   <String key="Profiles.Reverted">¡Revertido!</String>
@@ -268,6 +269,8 @@
   <String key="RainLocalised.Label">Sonido, carreteras mojadas y nieve siguen las nubes</String>
 
   <String key="Group.WetGround">Suelo mojado</String>
+  <String key="WetGroundOn.Label">Carreteras y suelo mojados con lluvia</String>
+  <String key="WetGroundOn.Tooltip">Las carreteras, los charcos, la hierba y los árboles se mojan durante y después de la lluvia, según los controles de abajo. Desactivado = todo queda seco</String>
 
   <String key="WetGround.Label">Carreteras mojadas y charcos</String>
   <String key="WetGround.Tooltip">Durante y después de la lluvia, las carreteras y el suelo se oscurecen y brillan, reflejan la ciudad y el cielo, y se forman charcos en el suelo llano. 0% = desactivado</String>
@@ -483,16 +486,23 @@
 
   <String key="ModVersion.Label">La versión del mod que se usó por última vez con este archivo y mostró sus novedades. Déjala como está</String>
 
-  <String key="NewDefaults.Text">¡Volumetric Weather tiene muchas novedades! Puedes conservar tu configuración o tu perfil actual, pero te recomiendo probar los nuevos valores predeterminados del mod para no perderte nada. Tu configuración actual se guardará, si tienes alguna.</String>
+  <String key="NewDefaults.Text">¡Volumetric Weather tiene muchas novedades! Puedes conservar tu configuración o tu perfil actual, pero te recomiendo probar los valores nuevos para no perderte nada. Tu configuración actual se guardará, si tienes alguna.</String>
+  <String key="NewDefaults.Performance">Los valores nuevos le piden un poco más a tu tarjeta gráfica. Si el juego va más lento con ellos, elige (valores antiguos) en la lista de perfiles, arriba del panel.</String>
   <String key="NewDefaults.Try">Probar los nuevos valores</String>
   <String key="NewDefaults.Keep">No, gracias</String>
-  <String key="NewDefaults.SavePicked">Tu perfil '{0}' tiene cambios sin guardar. Primero se guardarán en él, para que puedas volver a ellos eligiéndolo, y después se aplicarán los nuevos valores predeterminados.</String>
-  <String key="NewDefaults.SaveNew">Tu configuración actual no está guardada en un perfil. Primero se guardará como un perfil nuevo, '{0}', para que puedas volver a ella eligiéndolo, y después se aplicarán los nuevos valores predeterminados.</String>
+  <String key="NewDefaults.SavePicked">Tu perfil '{0}' tiene cambios sin guardar. Primero se guardarán en él, para que puedas volver a ellos eligiéndolo, y después se aplicará {1}.</String>
+  <String key="NewDefaults.SaveNew">Tu configuración actual no está guardada en un perfil. Primero se guardará como un perfil nuevo, '{0}', para que puedas volver a ella eligiéndolo, y después se aplicará {1}.</String>
   <String key="NewDefaults.SaveAndSwitch">Guardar y cambiar</String>
   <String key="NewDefaults.Back">Atrás</String>
   <String key="NewDefaults.SaveFailed">No se pudo guardar tu configuración, así que no se ha cambiado nada.</String>
   <String key="NewDefaults.Ok">Aceptar</String>
   <String key="NewDefaults.SavedName">Perfil sin guardar antes de {0}</String>
+
+  <String key="Welcome.Thanks">¡Gracias por instalar Volumetric Weather!</String>
+  <String key="Welcome.Performance">Este mod puede exigir bastante al rendimiento, sobre todo en equipos antiguos. Si los valores nuevos te dan tirones o bajan los FPS, prueba los valores antiguos.</String>
+  <String key="Welcome.Change">Puedes cambiarlo cuando quieras en la lista de perfiles, arriba del panel.</String>
+  <String key="Welcome.Keep">Mantener los valores nuevos</String>
+  <String key="Welcome.TryOld">Probar los valores antiguos</String>
 
   <String key="HudButtonX.Label">Botón del mod (sin Unified UI): distancia desde la izquierda</String>
   <String key="HudButtonY.Label">Botón del mod (sin Unified UI): distancia desde arriba</String>

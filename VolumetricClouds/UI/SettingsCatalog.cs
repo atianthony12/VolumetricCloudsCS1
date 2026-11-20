@@ -689,7 +689,7 @@ namespace VolumetricClouds.UI
             SettingsXml.SaveNow();
             Log.Msg("settings: RESET to defaults (" + Rows.Count + " rows; volumetric fog = " +
                     OnOff(Settings.FogEnabled)() + ", quality preset = " + PresetName(Settings.QualityPreset != null ? Settings.QualityPreset.value : Settings.Defaults.Preset) +
-                    ", profile = none" + (profile.Length > 0 ? " ('" + profile + "' let go first; its file is kept)" : "") + ")");
+                    ", profile = " + Profiles.NewDefaults + (profile.Length > 0 && profile != Profiles.NewDefaults ? " ('" + profile + "' let go first" + (Profiles.IsBuiltIn(profile) ? "" : "; its file is kept") + ")" : "") + ")");
         }
 
         /// <summary>
@@ -1071,10 +1071,13 @@ namespace VolumetricClouds.UI
                 ApplyPreset(pick);
             }
 
+            // (1.6.1) Not the version yet: the welcome is shown the first time the panel opens, in this session
+            // or a later one (UI.NoticeRule.NewInstall); answering it stamps the version.
             if (Settings.ModVersion != null)
-                Settings.ModVersion.value = Mod.Version;
+                Settings.ModVersion.value = NoticeRule.NewInstall;
 
-            Log.Msg("settings: a new install -- the mod's defaults, quality " + PresetName(pick) + ", stamped " + Mod.Version);
+            Log.Msg("settings: a new install -- the mod's defaults, quality " + PresetName(pick) + ", stamped '" + NoticeRule.NewInstall +
+                    "' until the welcome is answered");
         }
 
         /// <summary>The preset's name for the LOG, in English. The UI's names are in the language files.</summary>
@@ -1252,6 +1255,12 @@ namespace VolumetricClouds.UI
         private static bool LightningOn()
         {
             return Settings.LightningEnabled == null || Settings.LightningEnabled.value;
+        }
+
+        /// <summary>The wet ground switch (1.6.1) is on: its three rows can be set.</summary>
+        private static bool WetGroundSwitchedOn()
+        {
+            return Settings.WetGroundOn == null || Settings.WetGroundOn.value;
         }
 
         private static bool RainOn()
@@ -2696,17 +2705,31 @@ namespace VolumetricClouds.UI
                 AfterChange = State("localised rain sound and wet roads", OnOff(Settings.RainLocalised)),
             });
 
+            // 1.6.1 (the author: "Wet roads should be a toggleable option, and it should be off with the old defaults"):
+            // the switch heading the group; off, the wet pass draws nothing and the three rows under it are greyed. New:
+            // on for everyone (no older file has it), off in "(old defaults)" (Resources\OldDefaults.xml).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.Weather,
+                Group = "WetGround",
+                HasTooltip = true,
+                Bool = Settings.WetGroundOn,
+                DefaultBool = Settings.Defaults.WetGroundOn,
+                AfterChange = State("wet ground", OnOff(Settings.WetGroundOn)),
+            });
+
             // 2026-11-15 (the author: "move wet roads with puddles here into VW, and improve them"):
             // a screen pass over the ground (Sky.WetGround, WetGround.shader). 0% = nothing runs.
             Add(new Row
             {
                 Kind = RowKind.Percent,
                 Options = OptionsPage.Weather,
-                Group = "WetGround",
                 HasTooltip = true,
                 Float = Settings.WetGround,
                 DefaultFloat = Settings.Defaults.WetGround,
                 Min = 0f, Max = 200f, Step = 5f,
+                Enabled = WetGroundSwitchedOn,
                 AfterChange = State("wet ground", () => (Settings.WetGround.value * 100f).ToString("F0") + "%"),
             });
 
@@ -2720,6 +2743,7 @@ namespace VolumetricClouds.UI
                 Float = Settings.WetTerrain,
                 DefaultFloat = Settings.Defaults.WetTerrain,
                 Min = 0f, Max = 200f, Step = 5f,
+                Enabled = WetGroundSwitchedOn,
                 AfterChange = State("wet terrain", () => (Settings.WetTerrain.value * 100f).ToString("F0") + "%"),
             });
 
@@ -2731,6 +2755,7 @@ namespace VolumetricClouds.UI
                 Float = Settings.WetTrees,
                 DefaultFloat = Settings.Defaults.WetTrees,
                 Min = 0f, Max = 200f, Step = 5f,
+                Enabled = WetGroundSwitchedOn,
                 AfterChange = State("wet trees", () => (Settings.WetTrees.value * 100f).ToString("F0") + "%"),
             });
 

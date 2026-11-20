@@ -70,7 +70,8 @@
 
   <String key="Profiles.Label">Profile</String>
   <String key="Profiles.UnsavedProfile">(unsaved profile)</String>
-  <String key="Profiles.Defaults">(mod defaults)</String>
+  <String key="Profiles.NewDefaults">(new defaults)</String>
+  <String key="Profiles.OldDefaults">(old defaults)</String>
   <String key="Profiles.Save">Save</String>
   <String key="Profiles.Revert">Revert</String>
   <String key="Profiles.Reverted">Reverted!</String>
@@ -313,6 +314,8 @@
   <String key="RainLocalised.Label">Rain sound, wet roads and road snow follow the clouds</String>
 
   <String key="Group.WetGround">Wet ground</String>
+  <String key="WetGroundOn.Label">Wet roads and ground in rain</String>
+  <String key="WetGroundOn.Tooltip">Roads, puddles, grass and trees get wet in and after rain, set by the sliders below. Off = everything stays dry</String>
 
   <String key="WetGround.Label">Wet roads and puddles</String>
   <String key="WetGround.Tooltip">In and after rain, roads and ground get darker and shiny, mirror the city and the sky, and puddles form on flat ground. 0% = off</String>
@@ -543,17 +546,27 @@
   <String key="ModVersion.Label">The version of the mod that last ran with this file and showed its news. Leave it as it is</String>
 
   <!-- The one-time notice of the new mod defaults (UI/NewDefaultsNotice.cs), the first time the panel is opened after the update. -->
-  <String key="NewDefaults.Text">Volumetric Weather has a lot of new features! You can keep your current settings or profile, but I recommend you try the new mod defaults to make sure you haven't missed anything. Your current settings will be saved if you have any.</String>
+  <String key="NewDefaults.Text">Volumetric Weather has a lot of new features! You can keep your current settings or profile, but I recommend you try the new defaults to make sure you haven't missed anything. Your current settings will be saved if you have any.</String>
+  <!-- Shown in yellow under the text above. Mild on purpose: a heads-up, not a warning. -->
+  <String key="NewDefaults.Performance">The new defaults ask a bit more of your graphics card. If the game feels slower with them, pick (old defaults) in the Profile list at the top of the panel.</String>
   <String key="NewDefaults.Try">Try new defaults</String>
   <String key="NewDefaults.Keep">No thanks</String>
-  <String key="NewDefaults.SavePicked">Your profile "{0}" has unsaved changes. They will be saved into it first, so you can go back to them by picking it, and then the new defaults are put in.</String>
-  <String key="NewDefaults.SaveNew">Your current settings are not saved in a profile. They will be saved first as a new profile, "{0}", so you can go back to them by picking it, and then the new defaults are put in.</String>
+  <!-- {1} is the profile put in next: (new defaults) or (old defaults). -->
+  <String key="NewDefaults.SavePicked">Your profile "{0}" has unsaved changes. They will be saved into it first, so you can go back to them by picking it, and then {1} is put in.</String>
+  <String key="NewDefaults.SaveNew">Your current settings are not saved in a profile. They will be saved first as a new profile, "{0}", so you can go back to them by picking it, and then {1} is put in.</String>
   <String key="NewDefaults.SaveAndSwitch">Save and switch</String>
   <String key="NewDefaults.Back">Back</String>
   <String key="NewDefaults.SaveFailed">Your settings could not be saved, so nothing was changed.</String>
   <String key="NewDefaults.Ok">OK</String>
   <!-- The name of the profile the settings are saved as; {0} is the mod's version. -->
   <String key="NewDefaults.SavedName">Unsaved profile pre-{0}</String>
+
+  <!-- The welcome for a new install (UI/NewDefaultsNotice.cs), the first time the panel is opened. The middle paragraph is shown in yellow. -->
+  <String key="Welcome.Thanks">Thanks for installing Volumetric Weather!</String>
+  <String key="Welcome.Performance">This mod can be expensive on performance, especially with older hardware. If the new defaults are causing lag and FPS drop, try the old defaults.</String>
+  <String key="Welcome.Change">You can change this at any time in the Profile list at the top of the panel.</String>
+  <String key="Welcome.Keep">Keep new defaults</String>
+  <String key="Welcome.TryOld">Try old defaults</String>
 
   <String key="HudButtonX.Label">The mod's button (without Unified UI): distance from the left edge</String>
   <String key="HudButtonY.Label">The mod's button (without Unified UI): distance from the top edge</String>

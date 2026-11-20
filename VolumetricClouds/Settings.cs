@@ -223,6 +223,13 @@ namespace VolumetricClouds
         public static FloatSetting StormMist { get; private set; }
 
         /// <summary>
+        /// (1.6.1, the author: "Wet roads should be a toggleable option, and it should be off with the old defaults")
+        /// "Wet ground" on/off: off, the wet pass draws nothing -- roads, puddles, grass and soil, trees -- whatever
+        /// the three rows under it say (Sky.WetGround). A new row: on for everyone, as before it.
+        /// </summary>
+        public static BoolSetting WetGroundOn { get; private set; }
+
+        /// <summary>
         /// (2026-11-15) "Wet ground", 0..2: wet roads and ground darken, shine and mirror the city, with
         /// puddles on level hard ground and rings from the drops in them (Sky.WetGround). 0 = nothing runs.
         /// </summary>
@@ -1302,6 +1309,7 @@ namespace VolumetricClouds
             public const float RainWind = 1.05f;
             public const bool RainDetail = true;
             public const float StormMist = 1f;
+            public const bool WetGroundOn = true;
             public const float WetGround = 1f;
             public const float WetTerrain = 0.1f;
             public const float WetTrees = 0.1f;
@@ -1517,6 +1525,7 @@ namespace VolumetricClouds
                 RainWind = new FloatSetting("RainWind", Defaults.RainWind);
                 RainDetail = new BoolSetting("RainDetail", Defaults.RainDetail);
                 StormMist = new FloatSetting("StormMist", Defaults.StormMist);
+                WetGroundOn = new BoolSetting("WetGroundOn", Defaults.WetGroundOn);
                 WetGround = new FloatSetting("WetGround", Defaults.WetGround);
                 WetTerrain = new FloatSetting("WetTerrain", Defaults.WetTerrain);
                 WetTrees = new FloatSetting("WetTrees", Defaults.WetTrees);

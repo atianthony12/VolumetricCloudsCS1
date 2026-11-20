@@ -42,7 +42,8 @@
 
   <String key="Profiles.Label">Profil</String>
   <String key="Profiles.UnsavedProfile">(profil non enregistré)</String>
-  <String key="Profiles.Defaults">(réglages du mod)</String>
+  <String key="Profiles.NewDefaults">(nouveaux réglages)</String>
+  <String key="Profiles.OldDefaults">(anciens réglages)</String>
   <String key="Profiles.Save">Enregistrer</String>
   <String key="Profiles.Revert">Rétablir</String>
   <String key="Profiles.Reverted">Rétabli !</String>
@@ -268,6 +269,8 @@
   <String key="RainLocalised.Label">Son, routes mouillées et neige suivent les nuages</String>
 
   <String key="Group.WetGround">Sol mouillé</String>
+  <String key="WetGroundOn.Label">Routes et sol mouillés sous la pluie</String>
+  <String key="WetGroundOn.Tooltip">Les routes, les flaques, l’herbe et les arbres se mouillent pendant et après la pluie, selon les curseurs ci-dessous. Désactivé = tout reste sec</String>
 
   <String key="WetGround.Label">Routes mouillées et flaques</String>
   <String key="WetGround.Tooltip">Pendant et après la pluie, routes et sol s'assombrissent et brillent, reflètent la ville et le ciel, et des flaques se forment sur le sol plat. 0 % = désactivé</String>
@@ -483,16 +486,23 @@
 
   <String key="ModVersion.Label">La version du mod qui a utilisé ce fichier en dernier et en a montré les nouveautés. Ne la modifiez pas</String>
 
-  <String key="NewDefaults.Text">Volumetric Weather a beaucoup de nouveautés ! Vous pouvez garder vos réglages ou votre profil actuels, mais je vous recommande d’essayer les nouveaux réglages par défaut du mod pour ne rien manquer. Vos réglages actuels seront enregistrés, si vous en avez.</String>
+  <String key="NewDefaults.Text">Volumetric Weather a beaucoup de nouveautés ! Vous pouvez garder vos réglages ou votre profil actuels, mais je vous recommande d’essayer les nouveaux réglages pour ne rien manquer. Vos réglages actuels seront enregistrés, si vous en avez.</String>
+  <String key="NewDefaults.Performance">Les nouveaux réglages demandent un peu plus à votre carte graphique. Si le jeu vous semble plus lent avec eux, choisissez (anciens réglages) dans la liste des profils, en haut du panneau.</String>
   <String key="NewDefaults.Try">Essayer les nouveaux réglages</String>
   <String key="NewDefaults.Keep">Non merci</String>
-  <String key="NewDefaults.SavePicked">Votre profil « {0} » a des modifications non enregistrées. Elles y seront d’abord enregistrées, pour que vous puissiez y revenir en le choisissant, puis les nouveaux réglages par défaut seront appliqués.</String>
-  <String key="NewDefaults.SaveNew">Vos réglages actuels ne sont pas enregistrés dans un profil. Ils seront d’abord enregistrés comme nouveau profil, « {0} », pour que vous puissiez y revenir en le choisissant, puis les nouveaux réglages par défaut seront appliqués.</String>
+  <String key="NewDefaults.SavePicked">Votre profil « {0} » a des modifications non enregistrées. Elles y seront d’abord enregistrées, pour que vous puissiez y revenir en le choisissant, puis {1} sera appliqué.</String>
+  <String key="NewDefaults.SaveNew">Vos réglages actuels ne sont pas enregistrés dans un profil. Ils seront d’abord enregistrés comme nouveau profil, « {0} », pour que vous puissiez y revenir en le choisissant, puis {1} sera appliqué.</String>
   <String key="NewDefaults.SaveAndSwitch">Enregistrer et changer</String>
   <String key="NewDefaults.Back">Retour</String>
   <String key="NewDefaults.SaveFailed">Vos réglages n’ont pas pu être enregistrés, donc rien n’a été changé.</String>
   <String key="NewDefaults.Ok">OK</String>
   <String key="NewDefaults.SavedName">Profil non enregistré avant {0}</String>
+
+  <String key="Welcome.Thanks">Merci d’avoir installé Volumetric Weather !</String>
+  <String key="Welcome.Performance">Ce mod peut être gourmand en performances, surtout sur du matériel ancien. Si les nouveaux réglages provoquent des saccades ou une baisse de FPS, essayez les anciens réglages.</String>
+  <String key="Welcome.Change">Vous pouvez changer cela à tout moment dans la liste des profils, en haut du panneau.</String>
+  <String key="Welcome.Keep">Garder les nouveaux réglages</String>
+  <String key="Welcome.TryOld">Essayer les anciens réglages</String>
 
   <String key="HudButtonX.Label">Bouton du mod (sans Unified UI) : distance depuis le bord gauche</String>
   <String key="HudButtonY.Label">Bouton du mod (sans Unified UI) : distance depuis le bord supérieur</String>

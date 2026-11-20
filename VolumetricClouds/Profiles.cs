@@ -29,12 +29,17 @@ namespace VolumetricClouds
     /// a complete sky), the fog switch included: the player's own click on a sky they saved or
     /// chose, like "Reset all" (invariant 12).
     ///
-    /// "(mod defaults)" (1.5.0, asked for by the author): a fixed entry that is the mod's own
-    /// defaults -- it cannot be saved over or deleted. Picking it puts every default in; changing
-    /// anything afterwards shows "(unsaved profile)" (Save names it as a new profile); picking it
-    /// again throws those changes away. It is
-    /// never a file nor a name in &lt;Profile&gt; (players already have profiles called "Default"):
-    /// the bar shows it whenever no profile is picked and the sky is the defaults.
+    /// THE TWO BUILT-IN PROFILES (1.6.1, the author: "The mod defaults in 1.6.1 go in as a new profile, "(new
+    /// defaults)". The old mod defaults go in as a profile "(old defaults)". So these two profiles will always be
+    /// available", in place of 1.5.0's "(mod defaults)" entry): "(new defaults)" is the mod's defaults
+    /// (Settings.Defaults); "(old defaults)" is the mod's defaults before 1.6 (SettingsXml.OldDefaultsText, a
+    /// profile built into the mod, read as any profile is), for a computer the new sky is too heavy for.
+    /// Picked like any profile and kept in &lt;Profile&gt; under these
+    /// English names whatever the language (the list shows them translated): unsaved changes, Revert and the
+    /// rows' reset buttons follow them. They have no file of their own in the folder, cannot be saved over (Save names a new profile, as
+    /// "+" does) nor deleted. An older version reading one in &lt;Profile&gt; finds no such file and lets it go.
+    /// A new install, "Reset all", and a sky with no profile picked that is one of them at startup, are put
+    /// on that entry. A file in the folder with one of these names is not listed.
     ///
     /// Each profile is VolumetricCloudsProfiles\&lt;name&gt;.xml beside the settings file, in the
     /// settings file's own format: a player can send one to a friend, write one by hand, or drop
@@ -56,6 +61,30 @@ namespace VolumetricClouds
     {
         public const string FolderName = "VolumetricCloudsProfiles";
         private const string Extension = ".xml";
+
+        /// <summary>The built-in profile of the mod's defaults (1.6.1), as &lt;Profile&gt; keeps it. Never renamed.</summary>
+        public const string NewDefaults = "(new defaults)";
+
+        /// <summary>The built-in profile of the defaults before 1.6 (1.6.1), as &lt;Profile&gt; keeps it. Never renamed.</summary>
+        public const string OldDefaults = "(old defaults)";
+
+        /// <summary>One of the two built-in profiles, by any case.</summary>
+        public static bool IsBuiltIn(string name)
+        {
+            return ProfileName.Same(name, NewDefaults) || ProfileName.Same(name, OldDefaults);
+        }
+
+        /// <summary>A built-in profile is the pick.</summary>
+        public static bool BuiltInPicked
+        {
+            get { return _builtIn != null; }
+        }
+
+        /// <summary>The built-in profile in force (its constant), null when the pick is a file or none.</summary>
+        private static string _builtIn;
+
+        private static Dictionary<string, string> _oldDefaults;
+        private static bool _loggedBuiltInFile;
 
         public enum Status
         {
@@ -93,7 +122,7 @@ namespace VolumetricClouds
 
         /// <summary>
         /// The mod's defaults in <see cref="SettingsXml.ProfileValues"/>'s words, worked out once
-        /// (they are constants): what "(Mod defaults)" is (<see cref="SkyIsDefaults"/>).
+        /// (they are constants): what "(new defaults)" holds.
         /// </summary>
         private static Dictionary<string, string> _defaults;
 
@@ -131,25 +160,11 @@ namespace VolumetricClouds
         {
             get
             {
+                // (1.6.1: with none picked the sky is kept nowhere. Until then a sky at the mod's defaults
+                // counted as kept by "(Mod defaults)"; the two built-in profiles are picks now.)
                 Dictionary<string, string> now = SettingsXml.ProfileValues();
-                if (_kept != null && SameValues(now, _kept))
-                    return false;
-
-                // With none picked, a sky at the mod's defaults is kept too: "(Mod defaults)" brings
-                // it back (1.5.0).
-                return Selected.Length > 0 || !SameValues(now, DefaultValues);
+                return _kept == null || !SameValues(now, _kept);
             }
-        }
-
-        /// <summary>
-        /// The built-in "(Mod defaults)" entry (1.5.0): no profile is picked and every value a profile
-        /// carries is the mod's default. Not stored anywhere -- &lt;Profile&gt; stays empty, so an older
-        /// version reads the file as "no profile" -- but seen: change anything and the bar says
-        /// "(unsaved profile)"; pick it again (<see cref="SelectDefaults"/>) and the changes go.
-        /// </summary>
-        public static bool SkyIsDefaults
-        {
-            get { return Selected.Length == 0 && SameValues(SettingsXml.ProfileValues(), DefaultValues); }
         }
 
         private static Dictionary<string, string> DefaultValues
@@ -161,6 +176,52 @@ namespace VolumetricClouds
 
                 return _defaults;
             }
+        }
+
+        /// <summary>What "(old defaults)" holds, worked out once (null if it could not be: then it matches no sky).</summary>
+        private static Dictionary<string, string> OldDefaultValues
+        {
+            get
+            {
+                if (_oldDefaults == null)
+                {
+                    string error;
+                    _oldDefaults = SettingsXml.ProfileValuesOf(SettingsXml.OldDefaultsText, out error);
+                    if (_oldDefaults == null)
+                    {
+                        Log.Warn("profiles: the old defaults could not be worked out (" + error + ")");
+                        _oldDefaults = new Dictionary<string, string>();
+                    }
+                }
+
+                return _oldDefaults;
+            }
+        }
+
+        /// <summary>What a built-in profile holds, in <see cref="SettingsXml.ProfileValues"/>'s words.</summary>
+        private static Dictionary<string, string> ValuesOf(string builtIn)
+        {
+            return ProfileName.Same(builtIn, OldDefaults) ? OldDefaultValues : DefaultValues;
+        }
+
+        /// <summary>The built-in profile the sky is exactly, or null (the old defaults first: a reset's sky is the new).</summary>
+        private static string BuiltInMatching(Dictionary<string, string> sky)
+        {
+            if (SameValues(sky, DefaultValues))
+                return NewDefaults;
+            if (OldDefaultValues.Count > 0 && SameValues(sky, OldDefaultValues))
+                return OldDefaults;
+            return null;
+        }
+
+        /// <summary>The name the list shows for a pick: a built-in profile's in the player's language.</summary>
+        public static string Shown(string name)
+        {
+            if (ProfileName.Same(name, NewDefaults))
+                return Localization.Get("Profiles.NewDefaults");
+            if (ProfileName.Same(name, OldDefaults))
+                return Localization.Get("Profiles.OldDefaults");
+            return name;
         }
 
         /// <summary>
@@ -210,7 +271,7 @@ namespace VolumetricClouds
                 case Status.Unreadable:
                     return "'" + Selected + "' (its file cannot be read: " + _problem + ")";
                 default:
-                    return SkyIsDefaults ? "none (the sky is the mod's defaults)" : "none";
+                    return "none";
             }
         }
 
@@ -246,6 +307,20 @@ namespace VolumetricClouds
                             Log.Msg("profiles: '" + TextCut.Whole(Path.GetFileName(path)) + "' in " + Folder + " is not listed: its name is " +
                                     "empty, starts or ends with a space, holds a control character or half of a character " +
                                     "(a broken emoji, say), and could not be kept as the picked profile (rename the file)");
+                        }
+
+                        continue;
+                    }
+
+                    // The built-in profiles' names are theirs (1.6.1): a file so named (made by hand, or before
+                    // 1.5.0 refused names in parentheses) is not listed.
+                    if (IsBuiltIn(name))
+                    {
+                        if (!_loggedBuiltInFile)
+                        {
+                            _loggedBuiltInFile = true;
+                            Log.Msg("profiles: '" + Path.GetFileName(path) + "' in " + Folder + " is not listed: " + name +
+                                    " is a built-in profile's name (rename the file to see it)");
                         }
 
                         continue;
@@ -293,7 +368,7 @@ namespace VolumetricClouds
         {
             try
             {
-                return SelectFrom(name, "picked in the panel");
+                return IsBuiltIn(name) ? SelectBuiltIn(name, "picked in the panel") : SelectFrom(name, "picked in the panel");
             }
             catch (Exception e)
             {
@@ -303,41 +378,58 @@ namespace VolumetricClouds
         }
 
         /// <summary>
-        /// "(Mod defaults)" (1.5.0): the picked profile is let go (its file kept) and every value a
-        /// profile carries goes back to the mod's default -- a profile pick's rows only: the Now tab
-        /// and the computer's rows stay (invariant 11). The player's own click, as a profile pick is,
-        /// so the volumetric fog goes off with it (invariant 12). Nothing records it: the bar shows
-        /// the entry while the sky is still the defaults (<see cref="SkyIsDefaults"/>). Asking first
-        /// about unsaved changes is the bar's business. Never throws.
+        /// A built-in profile (1.6.1): "(new defaults)" puts every value a profile carries back to the mod's
+        /// default; "(old defaults)" puts in the built-in profile of the defaults before 1.6. A profile pick's rows only: the Now tab
+        /// and the computer's rows stay (invariant 11). The player's own click, as a profile pick is, so the
+        /// volumetric fog goes off with it (invariant 12). Asking first about unsaved changes is the caller's
+        /// business. False when nothing could be put in; the log says why.
         /// </summary>
-        public static bool SelectDefaults()
+        private static bool SelectBuiltIn(string name, string how)
         {
-            try
-            {
-                string previous = Selected;
-                if (previous.Length > 0 || _file != null)
-                    LetGo();
-
-                var changed = new List<Row>();
-                List<string> changes = SettingsXml.ResetProfiled(changed);
-
-                Log.Msg("profile: picked the mod's defaults (picked in the panel" +
-                        (previous.Length > 0 ? "; '" + previous + "' let go, its file kept" : "") + ") -- " +
-                        (changes.Count == 0 ? "no value changed" : changes.Count + " changed: " + Joined(changes)) +
-                        "; what a profile does not carry (the Now tab, quality, the panel) is left as it is");
-
-                SettingsXml.RunAfterChange(changed, "the mod's defaults");
-                _kept = SettingsXml.ProfileValues();
-
-                SettingsXml.SaveNow();
-                SettingsCatalog.RefreshAllUIs();
-                return true;
-            }
-            catch (Exception e)
-            {
-                Log.Error("profile: putting the mod's defaults in failed", e);
+            if (Settings.CurrentProfile == null)
                 return false;
+
+            bool old = ProfileName.Same(name, OldDefaults);
+            string builtIn = old ? OldDefaults : NewDefaults;
+            string previous = Selected;
+
+            var changed = new List<Row>();
+            string changes;
+            if (old)
+            {
+                string error;
+                SettingsXml.ReadResult result = SettingsXml.ReadProfile(SettingsXml.OldDefaultsText, out error, changed);
+                if (result == null)
+                {
+                    Log.Warn("profile: the old defaults could not be put in (" + error + "); nothing was changed");
+                    return false;
+                }
+
+                changes = changed.Count == 0 ? "no value changed" : changed.Count + " changed: " + result.Changes();
             }
+            else
+            {
+                List<string> list = SettingsXml.ResetProfiled(changed);
+                changes = list.Count == 0 ? "no value changed" : list.Count + " changed: " + Joined(list);
+            }
+
+            Settings.CurrentProfile.value = builtIn;
+            _builtIn = builtIn;
+            _file = null;
+            _state = Status.Selected;
+            _problem = null;
+            _neverRead = false;
+
+            Log.Msg("profile: picked " + builtIn + " (" + how +
+                    (previous.Length > 0 && previous != builtIn ? "; was '" + previous + "'" + (IsBuiltIn(previous) ? "" : ", its file kept") : "") +
+                    ") -- " + changes + "; what a profile does not carry (the Now tab, quality, the panel) is left as it is");
+
+            SettingsXml.RunAfterChange(changed, builtIn);
+            _kept = SettingsXml.ProfileValues();
+
+            SettingsXml.SaveNow();
+            SettingsCatalog.RefreshAllUIs();
+            return true;
         }
 
         /// <summary>
@@ -426,11 +518,14 @@ namespace VolumetricClouds
         public static bool Revert()
         {
             string name = Selected;
-            if (name.Length == 0 || _file == null || _state != Status.Selected)
+            if (name.Length == 0 || (_file == null && _builtIn == null) || _state != Status.Selected)
                 return false;
 
             try
             {
+                if (_builtIn != null)
+                    return SelectBuiltIn(_builtIn, "Revert: its sky put back");
+
                 return SelectFrom(name, "Revert: its saved sky put back");
             }
             catch (Exception e)
@@ -449,7 +544,8 @@ namespace VolumetricClouds
         {
             try
             {
-                if (!ProfileName.IsFileName(name))
+                // The built-in profiles cannot be deleted (1.6.1).
+                if (!ProfileName.IsFileName(name) || IsBuiltIn(name))
                     return false;
 
                 string path = PathOf(name);
@@ -458,14 +554,16 @@ namespace VolumetricClouds
                     File.Delete(path);
 
                 bool wasPicked = ProfileName.Same(Selected, name);
+                string now = null;
                 if (wasPicked)
                 {
                     LetGo();
                     _kept = null;
+                    now = TakeMatchingBuiltIn();
                 }
 
                 Log.Msg("profile: " + (had ? "removed '" + name + "' (" + path + ")" : "'" + name + "' had no file left to remove (" + path + ")") +
-                        (wasPicked ? "; no profile picked, the sky stays as it is" : ""));
+                        (wasPicked ? (now != null ? "; the sky is " + now + ", which is now the pick" : "; no profile picked, the sky stays as it is") : ""));
 
                 SettingsXml.SaveNow();
                 return true;
@@ -478,12 +576,46 @@ namespace VolumetricClouds
         }
 
         /// <summary>
-        /// After "Reset all" (which lets the pick go first): the defaults count as kept, since a
-        /// reset brings them back -- picking a profile right after one throws nothing away.
+        /// After "Reset all" (which lets the pick go first): the sky is the mod's defaults, so "(new defaults)"
+        /// is the pick (1.6.1; before, nothing was picked and the bar showed "(mod defaults)"), and it counts
+        /// as kept -- picking a profile right after one throws nothing away.
         /// </summary>
         public static void AfterReset()
         {
             _kept = SettingsXml.ProfileValues();
+            if (Settings.CurrentProfile == null)
+                return;
+
+            Settings.CurrentProfile.value = NewDefaults;
+            _builtIn = NewDefaults;
+            _file = null;
+            _state = Status.Selected;
+            _problem = null;
+            _neverRead = false;
+        }
+
+        /// <summary>
+        /// With no profile picked, a sky that IS one of the built-in profiles is put on it (no value changes);
+        /// its name, or null. The caller saves.
+        /// </summary>
+        private static string TakeMatchingBuiltIn()
+        {
+            if (Settings.CurrentProfile == null || Selected.Length > 0)
+                return null;
+
+            Dictionary<string, string> sky = SettingsXml.ProfileValues();
+            string builtIn = BuiltInMatching(sky);
+            if (builtIn == null)
+                return null;
+
+            Settings.CurrentProfile.value = builtIn;
+            _builtIn = builtIn;
+            _file = null;
+            _state = Status.Selected;
+            _problem = null;
+            _neverRead = false;
+            _kept = sky;
+            return builtIn;
         }
 
         // ---- the settings file's side ----------------------------------------------------------
@@ -514,6 +646,7 @@ namespace VolumetricClouds
         internal static void Reread()
         {
             _file = null;
+            _builtIn = null;
             _state = Status.None;
             _problem = null;
             _neverRead = false;
@@ -530,7 +663,37 @@ namespace VolumetricClouds
 
             if (name.Length == 0)
             {
+                // (1.6.1) A sky that is one of the built-in profiles is put on it: a new install, a player who
+                // never touched the sky (the old defaults), one who had picked "(mod defaults)".
+                string matching = TakeMatchingBuiltIn();
+                if (matching != null)
+                {
+                    Log.Msg("profiles: " + where + "; none picked, and the sky is " + matching + ", which is now the pick");
+                    SettingsXml.SaveNow();
+                    return;
+                }
+
                 Log.Msg("profiles: " + where + "; none picked");
+                return;
+            }
+
+            if (IsBuiltIn(name))
+            {
+                // A built-in profile (1.6.1): no file; what it holds is worked out.
+                string builtIn = ProfileName.Same(name, OldDefaults) ? OldDefaults : NewDefaults;
+                if (name != builtIn)
+                    Settings.CurrentProfile.value = builtIn;
+
+                _builtIn = builtIn;
+                _file = null;
+                _state = Status.Selected;
+                _problem = null;
+                _kept = new Dictionary<string, string>(ValuesOf(builtIn));
+
+                List<string> differ = ChangesSinceKept();
+                Log.Msg("profiles: " + where + "; " + builtIn + " picked -- " +
+                        (differ.Count == 0 ? "the sky is the one it holds"
+                         : "the sky has " + differ.Count + " change(s) not saved in it: " + Joined(differ)));
                 return;
             }
 
@@ -632,7 +795,7 @@ namespace VolumetricClouds
         /// </summary>
         internal static void OnSelectionEdited()
         {
-            string current = _file != null ? Path.GetFileNameWithoutExtension(_file.Path) : string.Empty;
+            string current = _builtIn ?? (_file != null ? Path.GetFileNameWithoutExtension(_file.Path) : string.Empty);
 
             try
             {
@@ -644,6 +807,13 @@ namespace VolumetricClouds
                 {
                     LetGo();
                     Log.Msg("profile: <Profile> was emptied in " + SettingsXml.FileName + "; no profile picked, the sky stays as it is");
+                    return;
+                }
+
+                if (IsBuiltIn(wanted))
+                {
+                    if (!SelectBuiltIn(wanted, "named in " + SettingsXml.FileName))
+                        Restore(current);
                     return;
                 }
 
@@ -709,6 +879,7 @@ namespace VolumetricClouds
 
             string previous = Selected;
             Settings.CurrentProfile.value = name;
+            _builtIn = null;
             _file = new WatchedFile(path);
             _file.Remember(text);
             _state = Status.Selected;
@@ -782,6 +953,7 @@ namespace VolumetricClouds
 
             string previous = Selected;
             Settings.CurrentProfile.value = name;
+            _builtIn = null;
             _file = new WatchedFile(path);
             _file.Remember(text);
             _state = Status.Selected;
@@ -900,7 +1072,9 @@ namespace VolumetricClouds
             string name = Selected;
             LetGo();
             _kept = null;
-            Log.Msg("profile: '" + name + "' was deleted on disk; no profile picked, the sky stays as it is");
+            string now = TakeMatchingBuiltIn();
+            Log.Msg("profile: '" + name + "' was deleted on disk; " +
+                    (now != null ? "the sky is " + now + ", which is now the pick" : "no profile picked, the sky stays as it is"));
 
             SettingsXml.SaveNow();
             SettingsCatalog.RefreshAllUIs();
@@ -927,6 +1101,7 @@ namespace VolumetricClouds
                 Settings.CurrentProfile.value = string.Empty;
 
             _file = null;
+            _builtIn = null;
             _state = Status.None;
             _problem = null;
             _neverRead = false;

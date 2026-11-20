@@ -84,19 +84,25 @@ namespace VolumetricClouds.Sky
             _field = field;
         }
 
+        /// <summary>The wet ground switch (1.6.1): off, all three rows read 0 (nothing drawn).</summary>
+        private static bool SwitchedOn
+        {
+            get { return Settings.WetGroundOn == null || Settings.WetGroundOn.value; }
+        }
+
         private static float Row
         {
-            get { return Settings.WetGround != null ? Mathf.Clamp(Settings.WetGround.value, 0f, 2f) : Settings.Defaults.WetGround; }
+            get { return !SwitchedOn ? 0f : Settings.WetGround != null ? Mathf.Clamp(Settings.WetGround.value, 0f, 2f) : Settings.Defaults.WetGround; }
         }
 
         private static float TerrainRow
         {
-            get { return Settings.WetTerrain != null ? Mathf.Clamp(Settings.WetTerrain.value, 0f, 2f) : Settings.Defaults.WetTerrain; }
+            get { return !SwitchedOn ? 0f : Settings.WetTerrain != null ? Mathf.Clamp(Settings.WetTerrain.value, 0f, 2f) : Settings.Defaults.WetTerrain; }
         }
 
         private static float TreesRow
         {
-            get { return Settings.WetTrees != null ? Mathf.Clamp(Settings.WetTrees.value, 0f, 2f) : Settings.Defaults.WetTrees; }
+            get { return !SwitchedOn ? 0f : Settings.WetTrees != null ? Mathf.Clamp(Settings.WetTrees.value, 0f, 2f) : Settings.Defaults.WetTrees; }
         }
 
         private void LateUpdate()
@@ -111,7 +117,8 @@ namespace VolumetricClouds.Sky
             WetMap.Update(row > 0f || terrainRow > 0f || treesRow > 0f || WheelSpray.Row > 0f);
 
             string why = null;
-            if (row <= 0f && terrainRow <= 0f && treesRow <= 0f) why = "the three wet rows are at 0%";
+            if (!SwitchedOn) why = "Wet ground is switched off";
+            else if (row <= 0f && terrainRow <= 0f && treesRow <= 0f) why = "the three wet rows are at 0%";
             else if (!Settings.WeatherShown) why = "the weather is hidden";
             else if (CloudRain.IsSnow) why = "a winter map (snow, not rain)";
             else if (wetness <= 0.01f) why = "the ground is dry";

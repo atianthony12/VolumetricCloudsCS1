@@ -20,6 +20,18 @@ do more. No setting is added, removed or renamed: profiles and saved cities stay
   and at night (was 150%); *Clouds hide the sky* 50% at every time and weather (was 0% by day and at sunset, 100%
   at night). Existing players keep their own values; the one-time message offering the mod defaults shows once
   more (to players who already answered it in 1.6.0 too), and new installs start with them.
+- Two built-in profiles at the top of the profile list, in place of *(mod defaults)*: *(new defaults)*, the
+  mod's defaults, and *(old defaults)*, the defaults from before 1.6, lighter on the graphics card. They work like
+  saved profiles (unsaved changes, *Revert* and each row's reset button follow them) but can't be saved over or
+  deleted; *Save* on one makes a new profile. A new install and *Reset all* start on *(new defaults)*. An
+  existing player with no profile picked whose sky is one of them sees it picked; everyone else keeps their pick.
+  Going back to an older version with one of them picked simply leaves no profile picked.
+- *Wet roads and ground in rain* (Weather tab, heading the *Wet ground* group): a switch for the whole wet ground,
+  roads, puddles, grass and trees; off, everything stays dry and the three sliders under it are greyed. On for
+  everyone, so nothing changes for existing players; off in *(old defaults)*.
+- The one-time message offering the new defaults now says, in yellow, that they ask a bit more of the graphics
+  card and that *(old defaults)* is there if the game feels slower. New installs get a welcome message the first
+  time they open the panel, with *Keep new defaults* and *Try old defaults*.
 - The *Quality preset* now also sets the *Cloud drawing size*: *Low* draws the clouds at a quarter of the screen,
   *Medium* at a third, *High* at half (the size everyone had). *Low* also leaves out *Softer cumulus*, *Natural
   Classic clouds*, *Cloud variety* and the glow above 100% of *Glow and softer shade*; their rows are greyed under
