@@ -5,7 +5,7 @@ namespace VolumetricClouds.Sky
 {
     /// <summary>
     /// THE DRAWN CLOUDS, COLUMN BY COLUMN (1.6.1; pure, tools\test-columns.ps1): what CloudColumnMap read back from the GPU
-    /// -- per column of sky round the camera, how much cloud stands in it (vertical optical depth), where its drawn
+    /// -- per column of sky over the city and round it, how much cloud stands in it (vertical optical depth), where its drawn
     /// underside and its dense part begin and where its top is -- and the lookups lightning places its bolts by.
     /// </summary>
     /// <remarks>
@@ -23,6 +23,10 @@ namespace VolumetricClouds.Sky
     ///   a  where it first reaches 1 (the cloud's dense part begins), a share of the slab (1 = never)
     /// No texel the shader draws is all zero (no cloud: g = 1; any cloud: r > 0), so an all-zero texel means the shader
     /// drew nothing there (a driver that refused the program): <see cref="Decode"/> refuses the map.
+    ///
+    /// The texels are kept as read and turned into metres only for the four a lookup reads (1.6.1, the performance pass:
+    /// decoding all 147k of them into four float arrays took 3.7-5.5 ms of the main thread a read on Mono; the lookups are
+    /// a few dozen per strike). Same numbers as before, to the bit: the same sums, once per byte value in a table.
     ///
     /// The clouds drift: a cloud over p when the map was drawn is over p + (drift now - drift then) now. Lookups take
     /// the drift now and shift back by the difference (in doubles: the drift grows for the city's whole life).
@@ -45,7 +49,23 @@ namespace VolumetricClouds.Sky
         /// <summary>The clouds' drift when it was drawn (CloudWind X + ShiftX, Z + ShiftZ).</summary>
         public readonly double DriftX, DriftZ;
 
-        private readonly float[] _tau, _under, _dense, _top;
+        // The texels as read (row 0 = the map's -z edge), and each byte's height in world metres.
+        private readonly Color32[] _texels;
+        private readonly float[] _heightOf = new float[256];
+        // For the log (Describe): cloudy and thick columns, and the underside's and top's bytes counted (their medians).
+        private readonly int[] _underBytes = new int[256], _topBytes = new int[256];
+        private int _cloudy, _strong;
+
+        /// <summary><see cref="DecodeTau"/> of every byte.</summary>
+        private static readonly float[] TauTable = MakeTauTable();
+
+        private static float[] MakeTauTable()
+        {
+            var t = new float[256];
+            for (int v = 0; v < 256; v++)
+                t[v] = DecodeTau((byte)v);
+            return t;
+        }
 
         /// <summary>One column, heights in world metres (NaN: none there).</summary>
         public struct Column
@@ -62,8 +82,9 @@ namespace VolumetricClouds.Sky
             }
         }
 
-        private CloudColumns(int size, float centreX, float centreZ, float side, float bottom, float top, double driftX, double driftZ)
+        private CloudColumns(Color32[] texels, int size, float centreX, float centreZ, float side, float bottom, float top, double driftX, double driftZ)
         {
+            _texels = texels;
             Size = size;
             CentreX = centreX;
             CentreZ = centreZ;
@@ -72,10 +93,9 @@ namespace VolumetricClouds.Sky
             Top = top;
             DriftX = driftX;
             DriftZ = driftZ;
-            _tau = new float[size * size];
-            _under = new float[size * size];
-            _dense = new float[size * size];
-            _top = new float[size * size];
+            float slab = top - bottom;
+            for (int v = 0; v < 256; v++)
+                _heightOf[v] = bottom + v / 255f * slab;
         }
 
         /// <summary>The texel's world centre along one axis (texel i of <see cref="Size"/>).</summary>
@@ -110,24 +130,46 @@ namespace VolumetricClouds.Sky
         public static CloudColumns Decode(byte[] rgba, int size, float centreX, float centreZ, float side, float bottom, float top,
             double driftX, double driftZ)
         {
-            if (rgba == null || rgba.Length < size * size * 4 || top <= bottom)
+            if (rgba == null || rgba.Length < size * size * 4)
+                return null;
+            var texels = new Color32[size * size];
+            for (int i = 0; i < texels.Length; i++)
+                texels[i] = new Color32(rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2], rgba[i * 4 + 3]);
+            return DecodePixels(texels, size, centreX, centreZ, side, bottom, top, driftX, driftZ);
+        }
+
+        /// <summary>
+        /// The same from the texels as Texture2D.GetPixels32 gives them, kept as they are (the map holds the array: the
+        /// caller must not write it afterwards). Null as <see cref="Decode"/>.
+        /// </summary>
+        public static CloudColumns DecodePixels(Color32[] texels, int size, float centreX, float centreZ, float side, float bottom, float top,
+            double driftX, double driftZ)
+        {
+            if (texels == null || texels.Length < size * size || top <= bottom || size < 2)
                 return null;
 
-            CloudColumns map = new CloudColumns(size, centreX, centreZ, side, bottom, top, driftX, driftZ);
-            float slab = top - bottom;
+            var map = new CloudColumns(texels, size, centreX, centreZ, side, bottom, top, driftX, driftZ);
+            float least = UndersideDepth * 0.5f;
+            float[] tauOf = TauTable;
+            int[] unders = map._underBytes, tops = map._topBytes;
+            int cloudy = 0, strong = 0;
             for (int i = 0; i < size * size; i++)
             {
-                byte r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2], a = rgba[i * 4 + 3];
-                if (r == 0 && g == 0 && b == 0 && a == 0)
+                Color32 p = texels[i];
+                if (p.r == 0 && p.g == 0 && p.b == 0 && p.a == 0)
                     return null;
-
-                float tau = DecodeTau(r);
-                map._tau[i] = tau;
-                bool cloud = g < 255 && tau >= UndersideDepth * 0.5f;
-                map._under[i] = cloud ? bottom + g / 255f * slab : float.NaN;
-                map._dense[i] = cloud && a < 255 ? bottom + a / 255f * slab : float.NaN;
-                map._top[i] = cloud ? bottom + Math.Max(b, g) / 255f * slab : float.NaN;
+                float tau = tauOf[p.r];
+                if (p.g < 255 && tau >= least)
+                {
+                    cloudy++;
+                    if (tau >= TauStrong)
+                        strong++;
+                    unders[p.g]++;
+                    tops[p.b > p.g ? p.b : p.g]++;
+                }
             }
+            map._cloudy = cloudy;
+            map._strong = strong;
             return map;
         }
 
@@ -150,21 +192,25 @@ namespace VolumetricClouds.Sky
             int x0 = Math.Min((int)fx, Size - 2), z0 = Math.Min((int)fz, Size - 2);
             float tx = fx - x0, tz = fz - z0;
             float tau = 0f, cw = 0f, under = 0f, top = 0f, dw = 0f, dense = 0f;
+            float least = UndersideDepth * 0.5f;
             for (int k = 0; k < 4; k++)
             {
-                int i = (z0 + (k >> 1)) * Size + x0 + (k & 1);
+                Color32 p = _texels[(z0 + (k >> 1)) * Size + x0 + (k & 1)];
                 float w = ((k & 1) == 1 ? tx : 1f - tx) * ((k >> 1) == 1 ? tz : 1f - tz);
-                tau += w * _tau[i];
-                if (!float.IsNaN(_under[i]))
+                float t = TauTable[p.r];
+                tau += w * t;
+                // A texel with cloud (the decode's rule): its underside, its top (the highest step, never under the
+                // underside), its dense part where it has one.
+                if (p.g < 255 && t >= least)
                 {
                     cw += w;
-                    under += w * _under[i];
-                    top += w * _top[i];
-                }
-                if (!float.IsNaN(_dense[i]))
-                {
-                    dw += w;
-                    dense += w * _dense[i];
+                    under += w * _heightOf[p.g];
+                    top += w * _heightOf[p.b > p.g ? p.b : p.g];
+                    if (p.a < 255)
+                    {
+                        dw += w;
+                        dense += w * _heightOf[p.a];
+                    }
                 }
             }
 
@@ -216,26 +262,28 @@ namespace VolumetricClouds.Sky
         /// <summary>Over the whole map: the share of columns with cloud and the median underside / top over the slab's bottom (for the log).</summary>
         public string Describe()
         {
-            int n = _tau.Length, cloudy = 0, strong = 0;
-            var unders = new System.Collections.Generic.List<float>();
-            var tops = new System.Collections.Generic.List<float>();
-            for (int i = 0; i < n; i++)
-            {
-                if (float.IsNaN(_under[i]))
-                    continue;
-                cloudy++;
-                if (_tau[i] >= TauStrong)
-                    strong++;
-                unders.Add(_under[i] - Bottom);
-                tops.Add(_top[i] - Bottom);
-            }
-            unders.Sort();
-            tops.Sort();
+            // From the bytes counted in the decode (1.6.1; it sorted two lists of every cloudy column before): the same
+            // medians, a step of the slab's 1/255 being the map's own resolution in height.
+            int n = Size * Size, cloudy = _cloudy, strong = _strong;
+            float slab = Top - Bottom;
             return (100f * cloudy / n).ToString("F0") + "% of columns cloudy, " + (100f * strong / n).ToString("F0") + "% thick (optical depth " +
                    TauStrong.ToString("F0") + "+)" + (cloudy > 0
-                       ? "; drawn underside " + unders[unders.Count / 2].ToString("F0") + " m over the slab's bottom (median; 10% at " +
-                         unders[unders.Count / 10].ToString("F0") + "), tops " + tops[tops.Count / 2].ToString("F0") + " m"
+                       ? "; drawn underside " + (ByteAt(_underBytes, cloudy / 2) / 255f * slab).ToString("F0") + " m over the slab's bottom (median; 10% at " +
+                         (ByteAt(_underBytes, cloudy / 10) / 255f * slab).ToString("F0") + "), tops " + (ByteAt(_topBytes, cloudy / 2) / 255f * slab).ToString("F0") + " m"
                        : "");
+        }
+
+        /// <summary>The byte at place <paramref name="index"/> (from 0) of the counted bytes in ascending order.</summary>
+        private static int ByteAt(int[] counts, int index)
+        {
+            int seen = 0;
+            for (int v = 0; v < counts.Length; v++)
+            {
+                seen += counts[v];
+                if (seen > index)
+                    return v;
+            }
+            return counts.Length - 1;
         }
     }
 }

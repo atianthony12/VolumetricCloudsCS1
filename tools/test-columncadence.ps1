@@ -3,7 +3,8 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-columncadence.ps1 [-Dll <scratch build>]
 #
 # The readback waits for the GPU (a hitch of tens of ms): never more often than every 6 s, and only when the map is no
-# longer true -- the noises slid through it, the cover or the density moved, the camera went far, something changed at once.
+# longer true -- the noises slid through it, the cover or the density moved, the drift carried its clouds off the city,
+# something changed at once. The map is fixed on the city (1.6.1): the camera is no reason at all.
 
 param(
     [string]$Dll = "$env:LOCALAPPDATA\Colossal Order\Cities_Skylines\Addons\Mods\VolumetricClouds\VolumetricClouds.dll"
@@ -26,20 +27,22 @@ $noiseLimit = [double]$C.GetField("NoiseLimit").GetValue($null)
 $coverLimit = [double]$C.GetField("CoverLimit").GetValue($null)
 $floor = [double]$C.GetField("MinInterval").GetValue($null)
 $ceiling = [double]$C.GetField("Ceiling").GetValue($null)
-$camLimit = [double]$C.GetField("CameraLimit").GetValue($null)
-# Why(haveMap, inputChanged, sinceRead, awakeSinceRead, noiseShift, coverChange, densityThen, densityNow, cameraOffset)
+$carryLimit = [double]$C.GetField("CarryLimit").GetValue($null)
+Check "no camera limit any more (the map is fixed on the city)" ($C.GetField("CameraLimit") -eq $null)
+# Why(haveMap, inputChanged, sinceRead, awakeSinceRead, noiseShift, coverChange, densityThen, densityNow, carried)
 function W($have, $changed, $since, $awake, $noise, $cover, $d0, $d1, $cam) {
     $r = $why.Invoke($null, [object[]]@([bool]$have, [bool]$changed, [double]$since, [double]$awake, [double]$noise, [double]$cover, [double]$d0, [double]$d1, [double]$cam))
     if ($r -eq $null) { "-" } else { [string]$r }
 }
 
-"  limits: at least $floor s apart; noise $noiseLimit m, cover $coverLimit, camera $camLimit m, ceiling $ceiling s unpaused"
+"  limits: at least $floor s apart; noise $noiseLimit m, cover $coverLimit, clouds carried $carryLimit m, ceiling $ceiling s unpaused"
 Check "the noises slide 0.25 x the drift (400 m of drift = 100 m)" ([Math]::Abs([double]$shift.Invoke($null, @([double]240, [double]-320, [double]1.25)) - 100) -lt 1e-9)
 Check "no map yet (a storm starting): at once, whatever the floor" ((W $false $false 0 0 0 0 1 1 0) -eq "first")
 Check "never two reads within the floor, whatever changed" ((W $true $true ($floor - 0.1) 1000 1e6 1 1 5 1e6) -eq "-")
 Check "a setting, texture or variant changed: read" ((W $true $true $floor 0 0 0 1 1 0) -eq "input")
-Check "the camera far from the map's middle: read" ((W $true $false 10 10 0 0 1 1 $camLimit) -eq "camera")
-Check "the camera a little off: no read" ((W $true $false 10 10 0 0 1 1 ($camLimit - 1)) -eq "-")
+Check "the drift carried the map's clouds the limit (a cloud position jump): read (carried)" ((W $true $false 10 10 0 0 1 1 $carryLimit) -eq "carried")
+Check "carried a little less: no read" ((W $true $false 10 10 0 0 1 1 ($carryLimit - 1)) -eq "-")
+Check "a plain drift: the noises' limit comes first (752 m of drift < the carry limit)" ((($noiseLimit / 0.25) -lt $carryLimit) -and ((W $true $false 10 10 $noiseLimit 0 1 1 ($noiseLimit / 0.25)) -eq "wind"))
 Check "the noises slid the limit through the map: read (wind)" ((W $true $false 10 10 $noiseLimit 0 1 1 0) -eq "wind")
 Check "a little less: no read" ((W $true $false 10 10 ($noiseLimit * 0.95) 0 1 1 0) -eq "-")
 Check "the cover moved the limit (down too): read (cover)" (((W $true $false 10 10 0 $coverLimit 1 1 0) -eq "cover") -and ((W $true $false 10 10 0 (-$coverLimit) 1 1 0) -eq "cover"))
@@ -47,6 +50,23 @@ Check "the density 12% up: read (density); 5%: no read" (((W $true $false 10 10 
 Check "half the noise and half the cover together: read (the shares add)" ((W $true $false 10 10 ($noiseLimit * 0.5) ($coverLimit * 0.5) 1 1 0) -ne "-")
 Check "nothing changed but the ceiling's unpaused time went by: read (ceiling)" ((W $true $false ($ceiling + 1) ($ceiling + 1) 0 0 1 1 0) -eq "ceiling")
 Check "paused for an hour with nothing changing: no read" ((W $true $false 3600 5 0 0 1 1 0) -eq "-")
+
+# "input" counts only the settings that can reach the clouds (Setting.CloudRevision, 1.6.1): a halo row or the panel's own
+# state moves Setting.Revision but not it; any other row moves both.
+$S = $asm.GetType("VolumetricClouds.Setting"); $FS = $asm.GetType("VolumetricClouds.FloatSetting"); $BS = $asm.GetType("VolumetricClouds.BoolSetting")
+$rev = $S.GetProperty("Revision", $flags); $crev = $S.GetProperty("CloudRevision", $flags)
+function Bump($setting, $value) {
+    $r0 = [int]$rev.GetValue($null, $null); $c0 = [int]$crev.GetValue($null, $null)
+    $setting.GetType().GetProperty("value").SetValue($setting, $value, $null)
+    return @(([int]$rev.GetValue($null, $null) - $r0), ([int]$crev.GetValue($null, $null) - $c0))
+}
+$halo = [Activator]::CreateInstance($FS, @("HaloFlareFar", [single]1, $null))
+$open = [Activator]::CreateInstance($BS, @("PanelOpenClocks", $false, $null))
+$cloud = [Activator]::CreateInstance($FS, @("CloudDensity", [single]1, $null))
+$fog = [Activator]::CreateInstance($FS, @("FogBrightness", [single]1, $null))
+$bumpHalo = Bump $halo ([single]0.5); $bumpOpen = Bump $open $true; $bumpCloud = Bump $cloud ([single]1.2); $bumpFog = Bump $fog ([single]1.4)
+Check "a halo row and the panel's own state: Revision moves, CloudRevision does not" (($bumpHalo[0] -eq 1) -and ($bumpHalo[1] -eq 0) -and ($bumpOpen[0] -eq 1) -and ($bumpOpen[1] -eq 0))
+Check "a cloud row and every other (fog here): both move" (($bumpCloud[0] -eq 1) -and ($bumpCloud[1] -eq 1) -and ($bumpFog[0] -eq 1) -and ($bumpFog[1] -eq 1))
 
 # His storm (2026-11-20 log: clouds drift ~21 m/s at 1x, the cover steady): how often.
 $per = $noiseLimit / (21.0 * 0.25)

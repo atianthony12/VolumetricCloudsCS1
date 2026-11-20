@@ -91,6 +91,19 @@ Check "a whole map decodes" ($map -ne $null)
 $bad = $bytes.Clone(); $bad[40] = 0; $bad[41] = 0; $bad[42] = 0; $bad[43] = 0
 Check "a map with an all-zero texel (the shader drew nothing there) is refused" ($null -eq $decode.Invoke($null, [object[]]@([byte[]]$bad, [int]$N, [single]$cx, [single]$cz, [single]$side, [single]$bottom, [single]$topY, [double]0, [double]0)))
 
+# 1.6.1 (the performance pass): the same map from the texels as GetPixels32 gives them, straight and into a map's own arrays.
+$decodePx = $CT.GetMethod("DecodePixels", $flags)
+$c32 = [UnityEngine.Color32]
+$px = [Array]::CreateInstance($c32, $N * $N)
+for ($q = 0; $q -lt $N * $N; $q++) { $px[$q] = New-Object UnityEngine.Color32 ($bytes[$q * 4], $bytes[$q * 4 + 1], $bytes[$q * 4 + 2], $bytes[$q * 4 + 3]) }
+$fromPx = $decodePx.Invoke($null, [object[]]@($px, [int]$N, [single]$cx, [single]$cz, [single]$side, [single]$bottom, [single]$topY, [double]500.0, [double]-300.0))
+$same = $fromPx -ne $null -and $fromPx.CentreX -eq $cx -and $fromPx.DriftZ -eq -300.0
+$probe = [object[]]@([single]($cx + (12.5 / $N - 0.5) * $side), [single]($cz + (5.5 / $N - 0.5) * $side), [double]500.0, [double]-300.0, $null)
+$probe2 = $probe.Clone()
+[void]$at.Invoke($map, $probe); [void]$at.Invoke($fromPx, $probe2)
+Check "the texels (GetPixels32's) read as the bytes do" ($same -and $probe[4].Under -eq $probe2[4].Under -and $probe[4].Tau -eq $probe2[4].Tau -and $probe[4].Dense -eq $probe2[4].Dense)
+Check ("the log's numbers from the counted bytes: '{0}'" -f $map.Describe()) ($map.Describe() -eq $fromPx.Describe() -and $map.Describe().StartsWith("50% of columns cloudy, 50% thick"))
+
 function Look($x, $z, $dx, $dz) {
     $args2 = [object[]]@([single]$x, [single]$z, [double]$dx, [double]$dz, $null)
     $ok = [bool]$at.Invoke($map, $args2)

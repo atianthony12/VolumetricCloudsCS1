@@ -3,19 +3,24 @@ using UnityEngine;
 namespace VolumetricClouds.Sky
 {
     /// <summary>
-    /// The cloud column map (1.6.1): the drawn clouds round the camera, column by column, for lightning to put its bolts
+    /// The cloud column map (1.6.1): the drawn clouds over the city and round it, column by column, for lightning to put its bolts
     /// in (<see cref="CloudColumns"/> says what is in it and why). Drawn by CloudColumnMap.shader (the clouds' own
     /// SampleDensityLod marched straight up per texel) and read back only while lightning can happen (<see cref="Want"/>)
     /// and only when the map is no longer true (<see cref="ColumnCadence"/>, never more often than every 6 s). Owned by
     /// CloudVolume, next to the shadow map; read through <see cref="Columns"/>.
     /// </summary>
     /// <remarks>
-    /// SIZE: <see cref="Size"/>^2 texels over <see cref="Side"/> m round the camera, 94 m a texel. Our strikes land 0.8-7 km
-    /// from the camera (LightningPlacement), crawlers run up to 6 km further, travelling storm cells are born 2-12 km
-    /// upwind and are up to 6 km across: 24 km (12 km each way) holds every strike near the camera and the near half
-    /// of a far cell; past it the old 2D test stands in (CloudLightning). 94 m a texel is finer than a heap (several
-    /// hundred metres across) and than the 200 m a crawler's cloud test steps by. Its steps: about 30 m of height each
-    /// (32-128), so the underside is known to a few metres (interpolated within a step).
+    /// WHERE (1.6.1, after his log of build 27331: centred on the camera, it was read again for every 3 km the camera went --
+    /// zooming, orbiting and panning zoomed out move the eye by kilometres -- 13 of 27 reads): FIXED ON THE CITY,
+    /// <see cref="Size"/>^2 texels over <see cref="Side"/> m centred on the world's origin, so the camera never causes a read.
+    /// The side is the 17.28 km map and <see cref="Margin"/> each way: from a camera at the map's very edge our strikes land
+    /// up to 7 km out (LightningPlacement.MaxDistance), the game's strike looks 0.5 km round for its top (ours 0.25), and
+    /// between two reads the drift carries what the map holds up to 1 km (ColumnCadence.CarryLimit) -- 8.5 km of the 8.64.
+    /// What falls back to the old 2D test (CloudLightning, as before 1.6.1): a burst's follow-up landing 0.1-1.5 km past an
+    /// outermost strike, a crawler's far end (it runs 2-6 km from its strike), a storm cell's strikes 8.64+ km off the map.
+    /// 90 m a texel (94 m before) is finer than a heap (several hundred metres across) and than the 200 m a crawler's cloud
+    /// test steps by. Its steps: about 30 m of height each (32-128), so the underside is known to a few metres
+    /// (interpolated within a step).
     ///
     /// The shader and its variant follow the shadow map's exactly: the light one under Simpler clouds, VC_PLUS on
     /// exactly while the shadow map has it (CloudShaders.PlusOn), the density the clouds are drawn with NOW
@@ -32,8 +37,12 @@ namespace VolumetricClouds.Sky
     /// </remarks>
     public sealed class CloudColumnMap
     {
-        public const int Size = 256;
-        public const float Side = 24000f;
+        /// <summary>The city's map is 17.28 km square; the column map reaches this far past each of its edges.</summary>
+        public const float Margin = 8640f;
+
+        /// <summary>Texels each way and the side (m), centred on the world's origin (fields, so the bench can try others).</summary>
+        public static int Size = 384;
+        public static float Side = 17280f + 2f * Margin;
 
         /// <summary>Metres of the slab's height a step of the march takes, and the most steps (the pass's COLUMN_MOST_STEPS).</summary>
         public static float StepHeight = 30f;
@@ -68,7 +77,6 @@ namespace VolumetricClouds.Sky
         private Material _material;
         private RenderTexture _target;
         private Texture2D _read;
-        private byte[] _bytes;
         private CloudColumns _columns;
         private bool _failed;
         private bool _loggedFirst;
@@ -112,7 +120,7 @@ namespace VolumetricClouds.Sky
         private string _lastWhy;
         private float _lastGap;
         private double _lastAwake;
-        private int _forFirst, _forInput, _forWind, _forCover, _forDensity, _forCamera, _forCeiling;
+        private int _forFirst, _forInput, _forWind, _forCover, _forDensity, _forCarried, _forCeiling;
 
         /// <summary>
         /// Once a frame from CloudVolume: reads the map back when lightning can happen and the map is no longer true
@@ -137,17 +145,13 @@ namespace VolumetricClouds.Sky
                 return;
             }
 
-            Camera camera = GameCamera.Get();
-            if (camera == null)
-                return;
-
             double driftX = CloudWind.X + CloudWind.ShiftX, driftZ = CloudWind.Z + CloudWind.ShiftZ;
             float cover = CloudShaderParams.Coverage;
             float density = Settings.CloudDensityNow;
             bool input = _columns != null &&
                          (field != _drawnField || field.Version != _drawnVersion || noise != _drawnNoise || CloudStyle.Texture != _drawnCumulus ||
-                          CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.Revision != _drawnRevision ||
-                          (CloudShaders.PlusOn && !CloudShaders.Lite) != _drawnPlus);
+                          CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.CloudRevision != _drawnRevision ||
+                          (CloudShaders.PlusOn && !CloudShaders.Lite) != _drawnPlus || _columns.Size != Size);
             string why;
             if (_columns == null)
             {
@@ -155,13 +159,13 @@ namespace VolumetricClouds.Sky
             }
             else
             {
+                // How far the drift carried the map's clouds (its lookups follow it; the shift included), and how far the noises
+                // slid through them (the wind alone: a shift moves weather map and noises alike).
                 double dx = driftX - _columns.DriftX, dz = driftZ - _columns.DriftZ;
-                // The map's middle as the clouds carried it (its lookups follow the drift).
-                Vector3 eye0 = camera.transform.position;
-                double mx = _columns.CentreX + dx - eye0.x, mz = _columns.CentreZ + dz - eye0.z;
+                double wx = CloudWind.X - _drawnWindX, wz = CloudWind.Z - _drawnWindZ;
                 why = ColumnCadence.Why(true, input, Time.realtimeSinceStartup - _readAt, _awake,
-                    ColumnCadence.NoiseShift(dx, dz, CloudWind.NoiseDrift), cover - _drawnCover, _drawnDensity, density,
-                    System.Math.Sqrt(mx * mx + mz * mz));
+                    ColumnCadence.NoiseShift(wx, wz, CloudWind.NoiseDrift), cover - _drawnCover, _drawnDensity, density,
+                    System.Math.Sqrt(dx * dx + dz * dz));
             }
 
             if (why == null)
@@ -176,10 +180,9 @@ namespace VolumetricClouds.Sky
             if (!Ensure())
                 return;
 
-            // Centred on the camera, on the texel grid (so a map drawn a second later lies on the same lattice).
+            // Fixed on the city: centred on the world's origin.
             float texel = Side / Size;
-            Vector3 eye = camera.transform.position;
-            float cx = Mathf.Round(eye.x / texel) * texel, cz = Mathf.Round(eye.z / texel) * texel;
+            const float cx = 0f, cz = 0f;
 
             CloudShaderParams.Apply(_material, field, noise);
             if (CloudShaders.PlusOn && !CloudShaders.Lite)
@@ -193,29 +196,29 @@ namespace VolumetricClouds.Sky
 
             RenderTexture previous = RenderTexture.active;
             System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+            Color32[] pixels;
             try
             {
                 RenderTexture.active = _target;
                 GL.Clear(false, true, new Color(0f, 0f, 0f, 0f));
                 Graphics.Blit(null, _target, _material);
                 RenderTexture.active = _target;
+                // The wait: ReadPixels holds the main thread until the GPU has drawn every frame queued before it, and this.
                 _read.ReadPixels(new Rect(0, 0, Size, Size), 0, 0, false);
-                Color32[] pixels = _read.GetPixels32();
-                for (int i = 0; i < pixels.Length; i++)
-                {
-                    _bytes[i * 4] = pixels[i].r;
-                    _bytes[i * 4 + 1] = pixels[i].g;
-                    _bytes[i * 4 + 2] = pixels[i].b;
-                    _bytes[i * 4 + 3] = pixels[i].a;
-                }
+                _drawMs = clock.Elapsed.TotalMilliseconds;
+                pixels = _read.GetPixels32();
             }
             finally
             {
                 RenderTexture.active = previous;
             }
             _readMs = clock.Elapsed.TotalMilliseconds;
+            _fetchMs = _readMs - _drawMs;
 
-            CloudColumns columns = CloudColumns.Decode(_bytes, Size, cx, cz, Side, bottom, top, driftX, driftZ);
+            // The texels kept as GetPixels32 gave them (a new array each call), checked and counted, turned into metres only
+            // where a lookup reads (1.6.1: no copy into bytes, no four float arrays decoded a read).
+            CloudColumns columns = CloudColumns.DecodePixels(pixels, Size, cx, cz, Side, bottom, top, driftX, driftZ);
+            _decodeMs = clock.Elapsed.TotalMilliseconds - _readMs;
             if (columns == null)
             {
                 _failed = true;
@@ -240,34 +243,49 @@ namespace VolumetricClouds.Sky
             _drawnCumulus = CloudStyle.Texture;
             _drawnMix = CloudMixMap.Map;
             _drawnDetail = CloudDetail.Texture;
-            _drawnRevision = Setting.Revision;
+            _drawnRevision = Setting.CloudRevision;
             _drawnPlus = CloudShaders.PlusOn && !CloudShaders.Lite;
             _drawnCover = cover;
             _drawnDensity = density;
+            _drawnWindX = CloudWind.X;
+            _drawnWindZ = CloudWind.Z;
 
-            if (!_loggedFirst)
+            if (!_loggedFirst || Log.Detailed)
             {
-                _loggedFirst = true;
-                Log.Msg("cloud column map: lightning places its bolts in the drawn clouds -- " + Size + "x" + Size + " columns over " +
-                        (Side / 1000f).ToString("F0") + " km round the camera (" + texel.ToString("F0") + " m), " + steps + " steps through " +
-                        bottom.ToString("F0") + ".." + top.ToString("F0") + " m, " + (CloudShaders.Lite ? "Simpler clouds' density" : CloudShaders.PlusOn ? "the extras' density" : "the clouds' density") +
-                        ". Read back (this one took " + _readMs.ToString("F1") + " ms of the main thread: the readback waits for the GPU) only " +
-                        "while lightning can happen and only when the map is no longer true -- the clouds' shapes slid " +
-                        ColumnCadence.NoiseLimit.ToString("F0") + " m through it, the cover moved " + ColumnCadence.CoverLimit.ToString("F2") +
-                        ", the density " + (ColumnCadence.DensityLimit * 100.0).ToString("F0") + "% (together), the camera went " +
-                        (ColumnCadence.CameraLimit / 1000.0).ToString("F0") + " km from its middle, or a setting or texture changed -- never " +
-                        "more often than every " + ColumnCadence.MinInterval.ToString("F0") + " s" +
-                        (ColumnCadence.Ceiling > 0.0 ? ", and at least every " + ColumnCadence.Ceiling.ToString("F0") + " s of unpaused time" : "") +
-                        "; " + columns.Describe());
-            }
-            else if (Log.Detailed)
-            {
-                Log.Detail("cloud column map: read #" + _drawn + " for " + why + ", " + _lastGap.ToString("F0") + " s after the last (" +
-                           _lastAwake.ToString("F0") + " s unpaused), took " + _readMs.ToString("F1") + " ms; read for: first " + _forFirst +
-                           ", settings or textures " + _forInput + ", wind " + _forWind + ", cover " + _forCover + ", density " + _forDensity +
-                           ", camera " + _forCamera + ", ceiling " + _forCeiling + "; " + columns.Describe());
+                System.Diagnostics.Stopwatch describing = System.Diagnostics.Stopwatch.StartNew();
+                string described = columns.Describe();
+                double describeMs = describing.Elapsed.TotalMilliseconds;
+                string took = "took " + (_readMs + _decodeMs + describeMs).ToString("F1") + " ms of the main thread (draw and ReadPixels, which waits " +
+                              "for the GPU: " + _drawMs.ToString("F1") + ", GetPixels32 " + _fetchMs.ToString("F1") + ", decode " +
+                              _decodeMs.ToString("F1") + ", this line's numbers " + describeMs.ToString("F2") + ")";
+                if (!_loggedFirst)
+                {
+                    _loggedFirst = true;
+                    Log.Msg("cloud column map: lightning places its bolts in the drawn clouds -- " + Size + "x" + Size + " columns over " +
+                            (Side / 1000f).ToString("F1") + " km fixed on the city (the map and " + (Margin / 1000f).ToString("F2") + " km round it; " +
+                            texel.ToString("F0") + " m a column), " + steps + " steps through " +
+                            bottom.ToString("F0") + ".." + top.ToString("F0") + " m, " + (CloudShaders.Lite ? "Simpler clouds' density" : CloudShaders.PlusOn ? "the extras' density" : "the clouds' density") +
+                            ". This read " + took + ". Read back only while lightning can happen and only when the map is no longer true -- the " +
+                            "clouds' shapes slid " + ColumnCadence.NoiseLimit.ToString("F0") + " m through it, the cover moved " +
+                            ColumnCadence.CoverLimit.ToString("F2") + ", the density " + (ColumnCadence.DensityLimit * 100.0).ToString("F0") +
+                            "% (together), the drift carried its clouds " + (ColumnCadence.CarryLimit / 1000.0).ToString("F0") +
+                            " km, or a setting that reaches the clouds or a texture changed (the camera never) -- never more often than every " +
+                            ColumnCadence.MinInterval.ToString("F0") + " s" +
+                            (ColumnCadence.Ceiling > 0.0 ? ", and at least every " + ColumnCadence.Ceiling.ToString("F0") + " s of unpaused time" : "") +
+                            "; " + described);
+                }
+                else
+                {
+                    Log.Detail("cloud column map: read #" + _drawn + " for " + why + ", " + _lastGap.ToString("F0") + " s after the last (" +
+                               _lastAwake.ToString("F0") + " s unpaused), " + took + "; read for: first " + _forFirst +
+                               ", settings or textures " + _forInput + ", wind " + _forWind + ", cover " + _forCover + ", density " + _forDensity +
+                               ", clouds carried off " + _forCarried + ", ceiling " + _forCeiling + "; " + described);
+                }
             }
         }
+
+        private double _drawMs, _fetchMs, _decodeMs;
+        private double _drawnWindX, _drawnWindZ;
 
         private void CountReason(string why)
         {
@@ -278,7 +296,7 @@ namespace VolumetricClouds.Sky
                 case "wind": _forWind++; break;
                 case "cover": _forCover++; break;
                 case "density": _forDensity++; break;
-                case "camera": _forCamera++; break;
+                case "carried": _forCarried++; break;
                 default: _forCeiling++; break;
             }
         }
@@ -288,10 +306,16 @@ namespace VolumetricClouds.Sky
             if (_material == null)
                 _material = new Material(CloudShaders.Lite ? _lite : _whole) { name = "VolumetricCloudsColumnMap" };
 
-            if (_target != null && !_target.IsCreated())
+            if (_target != null && (!_target.IsCreated() || _target.width != Size))
             {
+                _target.Release();
                 Object.Destroy(_target);
                 _target = null;
+            }
+            if (_read != null && _read.width != Size)
+            {
+                Object.Destroy(_read);
+                _read = null;
             }
             if (_target == null)
             {
@@ -307,8 +331,6 @@ namespace VolumetricClouds.Sky
             }
             if (_read == null)
                 _read = new Texture2D(Size, Size, TextureFormat.RGBA32, false, true);
-            if (_bytes == null)
-                _bytes = new byte[Size * Size * 4];
             return true;
         }
 

@@ -34,7 +34,8 @@ removed or renamed: `VolumetricClouds.xml`, profiles and saved cities stay exact
   the underside of the clouds instead of under them. The game's own strikes still land where the game puts them.
 - Cloud shadows of tall clouds (*Cumulus*, *Mixed*, *Auto*, especially with *Cumulus height* and *Cloud variety*)
   have soft edges again instead of blocky ones. *Classic* clouds up to 800 m thick (the default is 700 m) cast
-  exactly the shadows they did; thicker ones get the same finer shadows.
+  exactly the shadows they did; thicker ones get the same finer shadows. These finer shadows are redrawn a little
+  less often, so they cost about what they did.
 - Fog and rain curtains seen together blend by distance: from inside a fog layer in heavy rain, the far fog no
   longer shows as a bright band in front of the rain, and nothing jumps as the camera rises out of the fog. Rain
   alone or fog alone looks exactly as before.

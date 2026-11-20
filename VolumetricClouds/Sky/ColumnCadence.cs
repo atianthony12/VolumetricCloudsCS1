@@ -17,11 +17,14 @@ namespace VolumetricClouds.Sky
     ///   the cover    the cut moves every cloud's edge: <see cref="CoverLimit"/>
     ///   the density  the clouds' density now (clock, cloud button): the optical depths scale with it: <see cref="DensityLimit"/>
     ///                as |ln(now / then)|
-    /// and on its own, the camera: the map covers 12 km each way round where it was drawn (moving with the clouds); strikes
-    /// land up to 7 km from the camera (plus 0.5 km for a top's search), so once the camera is <see cref="CameraLimit"/> m from
-    /// the map's middle the far side of the strikes' ring would leave it.
+    /// and on its own, the map's clouds carried off the city: the map is drawn fixed on the city (CloudColumnMap: the 17.28 km
+    /// map and a margin round it, 1.6.1 after his log -- centred on the camera before, it was read again for every 3 km the
+    /// camera went, 13 of his 27 reads), its lookups follow the drift, so once the drift (the cloud position shift included:
+    /// a jump of it is one) has carried what it holds <see cref="CarryLimit"/> m the margin is used up. The camera itself
+    /// never causes a read: a strike past the map takes the old 2D test, as it always did.
     ///
-    /// Anything that changes the drawn clouds at once -- a setting (Setting.Revision), a new field or seed, the noise / Cumulus /
+    /// Anything that changes the drawn clouds at once -- a setting that can reach them (Setting.CloudRevision: not the panel's
+    /// own state, the profile's name or the halos), a new field or seed, the noise / Cumulus /
     /// mix / detail textures, the extras' variant switching -- makes the map untrue at once ("input"): the caller stops using
     /// it until the read. No map yet (a storm starting): at once, whatever the floor.
     ///
@@ -38,7 +41,7 @@ namespace VolumetricClouds.Sky
         /// <summary>Never two reads closer than this (s), but for the first one.</summary>
         public static double MinInterval = 6.0;
 
-        /// <summary>How far (m) the noises may slide through the map's clouds: two of its 94 m texels.</summary>
+        /// <summary>How far (m) the noises may slide through the map's clouds: two of its texels (94 m when measured; 90 m since 1.6.1's fixed map).</summary>
         public static double NoiseLimit = 188.0;
 
         /// <summary>How far the cover may move (0..1).</summary>
@@ -47,8 +50,11 @@ namespace VolumetricClouds.Sky
         /// <summary>|ln(density now / then)| allowed (0.1: about 10%).</summary>
         public static double DensityLimit = 0.1;
 
-        /// <summary>How far (m) the camera may be from the map's middle (as the clouds carried it).</summary>
-        public static double CameraLimit = 3000.0;
+        /// <summary>
+        /// How far (m) the drift may carry the map's clouds from where they were drawn (its margin's share for it,
+        /// CloudColumnMap.Margin). The noises reach their limit first at a plain drift (188 m of slide = 752 m of drift).
+        /// </summary>
+        public static double CarryLimit = 1000.0;
 
         /// <summary>Unpaused seconds after which it is read again whatever happened (0: never).</summary>
         public static double Ceiling = 300.0;
@@ -68,10 +74,11 @@ namespace VolumetricClouds.Sky
 
         /// <summary>
         /// Why the map must be read now, in a word (null: not now). <paramref name="sinceRead"/>: real seconds since the last
-        /// read; <paramref name="awakeSinceRead"/>: unpaused ones.
+        /// read; <paramref name="awakeSinceRead"/>: unpaused ones; <paramref name="carried"/>: how far (m) the drift has
+        /// carried the map's clouds since.
         /// </summary>
         public static string Why(bool haveMap, bool inputChanged, double sinceRead, double awakeSinceRead,
-            double noiseShift, double coverChange, double densityThen, double densityNow, double cameraOffset)
+            double noiseShift, double coverChange, double densityThen, double densityNow, double carried)
         {
             if (!haveMap)
                 return "first";
@@ -79,8 +86,8 @@ namespace VolumetricClouds.Sky
                 return null;
             if (inputChanged)
                 return "input";
-            if (cameraOffset >= CameraLimit)
-                return "camera";
+            if (carried >= CarryLimit)
+                return "carried";
 
             double noise = noiseShift / NoiseLimit, cover = Math.Abs(coverChange) / CoverLimit;
             double used = Used(noiseShift, coverChange, densityThen, densityNow);

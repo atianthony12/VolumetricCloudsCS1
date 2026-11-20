@@ -15,7 +15,7 @@ namespace VolumetricClouds.Sky
     /// channel (WetGround.shader reads r). Not saved: a city starts with the game's wetness everywhere (share 1).
     ///
     /// Cheap: <see cref="RowsPerFrame"/> rows a frame on the main thread (CloudRain.LocalRain and the ground height per
-    /// cell), the whole map in about a quarter of a second, uploaded once per sweep. Each row runs the rule over the
+    /// cell), the whole map in about two seconds, uploaded once per sweep in a frame of its own. Each row runs the rule over the
     /// simulation frames gone by since its last visit (SimulationManager.m_currentFrameIndex): frozen while the game is
     /// paused, faster at a higher speed, exactly as the game's own number moves.
     ///
@@ -30,7 +30,15 @@ namespace VolumetricClouds.Sky
     {
         public const int Size = 128;
         private const float MapSide = 17280f;
-        private const int RowsPerFrame = 8;
+        /// <summary>
+        /// Rows a frame (1.6.1: 2, was 8 -- his log had 0.06-0.37 ms of the main thread a frame for 8). The rule is exact over
+        /// any number of frames (each row runs it over the simulation frames since its last visit), so fewer rows only
+        /// lengthen the sweep: 64 frames plus one for its upload and one for the row whose ground is re-read, ~2.2 s at 30
+        /// fps (0.55 s before). What a longer sweep changes is only how often each cell's rain is looked at: the rain applied
+        /// over the frames since a cell's last visit is the rain there at the visit, and in 2.2 s the clouds carry it about
+        /// 46 m at his 21 m/s, a third of a cell's 135 m.
+        /// </summary>
+        private const int RowsPerFrame = 2;
         /// <summary>More simulation frames than this between two visits of a row counts as none (a reset of the frame index).</summary>
         private const uint MostFrames = 600000u;
 
@@ -120,45 +128,70 @@ namespace VolumetricClouds.Sky
             _allDry = false;
 
             System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
-            TerrainManager terrain = Singleton<TerrainManager>.exists ? Singleton<TerrainManager>.instance : null;
-            float cell = MapSide / Size;
-            for (int k = 0; k < RowsPerFrame; k++)
+            if (_uploadDue)
             {
-                int row = _nextRow;
-                uint frames = WetMapRules.FramesSince(_rowFrame[row], frame, MostFrames);
-                _rowFrame[row] = frame;
-                float z = (row + 0.5f) * cell - MapSide * 0.5f;
-                // The ground's height under each cell: read on the first visit, then one row again per sweep (all of
-                // them in about half a minute: terrain is changed by hand, slowly).
-                bool readGround = !_groundRead[row] || row == _sweeps % Size;
-                for (int col = 0; col < Size; col++)
-                {
-                    int i = row * Size + col;
-                    float x = (col + 0.5f) * cell - MapSide * 0.5f;
-                    if (readGround)
-                        _ground[i] = terrain != null ? terrain.SampleRawHeightSmooth(new Vector3(x, 0f, z)) : 0f;
-                    float w = _cells[i];
-                    if (frames > 0u)
-                        w = WetMapRules.Step(w, rainNow * CloudRain.LocalRain(new Vector3(x, _ground[i], z)), frames);
-                    w = WetMapRules.Follow(w, game);
-                    _cells[i] = w;
-                    float share = WetMapRules.Ratio(w, game);
-                    _share[i] = share;
-                    byte b = (byte)Mathf.RoundToInt(share * 255f);
-                    _pixels[i] = new Color32(b, b, b, b);
-                }
-
-                _groundRead[row] = true;
-                _nextRow = (_nextRow + 1) % Size;
-                if (_nextRow == 0)
-                {
+                // The sweep that just ended, uploaded in a frame of its own (1.6.1): never on top of the rows' work. Not at all
+                // when no cell's byte changed over the sweep (rain steady over dry or soaked ground).
+                _uploadDue = false;
+                if (_sweepChanged)
                     Upload();
-                    _sweeps++;
-                }
+                _sweepChanged = false;
+                double up = clock.Elapsed.TotalMilliseconds;
+                _uploadMs = up;
+                _uploadMsMost = System.Math.Max(_uploadMsMost, up);
             }
-            double ms = clock.Elapsed.TotalMilliseconds;
-            _frameMs = ms;
-            _frameMsMost = System.Math.Max(_frameMsMost, ms);
+            else
+            {
+                TerrainManager terrain = Singleton<TerrainManager>.exists ? Singleton<TerrainManager>.instance : null;
+                float cell = MapSide / Size;
+                for (int k = 0; k < RowsPerFrame; k++)
+                {
+                    int row = _nextRow;
+                    // The ground's height under each cell: read on the first visit, then one row again per sweep (all of them
+                    // in about 5 minutes at 30 fps: terrain is changed by hand, slowly). A row that reads its ground has the
+                    // frame to itself (1.6.1): 128 more height lookups.
+                    bool readGround = !_groundRead[row] || row == _sweeps % Size;
+                    if (readGround && k > 0)
+                        break;
+                    uint frames = WetMapRules.FramesSince(_rowFrame[row], frame, MostFrames);
+                    _rowFrame[row] = frame;
+                    float z = (row + 0.5f) * cell - MapSide * 0.5f;
+                    for (int col = 0; col < Size; col++)
+                    {
+                        int i = row * Size + col;
+                        float x = (col + 0.5f) * cell - MapSide * 0.5f;
+                        if (readGround)
+                            _ground[i] = terrain != null ? terrain.SampleRawHeightSmooth(new Vector3(x, 0f, z)) : 0f;
+                        float w = _cells[i];
+                        if (frames > 0u)
+                            w = WetMapRules.Step(w, rainNow * CloudRain.LocalRain(new Vector3(x, _ground[i], z)), frames);
+                        w = WetMapRules.Follow(w, game);
+                        _cells[i] = w;
+                        float share = WetMapRules.Ratio(w, game);
+                        _share[i] = share;
+                        byte b = (byte)Mathf.RoundToInt(share * 255f);
+                        if (_pixels[i].r != b)
+                        {
+                            _pixels[i] = new Color32(b, b, b, b);
+                            _sweepChanged = true;
+                        }
+                    }
+
+                    _groundRead[row] = true;
+                    _nextRow = (_nextRow + 1) % Size;
+                    if (_nextRow == 0)
+                    {
+                        _uploadDue = true;
+                        _sweeps++;
+                        break;
+                    }
+                    if (readGround)
+                        break;
+                }
+                double ms = clock.Elapsed.TotalMilliseconds;
+                _frameMs = ms;
+                _frameMsMost = System.Math.Max(_frameMsMost, ms);
+            }
 
             if (Log.Detailed && Time.time >= _nextLog)
             {
@@ -172,10 +205,15 @@ namespace VolumetricClouds.Sky
                 Log.Detail("wet map: the game's wetness " + (game * 100f).ToString("F0") + "%, rain " + (rainNow * 100f).ToString("F0") +
                            "%; the cells' share of it: mean " + (sum / _share.Length * 100f).ToString("F0") + "%, least " +
                            (least * 100f).ToString("F0") + "%; " + _sweeps + " sweeps; " + RowsPerFrame + " rows a frame took " +
-                           _frameMs.ToString("F3") + " ms (the most since the last line " + _frameMsMost.ToString("F3") + " ms)");
+                           _frameMs.ToString("F3") + " ms (the most since the last line " + _frameMsMost.ToString("F3") + " ms), the upload " +
+                           _uploadMs.ToString("F3") + " ms (most " + _uploadMsMost.ToString("F3") + " ms, its own frame once a sweep)");
                 _frameMsMost = 0.0;
+                _uploadMsMost = 0.0;
             }
         }
+
+        private static bool _uploadDue, _sweepChanged;
+        private static double _uploadMs, _uploadMsMost;
 
         /// <summary>The share of the game's wetness at <paramref name="position"/> (bilinear), 1 when the map is not following.</summary>
         public static float At(Vector3 position)
@@ -216,6 +254,8 @@ namespace VolumetricClouds.Sky
             for (int r = 0; r < Size; r++)
                 _rowFrame[r] = frame;
             _nextRow = 0;
+            _uploadDue = false;
+            _sweepChanged = false;
             // A texture left from before shows the share 1 at once, not the old map until the first sweep ends.
             if (_texture != null)
                 Upload();

@@ -26,7 +26,26 @@ namespace VolumetricClouds
         {
             this.name = name;
             LegacyKey = legacyKey ?? name;
+            _reachesClouds = !DrawsNoCloud(name);
             Registry.Add(this);
+        }
+
+        private readonly bool _reachesClouds;
+
+        /// <summary>
+        /// Settings that cannot reach the clouds' density, their shadow map or their column map (1.6.1): the panel's own
+        /// state (open headings, clocks and cloud buttons, its look, the button's place, the language, the log), which
+        /// profile is picked and the version stamp, and the light halos (their own shaders, never the clouds'). Every
+        /// other setting counts, fog, rain, light and lightning rows included: none of them is proven not to reach the
+        /// clouds through some reader, and counting one too many only costs a draw.
+        /// </summary>
+        private static bool DrawsNoCloud(string name)
+        {
+            if (name == null)
+                return false;
+            return name.StartsWith("PanelOpen") || name == "PanelSkin" || name.StartsWith("HudButton") || name == "IconPlace" ||
+                   name == "Language" || name == "DetailedLogging" || name == "Profile" || name == "ModVersion" ||
+                   name.StartsWith("Halo");
         }
 
         /// <summary>The element name in VolumetricClouds.xml and in a profile's file.</summary>
@@ -50,9 +69,18 @@ namespace VolumetricClouds
         /// </summary>
         public static int Revision { get; private set; }
 
-        protected static void Changed()
+        /// <summary>
+        /// The same, counting only the settings that can reach the clouds as drawn (all but the panel's own state, the
+        /// profile's name, the version stamp and the halos: <see cref="DrawsNoCloud"/>), 1.6.1: what the cloud shadow map
+        /// and the cloud column map are redrawn for at once. A halo slider or a heading opened no longer redraws them.
+        /// </summary>
+        public static int CloudRevision { get; private set; }
+
+        protected void Changed()
         {
             Revision++;
+            if (_reachesClouds)
+                CloudRevision++;
             SettingsXml.MarkDirty();
         }
     }

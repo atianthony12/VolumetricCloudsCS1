@@ -68,16 +68,39 @@ namespace VolumetricClouds.Sky
             }
         }
 
-        private static float UpdateInterval
+        private static int Rate
         {
             get
             {
-                int rate = Settings.ShadowMapRate != null
+                return Settings.ShadowMapRate != null
                     ? Mathf.Clamp(Settings.ShadowMapRate.value, 1, 60)
                     : Settings.Defaults.ShadowMapRate;
-                return 1f / rate;
             }
         }
+
+        private static float UpdateInterval
+        {
+            get { return 1f / Rate; }
+        }
+
+        /// <summary>
+        /// The least time between two draws now (1.6.1): the row's rate, stretched by the steps the map was last marched with
+        /// over 20 (ShadowCadence.Interval), so a draw a second costs what it did in 1.6.0. Before the first draw: the row's.
+        /// </summary>
+        private float DrawInterval
+        {
+            get
+            {
+                return (float)ShadowCadence.Interval(Rate, _drawnSteps > 0 ? _drawnSteps : FewestSteps, FewestSteps, _shadowSpeed,
+                    CookieSize / Mathf.Max(1, _resolution > 0 ? _resolution : WantedResolution));
+            }
+        }
+
+        private int _drawnSteps;
+        // How fast the wind moved the shadows over the ground between the last two draws (m a second, the game's speed in
+        // it: WhyDraw's wind measure over the time between them), and when the last was drawn.
+        private double _shadowSpeed;
+        private float _drawnAt = -1f;
 
         private static readonly int IdLightPos = Shader.PropertyToID("_LightPos");
         private static readonly int IdLightRight = Shader.PropertyToID("_LightRight");
@@ -213,20 +236,26 @@ namespace VolumetricClouds.Sky
             // any setting changed, a new pattern or texture, draws at once.
             float coverage = CloudShaderParams.Coverage;
             float depth = ShadowDepth(coverage);
-            _nextUpdate = Time.time + UpdateInterval;
+            _nextUpdate = Time.time + DrawInterval;
             string why = IsReady ? WhyDraw(field, noise, t, coverage, depth) : "first";
             if (why == null)
             {
                 _skipped++;
                 return;
             }
+            // The shadows' speed since the last draw (before the drift drawn from is replaced): the half-texel bound's.
+            float sinceDraw = Time.time - _drawnAt;
+            if (IsReady && _drawnAt >= 0f && sinceDraw > 1e-4f && !double.IsNaN(_drawnDriftX))
+                _shadowSpeed = ShadowCadence.DriftShift(CloudWind.X - _drawnDriftX, CloudWind.Z - _drawnDriftZ, CloudWind.ShiftX - _drawnShiftX,
+                    CloudWind.ShiftZ - _drawnShiftZ, CloudWind.NoiseDrift) / sinceDraw;
+            _drawnAt = Time.time;
             _drawnField = field;
             _drawnVersion = field.Version;
             _drawnNoise = noise;
             _drawnCumulus = CloudStyle.Texture;
             _drawnMix = CloudMixMap.Map;
             _drawnDetail = CloudDetail.Texture;
-            _drawnRevision = Setting.Revision;
+            _drawnRevision = Setting.CloudRevision;
             _drawnDriftX = CloudWind.X;
             _drawnDriftZ = CloudWind.Z;
             _drawnShiftX = CloudWind.ShiftX;
@@ -263,13 +292,17 @@ namespace VolumetricClouds.Sky
             _material.SetFloat(IdShadowDepth, ShadowDepth(CloudShaderParams.Coverage));
             _material.SetFloat(IdShadowFullness, ShadowFullness);
             int steps = StepsFor(_drawnTop - _drawnBottom);
+            _drawnSteps = steps;
             _material.SetFloat(IdShadowSteps, steps);
             // The slab moves with the cover under Auto: the first count always in the log, a change only in the detailed one.
             if (steps != _loggedSteps && (_loggedSteps < 0 || Log.Detailed))
             {
                 string line = "cloud shadow map: " + steps + " steps through the " + (_drawnTop - _drawnBottom).ToString("F0") + " m the clouds can be in (" +
                         ((_drawnTop - _drawnBottom) / steps).ToString("F0") + " m of height a step; 20 steps up to " +
-                        (StepHeight * FewestSteps).ToString("F0") + " m, as before 1.6.1)";
+                        (StepHeight * FewestSteps).ToString("F0") + " m, as before 1.6.1), drawn at most " +
+                        (1f / (float)ShadowCadence.Interval(Rate, steps, FewestSteps)).ToString("0.#") + " times a second (the rate row's " + Rate +
+                        " x " + FewestSteps + " / the steps: the cost a second of 1.6.0's 20 steps), more often up to the row's rate when the " +
+                        "wind would move the shadows over half a texel between two draws";
                 if (_loggedSteps < 0)
                     Log.Msg(line);
                 else
@@ -347,7 +380,7 @@ namespace VolumetricClouds.Sky
             // (The field's own textures follow its Version: a new pattern or size bumps it. Their getters make them,
             // so they are not asked here.)
             if (field != _drawnField || field.Version != _drawnVersion || noise != _drawnNoise || CloudStyle.Texture != _drawnCumulus ||
-                CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.Revision != _drawnRevision)
+                CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.CloudRevision != _drawnRevision)
                 return "input";
 
             // Each as a share of what it may move alone; together they share one budget, so the map's error stays
@@ -415,7 +448,7 @@ namespace VolumetricClouds.Sky
                 if (Log.Detailed)
                     Log.Detail("cloud shadow map: " + (moved
                         ? "drawn every frame -- the low sun (" + (Mathf.Asin(sinElevation) * Mathf.Rad2Deg).ToString("F1") + " deg) moves the shadows more than a texel between maps"
-                        : "back to " + (1f / UpdateInterval).ToString("F0") + " Hz"));
+                        : "back to at most " + (1f / DrawInterval).ToString("0.#") + " draws a second"));
             }
 
             return moved;

@@ -83,5 +83,45 @@ Check "wind: the noise drifts 1.25x" ([math]::Abs($C::DriftShift(1.0, 0, 0, 0, 1
 Check "wind: a cloud shift moves both by itself" ([math]::Abs($C::DriftShift(0, 0, 3.0, 4.0, 1.25) - 5.0) -lt 1e-12)
 Check "wind: no move, 0" ($C::DriftShift(0, 0, 0, 0, 1.25) -eq 0)
 
+# ---- the least time between two draws (1.6.1: 1.6.0's cost a second whatever the steps) ------------------------
+foreach ($rate in 1, 10, 20, 30, 60) {
+    foreach ($steps in 1, 10, 20) {
+        $iv = $C::Interval($rate, $steps, 20)
+        if ($iv -ne 1.0 / $rate) { Check "20 steps or fewer at $rate Hz: exactly 1 / rate (Classic, as before)" $false ("{0} steps: {1}" -f $steps, $iv) }
+    }
+}
+Check "20 steps or fewer: exactly the row's interval at every rate (1, 10, 20, 30, 60 Hz)" ($failed -eq 0)
+$iv48 = $C::Interval(20, 48, 20)
+Check "48 steps at 20 Hz: at most 8.3 draws a second (20 x 20 / 48)" ([math]::Abs(1.0 / $iv48 - 20.0 * 20 / 48) -lt 1e-9) ("{0:F2} a second" -f (1.0 / $iv48))
+$steady = 1
+foreach ($rate in 5, 20, 30, 60) { foreach ($steps in 21, 33, 48) {
+    $cost = (1.0 / $C::Interval($rate, $steps, 20)) * $steps
+    if ([math]::Abs($cost - $rate * 20) -gt 1e-6) { $steady = 0 }
+} }
+Check "draws a second x steps = the row's rate x 20 (1.6.0's) for any steps over 20" ($steady -eq 1)
+Check "a rate of 0 or less reads as 1 a second, no division by zero" (($C::Interval(0, 20, 20) -eq 1.0) -and ($C::Interval(-3, 48, 20) -eq 2.4))
+# Never more than half a texel between two draws (1.6.1): the cap gives way when the clouds race, never under 1 / rate.
+$classicSame = 1
+foreach ($rate in 1, 20, 30, 60) { foreach ($sp in 0.0, 5.0, 26.25, 78.75, 500.0) { foreach ($tx in 12.7, 25.4) {
+    if ($C::Interval($rate, 20, 20, $sp, $tx) -ne 1.0 / $rate) { $classicSame = 0 } } } }
+Check "20 steps: exactly 1 / rate at any speed and texel (Classic as before)" ($classicSame -eq 1)
+Check "no wind (paused): the cap alone" ($C::Interval(20, 48, 20, 0.0, 12.7) -eq $C::Interval(20, 48, 20))
+Check "a gale: never under the row's 1 / rate" ($C::Interval(20, 48, 20, 1e6, 12.7) -eq 0.05)
+$okHalf = 1
+foreach ($sp in 1.0, 10.0, 26.25, 78.75, 200.0) { foreach ($tx in 12.7, 25.4, 50.8) {
+    $iv = $C::Interval(20, 48, 20, $sp, $tx)
+    if (($sp * $iv -gt 0.5 * $tx + 1e-9) -and ($iv -gt 0.05 + 1e-12)) { $okHalf = 0 }
+    if ($iv -gt $C::Interval(20, 48, 20) + 1e-12) { $okHalf = 0 } } }
+Check "never over half a texel a draw unless at the row's own rate, never longer than the cap" ($okHalf -eq 1)
+# His drift (~21 m/s weather map, the noise 1.25x: 26 m/s over the ground at 1x), 48 steps, 20 Hz.
+foreach ($res in 2048, 1024) {
+    $tx = 26000.0 / $res
+    foreach ($speed in 1, 3) {
+        $sp = 21.0 * 1.25 * $speed
+        $old = $C::Interval(20, 20, 20); $cap = $C::Interval(20, 48, 20); $new = $C::Interval(20, 48, 20, $sp, $tx)
+        Write-Host ("      {0}^2 map ({1:F1} m texel), {2}x: 1.6.0 {3:F1}/s {4:F1} m a draw | cap alone {5:F1}/s {6:F1} m | now {7:F1}/s {8:F1} m" -f $res, $tx, $speed, (1 / $old), ($sp * $old), (1 / $cap), ($sp * $cap), (1 / $new), ($sp * $new))
+    }
+}
+
 if ($failed -gt 0) { Write-Host "$failed FAILED"; exit 1 }
 Write-Host "all passed"

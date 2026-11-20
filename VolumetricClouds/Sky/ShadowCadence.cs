@@ -108,5 +108,34 @@ namespace VolumetricClouds.Sky
         {
             return size / Math.Max(1, resolution) * MovedShare;
         }
+
+        /// <summary>
+        /// The least time (s) between two draws: one over the row's rate (<paramref name="rate"/> a second), stretched by the
+        /// steps the map is marched with over the <paramref name="fewestSteps"/> every map had until 1.6.1 (1.6.1, after the
+        /// author's 1.6.1 log: 48 steps at 20 Hz drew the 2048 map up to 15 times a second at 3.6-4.5 ms each, against 1.0-1.9
+        /// before). So the most draws a second x their steps stays 1.6.0's: rate x fewest / steps (48 steps at 20 Hz: 8.3 a
+        /// second); a map of <paramref name="fewestSteps"/> or fewer (Classic, any slab up to 800 m) keeps exactly 1 / rate.
+        /// </summary>
+        public static double Interval(int rate, int steps, int fewestSteps)
+        {
+            double plain = 1.0 / Math.Max(1, rate);
+            return steps > fewestSteps && fewestSteps > 0 ? plain * steps / fewestSteps : plain;
+        }
+
+        /// <summary>
+        /// The same, never letting the shadows move more than half a texel (<paramref name="texel"/> m) between two draws
+        /// while they move <paramref name="speed"/> m a second over the ground (the wind's drift, the game's speed included):
+        /// the capped interval, shortened to half a texel / speed when that is shorter, never under the row's 1 / rate. So the
+        /// cap holds at 1x (a 2048 map's 12.7 m texel: 8.3 a second, ~3 m a draw at 21 m/s) and gives way when the clouds
+        /// race (3x: ~10 a second, 6.3 m a draw) rather than let the shadows jump; Classic (20 steps) keeps exactly 1 / rate.
+        /// </summary>
+        public static double Interval(int rate, int steps, int fewestSteps, double speed, double texel)
+        {
+            double plain = 1.0 / Math.Max(1, rate);
+            double capped = Interval(rate, steps, fewestSteps);
+            if (speed > 0.0 && texel > 0.0)
+                capped = Math.Min(capped, 0.5 * texel / speed);
+            return Math.Max(plain, capped);
+        }
     }
 }
