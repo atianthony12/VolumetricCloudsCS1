@@ -1596,6 +1596,9 @@ namespace VolumetricClouds.UI
             "LightInsideClouds", "100", "LightningBrightness", "100", "LightningVariety", "100", "NightGlow", "50",
             "RainCurtains", "100", "RainFallSpeed", "100", "RainStreakLength", "50", "RainStreakOpacity", "80", "RainStreakWidth", "50", "RainWind", "100",
             "TreeWind", "false", "WetGround", "100",
+            // 1.6.1, the trees on at moderate values: a file or profile from before the tree rows reads them as they were.
+            "TreeWindStrength", "100", "TreeWindEverywhere", "false", "TreeGusts", "100", "TreeFlutter", "100", "TreeLeaves", "100",
+            "TreeDust", "100",
         };
 
         /// <summary>
@@ -2826,7 +2829,7 @@ namespace VolumetricClouds.UI
             });
 
             // 2026-10-30 (the author: "tree movement in high wind like other games do"): the game's tree
-            // shaders rebuilt with VW's wind (Sky.TreeShaders, Sky.TreeWind). Off by default; 100% = the
+            // shaders rebuilt with VW's wind (Sky.TreeShaders, Sky.TreeWind). On in 1.6.1's defaults, at 75%; 100% = the
             // design's breezy fair day, the gusts, the flutter and how rain and storms strengthen it.
             Add(new Row
             {

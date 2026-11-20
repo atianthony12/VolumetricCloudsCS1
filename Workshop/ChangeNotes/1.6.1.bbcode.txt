@@ -9,7 +9,7 @@
 [b]Changed[/b]
 [list]
 [*]The [i]Quality preset[/i] now also sets the [i]Cloud drawing size[/i]: Low a quarter, Medium a third, High half. Low also leaves out the heavier cloud extras. A size chosen by hand is kept.
-[*]New mod defaults for a few settings. Existing players keep theirs and are offered the new defaults once more.
+[*]New mod defaults for a few settings, trees moving gently in the wind included. Existing players keep theirs and are offered the new defaults once more.
 [/list]
 [b]Fixed[/b]
 [list]

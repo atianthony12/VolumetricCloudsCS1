@@ -1341,15 +1341,18 @@ namespace VolumetricClouds
 
             // ---- trees in the wind (2026-10-30) ----
             // Off for everyone until the author had judged it in-game; ON in the 2026-11-18 New Defaults, OFF again in
-            // his profile of 2026-11-19 (the defaults follow it). The rest at the design's 100%.
-            public const bool TreeWind = false;
-            public const float TreeWindStrength = 1f;
-            public const bool TreeWindEverywhere = false;
-            public const float TreeGusts = 1f;
-            public const float TreeFlutter = 1f;
+            // his profile of 2026-11-19 (the defaults follow it). ON again for 1.6.1 (the author, 2026-11-20: "turn on tree
+            // movement by default, use moderate values though"): three quarters of the design's breezy fair day, its gusts,
+            // flutter, leaves and dust; rain and storms strengthen it as designed; every tree takes the whole wind. Existing
+            // players keep theirs (SettingsCatalog.BeforeNewDefaults).
+            public const bool TreeWind = true;
+            public const float TreeWindStrength = 0.75f;
+            public const bool TreeWindEverywhere = true;
+            public const float TreeGusts = 0.75f;
+            public const float TreeFlutter = 0.75f;
             public const float TreeStorms = 1f;
-            public const float TreeLeaves = 1f;
-            public const float TreeDust = 1f;
+            public const float TreeLeaves = 0.75f;
+            public const float TreeDust = 0.75f;
 
             // ---- fog ----
 
