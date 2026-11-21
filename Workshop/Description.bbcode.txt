@@ -24,7 +24,7 @@
 [*]Wet roads, puddles and spray from car wheels
 [*]Volumetric fog: morning fog, mist after rain, fog filling valleys and lying over water, lit by the city's lights
 [*]Rainbows and waterspouts
-[*]Enhanced trees movement in the wind (experimental and off by default in the Weather tab)
+[*]Enhanced trees movement in the wind (experimental, Weather tab)
 [*]BONUS: a fix for the lights in the game (Halos tab)
 [/list]
 [h3]Mod options[/h3]
