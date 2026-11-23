@@ -657,7 +657,7 @@ namespace VolumetricClouds
         public static FloatSetting CumulusSoftness { get; private set; }
 
         /// <summary>
-        /// 2026-11-19, the author ("GTA 6's have even more variety than ours"): CLOUD VARIETY (Sky.CloudVariety), 0..1: some
+        /// 2026-11-19, the author, of a reference picture's clouds ("have even more variety than ours"): CLOUD VARIETY (Sky.CloudVariety), 0..1: some
         /// stretches of sky grow towering heaps, others keep flat small ones, the bases on one level. Drawn by the cloud
         /// shader's extras variant only. 0 = the heaps exactly as they were (the default: nobody's sky changes).
         /// </summary>
