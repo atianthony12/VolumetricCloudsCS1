@@ -5,6 +5,13 @@ Notable changes to Volumetric Weather. The format follows
 below; the mods list shows it after the mod's name, and the first line of
 `VolumetricClouds.log` gives it with the exact build.
 
+## 1.6.2 — unreleased
+
+### Fixed
+
+- Rain and fog together: buildings in fog no longer show as lighter cut-outs when it rains where you stand (rain
+  alone and fog alone look exactly as before).
+
 ## 1.6.1 — 2026-11-20
 
 Fixes for lightning, wet ground and cloud shadows, new mod defaults for a few settings, the old defaults back as

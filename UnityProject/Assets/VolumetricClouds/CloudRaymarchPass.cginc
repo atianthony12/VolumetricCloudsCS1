@@ -71,6 +71,12 @@ static float heapAbove = 0.0;
 // the fog went until its distance became a setting. A longer stretch gets more steps.
 #define FOG_STEP_STRETCH 9000.0
 
+// Rain and fog together (1.6.2, MarchRainThroughFog): the fog's march notes where its transmittance first falls
+// under each of these, so the rain is laid into the fog's light where it is (bright in a sunlit gap, dim under
+// the shower's own cloud), not into its mean. 0 = a break not used.
+#define FOG_BREAK_T float3(0.7, 0.4, 0.15)
+#define LUMINANCE float3(0.2126, 0.7152, 0.0722)
+
 sampler2D_float _CameraDepthTexture;
 
 float _Steps;
@@ -1204,17 +1210,14 @@ float4 TemporalResolve(float2 uvPixel, float3 worldPos)
 // arch dims it.
 // `tSplit` (1.5.0): where the first funnel along the ray begins; `front` comes back with the
 // rain in front of it alone (light, transmittance), so the funnel goes in between (frag).
-// `extent` (1.6.1): the stretch of the ray its rain was found in (the first step with rain .. where the march
-// ended), for frag to set it against the fog's (AirTogether).
+// With fog on the same ray frag marches the rain with MarchRainThroughFog instead (1.6.2).
 float4 MarchRain(float3 origin, float3 dir, float tStart, float tEnd, float jitter, float cosTheta, float2 archT,
-                 float tSplit, out float2 toArch, out float4 front, out float2 extent)
+                 float tSplit, out float2 toArch, out float4 front)
 {
     toArch = 1.0;
     front = float4(0, 0, 0, 1);
-    extent = float2(0, 0);
     if (tEnd <= tStart)
         return float4(0, 0, 0, 1);
-    float tFirst = -1.0, tLast = -1.0;
 
     float steps = clamp(_RainSteps, 4.0, 32.0);
     float len = tEnd - tStart;
@@ -1251,10 +1254,6 @@ float4 MarchRain(float3 origin, float3 dir, float tStart, float tEnd, float jitt
 
         if (sigma > 0.0)
         {
-            tFirst = tFirst < 0.0 ? tPrev : tFirst;
-            // The end of the last step that had any: a shower in the first 2 km of a 20 km march is 2 km of rain.
-            tLast = tNext;
-
             // A strike lights the rain around it as well as the cloud above it.
             float3 lit = _RainAmbient + sunlit * SunShaft(p);
             if (_FlashCount > 0.5)
@@ -1293,7 +1292,6 @@ float4 MarchRain(float3 origin, float3 dir, float tStart, float tEnd, float jitt
     if (tSplit >= tPrev)
         front = float4(light, transmittance);
     #endif
-    extent = float2(tFirst < 0.0 ? tStart : tFirst, tLast < 0.0 ? tPrev : tLast);
     return float4(light, transmittance);
 }
 
@@ -1349,13 +1347,19 @@ float3 LampLight(float3 origin, float3 dir, float tStart, float segment, float j
 // hides its rainbow (the author: "make sure the rainbow isn't 'over' the fog").
 //
 // `tSplit` and `front` (1.5.0): as MarchRain's, the fog in front of the funnels alone.
-// `extent` (1.6.1): as MarchRain's, the stretch its fog was found in.
+// `extent` (1.6.1): the stretch of the ray its fog was found in (the first step with fog .. the end of the last),
+// and `profile` (1.6.2): where along it the fog's transmittance first fell under each of FOG_BREAK_T (x = there,
+// y = the transmittance, z = the light's luminance, per break; the end of the stretch for a break never reached) --
+// what MarchRainThroughFog lays the fog by when rain shares the ray. Bookkeeping only (the fog itself is as before),
+// and only while it rains (`withRain`, the same for every pixel): fog alone costs what it did.
 float4 MarchFog(float3 origin, float3 dir, float tEnd, float camAbove, float jitter, float cosTheta, float2 archT,
-                float tSplit, out float2 toArch, out float4 front, out float2 extent)
+                float tSplit, bool withRain, out float2 toArch, out float4 front, out float2 extent,
+                out float3x3 profile)
 {
     toArch = 1.0;
     front = float4(0, 0, 0, 1);
     extent = float2(0, 0);
+    profile = float3x3(0, 0, 0, 1, 1, 1, 0, 0, 0);
     if (tEnd <= 0.0)
         return float4(0, 0, 0, 1);
 
@@ -1506,7 +1510,7 @@ float4 MarchFog(float3 origin, float3 dir, float tEnd, float camAbove, float jit
         if (d > 0.001)
         {
             tFirst = tFirst < 0.0 ? tPrev : tFirst;
-            // The end of the last step that had any: a shower in the first 2 km of a 20 km march is 2 km of rain.
+            // The end of the last step that had any: a bank in the first 2 km of a 9 km march is 2 km of fog.
             tLast = tNext;
             float fade = FogFade(t);
             float sigma = strength * d * fade;
@@ -1548,6 +1552,16 @@ float4 MarchFog(float3 origin, float3 dir, float tEnd, float camAbove, float jit
             float stepT = exp(-sigma * segment);
             light += transmittance * lit * (1.0 - stepT);
             transmittance *= stepT;
+
+            // The profile: the breaks this step took the transmittance under for the first time.
+            [branch]
+            if (withRain)
+            {
+                float3 now = (transmittance < FOG_BREAK_T ? 1.0 : 0.0) * (profile[1] >= FOG_BREAK_T ? 1.0 : 0.0);
+                profile[0] = now > 0.5 ? tNext : profile[0];
+                profile[1] = now > 0.5 ? transmittance : profile[1];
+                profile[2] = now > 0.5 ? dot(light, LUMINANCE) : profile[2];
+            }
         }
         #ifdef VC_FUNNELS
         else if (tSplit > tPrev)
@@ -1567,6 +1581,11 @@ float4 MarchFog(float3 origin, float3 dir, float tEnd, float camAbove, float jit
     #endif
 
     extent = float2(tFirst < 0.0 ? tStart : tFirst, tLast < 0.0 ? tPrev : tLast);
+    // A break never reached: the end of the stretch.
+    float3 never = profile[1] >= FOG_BREAK_T ? 1.0 : 0.0;
+    profile[0] = never > 0.5 ? extent.y : profile[0];
+    profile[1] = never > 0.5 ? transmittance : profile[1];
+    profile[2] = never > 0.5 ? dot(light, LUMINANCE) : profile[2];
     return float4(light, transmittance);
 }
 
@@ -1576,42 +1595,183 @@ float4 Over(float4 a, float4 b)
     return float4(a.rgb + a.a * b.rgb, a.a * b.a);
 }
 
-// RAIN AND FOG TOGETHER (1.6.1). They share the air under the clouds but are marched apart; until 1.6.0 they were
-// laid one WHOLE over the other by which the camera was in, so from inside a fog layer all of it -- out to 9 km --
-// came in front of all the rain (a bright band of far fog over the dark rain haze), and the look flipped as the
-// camera crossed the fog's top (his report, 2026-11-20). Here each is taken as even over its own stretch of the ray
-// (`ea`, `eb`: where its march found it): optical depth -ln T spread over the stretch, its glow light / (1 - T).
-// The stretches cut the ray into up to three pieces, laid nearer over farther: where both are, their optical
-// depths add and the glow is the depth-weighted mean of the two. Nothing is marched again, nothing is read.
-// Only called with both present (T < 1 each); with one alone, frag lays it as before, to the bit.
-float4 AirTogether(float4 a, float2 ea, float4 b, float2 eb)
+// RAIN AND FOG TOGETHER. They share the air under the clouds but are marched apart (each needs its samples in a
+// different place). Until 1.6.0 they were laid one WHOLE over the other by which the camera was in: from inside a
+// fog layer all of it -- out to 9 km -- came in front of all the rain (a bright band of far fog over the dark rain
+// haze), flipping as the camera crossed the fog's top. 1.6.1 took each as even over its own stretch of the ray; but
+// a shower round the camera with more rain far off is one stretch from 0 to 11 km, so the near rain's depth was
+// spread kilometres out: the sky beside a building lost it, the building (its ray ends inside the shower) kept it,
+// and the building stood out lighter than the reference (probe 2026-11-21). 1.6.2: the fog is marched first and
+// the RAIN is marched through a model of it, both together on every rain step: each rain step dims the fog behind
+// it and is dimmed by the fog in front of it, wherever along the ray the showers are. The model is the fog's march
+// in four pieces, cut where its transmittance fell under each of FOG_BREAK_T (MarchFog's `profile`): each piece
+// its own optical depth, spread over it as FogFade thins it, and its own glow -- so a shower under a dark deck is
+// laid into the dim fog round it, not into the mean of the fog out to the sunlit gaps kilometres on. The model is
+// also run without the rain on the same steps, and what it misses of the march (fog light, transmittance) is put
+// back at the end: as the rain goes to nothing the result goes to the fog's march exactly, with no seam where a
+// ray first meets rain. Nothing is read or marched again; only called with both.
+
+// The fog model's weight along the ray from 0 to t: the integral of FogFade, held to the fog's stretch `e`.
+float FogModelAt(float t, float2 e)
 {
-    float la = max(ea.y - ea.x, 1e-3), lb = max(eb.y - eb.x, 1e-3);
-    float ta = clamp(a.a, 1e-6, 1.0), tb = clamp(b.a, 1e-6, 1.0);
-    float sa = -log(ta) / la, sb = -log(tb) / lb;
-    float3 ga = a.rgb / max(1.0 - ta, 1e-6), gb = b.rgb / max(1.0 - tb, 1e-6);
+    float c = clamp(t, e.x, e.y);
+    float x = clamp(c - _FogFadeStart, 0.0, _FogFadeLength);
+    return min(c, _FogFadeStart) + x - x * x / (2.0 * _FogFadeLength);
+}
 
-    // The four ends in order: p0 <= p1 <= p2 <= p3.
-    float lo1 = min(ea.x, eb.x), hi1 = max(ea.x, eb.x), lo2 = min(ea.y, eb.y), hi2 = max(ea.y, eb.y);
-    float p0 = lo1, p1 = min(hi1, lo2), p2 = max(hi1, lo2), p3 = hi2;
+// The fog model from its start to weight `w`: x = its optical depth, y = the same weighted by the pieces' glow
+// (luminance). The pieces run from `lo` in weight, `perWeight` = 1 / their widths; a piece of no width (two breaks in
+// one step) comes in whole at once.
+float2 FogAlong(float w, float4 lo, float4 perWeight, float4 tau, float4 glowTau)
+{
+    float4 part = saturate((w - lo) * perWeight);
+    return float2(dot(tau, part), dot(glowTau, part));
+}
 
-    float3 light = 0;
-    float transmittance = 1.0;
-    [unroll]
-    for (int k = 0; k < 3; k++)
+// MarchRain's steps, jitter and light, with the fog (`fog`, from MarchFog over `fogExtent`, `profile`) laid in
+// between: comes back with the two together. `toArch`: the RAIN alone in front of the arch (frag dims it by the
+// fog's too). `front`: the two together in front of the funnels (`tSplit`), a part of what comes back as frag needs
+// it. A ray whose march finds no rain comes back with the fog exactly as MarchFog gave it (and `fogFront`).
+float4 MarchRainThroughFog(float3 origin, float3 dir, float tStart, float tEnd, float jitter, float cosTheta,
+                           float2 archT, float tSplit, float4 fog, float2 fogExtent, float3x3 profile, float4 fogFront,
+                           out float2 toArch, out float4 front)
+{
+    toArch = 1.0;
+    float2 e = float2(fogExtent.x, max(fogExtent.y, fogExtent.x + 1e-3));
+
+    // The four pieces: the start of the stretch, the three breaks, its end (weight, transmittance, light).
+    float4 hi = float4(FogModelAt(profile[0].x, e), FogModelAt(profile[0].y, e), FogModelAt(profile[0].z, e),
+                       FogModelAt(e.y, e));
+    float4 lo = float4(FogModelAt(e.x, e), hi.xyz);
+    float4 perWeight = 1.0 / max(hi - lo, 1e-6);
+    float4 trHi = clamp(float4(profile[1], fog.a), 1e-6, 1.0);
+    float4 trLo = float4(1.0, trHi.xyz);
+    float4 lightHi = float4(profile[2], dot(fog.rgb, LUMINANCE));
+    float4 lightLo = float4(0.0, lightHi.xyz);
+    float4 tau = max(log(trLo) - log(trHi), 0.0);
+    // A piece's glow is the light it added over what it took away: (light after - before) / (T before - after).
+    float4 glowTau = tau * max(lightHi - lightLo, 0.0) / max(trLo - trHi, 1e-6);
+    float3 colour = fog.rgb / max(lightHi.w, 1e-6);   // the fog's colour, per unit of luminance
+
+    // The fog in front of the rain's stretch (from above the cloud base the rain starts there).
+    float2 at = FogAlong(FogModelAt(tStart, e), lo, perWeight, tau, glowTau);
+    float transmittance = exp(-at.x);
+    float3 light = colour * (at.y / max(at.x, 1e-9)) * (1.0 - transmittance);
+    // The same model without the rain, on the same steps.
+    float3 fogLight = light;
+    float fogTr = transmittance;
+    #ifdef VC_FUNNELS
+    float2 atSplit = FogAlong(FogModelAt(min(tSplit, tStart), e), lo, perWeight, tau, glowTau);
+    float leadT = exp(-atSplit.x);
+    front = float4(colour * (atSplit.y / max(atSplit.x, 1e-9)) * (1.0 - leadT), leadT);
+    float4 fogFrontModel = front;
+    #else
+    front = float4(0, 0, 0, 1);
+    #endif
+    float rainT = 1.0;
+
+    float steps = clamp(_RainSteps, 4.0, 32.0);
+    float len = tEnd - tStart;
+    float phase = 0.5 + 0.5 * min(HenyeyGreenstein(cosTheta, 0.7), 6.0);
+    float3 sunlit = _RainSun * phase;
+    float tPrev = tStart;
+
+    // MarchRain's own end (its rain's transmittance under 0.02), so the rain behind a dense fog -- which its march
+    // stopped in -- is still laid behind what the fog's march found; or once nothing at all would show.
+    [loop]
+    for (int s = 0; s < 32; s++)
     {
-        float from = k == 0 ? p0 : (k == 1 ? p1 : p2);
-        float to = k == 0 ? p1 : (k == 1 ? p2 : p3);
-        float mid = 0.5 * (from + to);
-        float inA = (mid >= ea.x && mid <= ea.y) ? 1.0 : 0.0;
-        float inB = (mid >= eb.x && mid <= eb.y) ? 1.0 : 0.0;
-        float sigma = inA * sa + inB * sb;
-        float stepT = exp(-sigma * max(to - from, 0.0));
-        float3 glow = (inA * sa * ga + inB * sb * gb) / max(sigma, 1e-12);
+        if ((float)s >= steps || rainT < 0.02 || transmittance < 1e-4 || len <= 0.0)
+            break;
+
+        // MarchRain's steps and samples.
+        float f = ((float)s + 1.0) / steps;
+        float tNext = tStart + len * f * f;
+        float segment = tNext - tPrev;
+        float t = tPrev + segment * jitter;
+        float3 p = origin + dir * t;
+        float sigma = RainSigma(p, t);
+
+        float2 next = FogAlong(FogModelAt(tNext, e), lo, perWeight, tau, glowTau);
+        float fogTau = next.x - at.x;
+        float3 fogGlow = colour * ((next.y - at.y) / max(fogTau, 1e-9));
+        float rainTau = 0.0;
+        float rainStepT = 1.0;
+        float3 lit = 0;
+        float3 glow = fogGlow;
+        if (sigma > 0.0)
+        {
+            lit = _RainAmbient + sunlit * SunShaft(p);
+            if (_FlashCount > 0.5)
+                lit += Lightning(p) * 0.6;
+            rainTau = sigma * segment;
+            glow = (rainTau * lit + fogTau * fogGlow) / (rainTau + fogTau);
+
+            toArch = archT > tPrev ? rainT * exp(-sigma * min(archT - tPrev, segment)) : toArch;
+            rainStepT = exp(-rainTau);
+            rainT *= rainStepT;
+        }
+
+        #ifdef VC_FUNNELS
+        if (tSplit > tPrev)
+        {
+            float cut = min(tSplit, tNext);
+            float2 c = FogAlong(FogModelAt(cut, e), lo, perWeight, tau, glowTau);
+            float fogPart = c.x - at.x;
+            float rainPart = sigma * (cut - tPrev);
+            float3 fogGlowPart = colour * ((c.y - at.y) / max(fogPart, 1e-9));
+            float3 glowPart = (rainPart * lit + fogPart * fogGlowPart) / max(rainPart + fogPart, 1e-9);
+            float partT = exp(-(rainPart + fogPart));
+            front = float4(light + transmittance * glowPart * (1.0 - partT), transmittance * partT);
+            float fogPartT = exp(-fogPart);
+            fogFrontModel = float4(fogLight + fogTr * fogGlowPart * (1.0 - fogPartT), fogTr * fogPartT);
+        }
+        #endif
+
+        // One exp for each medium: the two together = their product (with no rain, the fog's to the bit).
+        float fogStepT = exp(-fogTau);
+        float stepT = fogStepT * rainStepT;
         light += transmittance * glow * (1.0 - stepT);
         transmittance *= stepT;
+        fogLight += fogTr * fogGlow * (1.0 - fogStepT);
+        fogTr *= fogStepT;
+        at = next;
+        tPrev = tNext;
     }
-    return float4(light, transmittance);
+    toArch = archT >= tPrev ? rainT : toArch;
+
+    // The fog past where the rain's march ended.
+    #ifdef VC_FUNNELS
+    if (tSplit >= tPrev)
+    {
+        float2 c = FogAlong(FogModelAt(tSplit, e), lo, perWeight, tau, glowTau);
+        float3 fogGlowPart = colour * ((c.y - at.y) / max(c.x - at.x, 1e-9));
+        float partT = exp(-(c.x - at.x));
+        front = float4(light + transmittance * fogGlowPart * (1.0 - partT), transmittance * partT);
+        fogFrontModel = float4(fogLight + fogTr * fogGlowPart * (1.0 - partT), fogTr * partT);
+    }
+    // What the model misses of the march, put back (see above).
+    front.rgb += fogFront.rgb - fogFrontModel.rgb;
+    front.a = saturate(front.a * (fogFrontModel.a > 1e-6 ? fogFront.a / fogFrontModel.a : 1.0));
+    #endif
+    float2 end = FogAlong(hi.w, lo, perWeight, tau, glowTau);
+    float3 restGlow = colour * ((end.y - at.y) / max(end.x - at.x, 1e-9));
+    float restT = exp(-(end.x - at.x));
+    light += transmittance * restGlow * (1.0 - restT);
+    transmittance *= restT;
+    fogLight += fogTr * restGlow * (1.0 - restT);
+    fogTr *= restT;
+    light += fog.rgb - fogLight;
+    transmittance = saturate(transmittance * (fogTr > 1e-6 ? fog.a / fogTr : 1.0));
+    #ifdef VC_FUNNELS
+    // The two put-backs differ a little: the front held a part of the whole (frag's funnel layering needs it).
+    front = float4(min(front.rgb, light), max(front.a, transmittance));
+    #endif
+
+    // No rain on this ray after all: the fog alone, as without rain.
+    bool dry = rainT >= 1.0;
+    front = dry ? fogFront : front;
+    return dry ? fog : float4(light, transmittance);
 }
 
 float4 frag(v2f i) : SV_Target
@@ -1762,18 +1922,15 @@ float4 frag(v2f i) : SV_Target
     float2 archT = arch ? ArchCrossings(origin, dir) : float2(-1.0, -1.0);
     float2 rainToArch = 1.0;
 
-    float4 rainFront = float4(0, 0, 0, 1);
-    float2 rainExtent = float2(0, 0);
-
-    if (drawAir && _RainAmount > 0.001 && _RainShaftDensity > 0.0)
-        rain = MarchRain(origin, dir, rStart, rEnd, jitter, cosTheta, archT, tFunnel, rainToArch, rainFront, rainExtent);
-
     // MarchFog finds its own stretch of the ray, level fog or draped; all it needs is
     // where the ray ends (and where the arch is, to say how much fog is in front of it).
+    // Marched before the rain (1.6.2): the rain is marched through what it found.
     float4 fog = float4(0, 0, 0, 1);
     float2 fogToArch = 1.0;
     float4 fogFront = float4(0, 0, 0, 1);
     float2 fogExtent = float2(0, 0);
+    float3x3 fogProfile = float3x3(0, 0, 0, 1, 1, 1, 0, 0, 0);
+    bool rainOn = drawAir && _RainAmount > 0.001 && _RainShaftDensity > 0.0;
     if (drawAir && _FogAmount > 0.001 && _FogDensity > 0.0)
     {
         float camAbove = origin.y - FogGround(origin);
@@ -1792,7 +1949,8 @@ float4 frag(v2f i) : SV_Target
             if (dir.y < 0.0)
                 fEnd = min(fEnd, (_FogFloor - origin.y) / dy);
 
-            fog = MarchFog(origin, dir, fEnd, camAbove, jitter, cosTheta, archT, tFunnel, fogToArch, fogFront, fogExtent);
+            fog = MarchFog(origin, dir, fEnd, camAbove, jitter, cosTheta, archT, tFunnel, rainOn, fogToArch, fogFront,
+                           fogExtent, fogProfile);
         }
     }
 
@@ -1800,13 +1958,27 @@ float4 frag(v2f i) : SV_Target
     // "nearer over farther". Fog and rain DO share the air under the clouds; they
     // are marched apart (each needs its samples in a different place). With one of
     // them alone it is laid as it is (Over with nothing: the same to the bit as 1.6.0);
-    // with both, each dims the other by where it lies along the ray (AirTogether, 1.6.1;
-    // until then they were laid whole by whichever the camera was in).
-    bool airTogether = rain.a < 1.0 && fog.a < 1.0;
-    float4 lower = Over(rain, fog);
-    [branch]
-    if (airTogether)
-        lower = AirTogether(rain, rainExtent, fog, fogExtent);
+    // with both, the rain is marched through the fog (MarchRainThroughFog, 1.6.2; 1.6.1
+    // took each as even over its stretch, until then they were laid whole by whichever
+    // the camera was in). `airFront`: the two in front of the funnels.
+    float4 lower = fog;
+    float4 airFront = fogFront;
+    if (rainOn)
+    {
+        [branch]
+        if (fog.a < 1.0)
+        {
+            lower = MarchRainThroughFog(origin, dir, rStart, rEnd, jitter, cosTheta, archT, tFunnel, fog, fogExtent,
+                                        fogProfile, fogFront, rainToArch, airFront);
+        }
+        else
+        {
+            float4 rainFront;
+            rain = MarchRain(origin, dir, rStart, rEnd, jitter, cosTheta, archT, tFunnel, rainToArch, rainFront);
+            lower = Over(rain, fog);
+            airFront = Over(rainFront, fogFront);
+        }
+    }
 
     // The arch stands in the rain but is layered apart from it: dimmed by exactly the rain
     // and fog in front of it (1.3.0; the author: "make sure the rainbow isn't 'over' the
@@ -1825,12 +1997,8 @@ float4 frag(v2f i) : SV_Target
     #ifdef VC_FUNNELS
     if (tFunnel < 1e9)
     {
-        // The parts in front of the funnels, laid together as the whole (their stretches end where the funnels begin).
-        float4 front = Over(rainFront, fogFront);
-        [branch]
-        if (airTogether && rainFront.a < 1.0 && fogFront.a < 1.0)
-            front = AirTogether(rainFront, float2(rainExtent.x, min(rainExtent.y, tFunnel)),
-                                fogFront, float2(fogExtent.x, min(fogExtent.y, tFunnel)));
+        // The air in front of the funnels: a part of `lower` taken from the same march (or marches).
+        float4 front = airFront;
         float4 funnels = MarchFunnels(origin, dir, funnelEnd, jitter, cosTheta, funnelBase);
         lower = float4(front.rgb + front.a * funnels.rgb + funnels.a * (lower.rgb - front.rgb), lower.a * funnels.a);
     }
