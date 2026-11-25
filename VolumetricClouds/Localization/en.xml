@@ -54,6 +54,13 @@
     Mac and Linux support is new and experimental. If the game stutters, pick the Low quality preset.
   </String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed (GameUpdate).
+       Shown once per launch; {0} the mod's name. The text has no values.
+       Options: one line on the options page, {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} has switched itself off</String>
+  <String key="GameUpdate.Text">The game may have been updated or something else is preventing the mod from working. Contact me on the workshop for help.</String>
+  <String key="GameUpdate.Options">Off after a game update ({0}). Settings and saves untouched.</String>
+
   <String key="Tab.Now">Now</String>
   <String key="Tab.Clouds">Clouds</String>
   <String key="Tab.DistantClouds">Distant clouds</String>

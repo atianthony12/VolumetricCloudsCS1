@@ -61,7 +61,7 @@ namespace VolumetricClouds.Lighting
         {
             get
             {
-                int n = Settings.HaloFlareSpikeCount != null ? Settings.HaloFlareSpikeCount.value : Settings.Defaults.HaloFlareSpikeCount;
+                int n = Settings.HaloFlareSpikeCount != null && !GameUpdate.Off ? Settings.HaloFlareSpikeCount.value : Settings.Defaults.HaloFlareSpikeCount;
                 return n == 4 || n == 6 || n == 8 ? n : Settings.Defaults.HaloFlareSpikeCount;
             }
         }
@@ -84,9 +84,13 @@ namespace VolumetricClouds.Lighting
             get { return Mathf.Clamp(Value(Settings.HaloFlareSizeVehicles, Settings.Defaults.HaloFlareSizeVehicles), 0.25f, 4f); }
         }
 
+        /// <summary>
+        /// The setting, or its default -- always the default while off after a game update (GameUpdate):
+        /// other mods' flares then look as they do without this mod.
+        /// </summary>
         private static float Value(FloatSetting setting, float fallback)
         {
-            return setting != null ? setting.value : fallback;
+            return setting != null && !GameUpdate.Off ? setting.value : fallback;
         }
     }
 }

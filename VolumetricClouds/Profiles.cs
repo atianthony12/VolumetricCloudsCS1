@@ -474,7 +474,8 @@ namespace VolumetricClouds
         public static bool SaveSelected()
         {
             string name = Selected;
-            if (name.Length == 0 || _file == null)
+            // Read-only: off after a game update (GameUpdate), nothing is written.
+            if (name.Length == 0 || _file == null || SettingsXml.ReadOnly)
                 return false;
 
             try
@@ -544,8 +545,8 @@ namespace VolumetricClouds
         {
             try
             {
-                // The built-in profiles cannot be deleted (1.6.1).
-                if (!ProfileName.IsFileName(name) || IsBuiltIn(name))
+                // The built-in profiles cannot be deleted (1.6.1); none while off after a game update (GameUpdate).
+                if (!ProfileName.IsFileName(name) || IsBuiltIn(name) || SettingsXml.ReadOnly)
                     return false;
 
                 string path = PathOf(name);
@@ -904,7 +905,8 @@ namespace VolumetricClouds
         private static bool AddAs(string typed, string how, out string error)
         {
             error = null;
-            if (Settings.CurrentProfile == null)
+            // Read-only: off after a game update (GameUpdate), no profile is made.
+            if (Settings.CurrentProfile == null || SettingsXml.ReadOnly)
             {
                 error = Localization.Get("Profiles.Failed");
                 return false;

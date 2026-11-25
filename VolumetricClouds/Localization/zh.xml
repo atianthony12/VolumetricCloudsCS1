@@ -34,6 +34,13 @@
     Mac 和 Linux 支持仍是新增的实验功能。如果游戏卡顿，请选择“低”质量预设。
   </String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed (GameUpdate).
+       Shown once per launch; {0} the mod's name. The text has no values.
+       Options: one line on the options page, {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} 已自行关闭</String>
+  <String key="GameUpdate.Text">游戏可能已更新，或有其他原因导致此模组无法运行。如需帮助，请在 Workshop 联系我。</String>
+  <String key="GameUpdate.Options">游戏更新后已关闭（{0}）。设置和存档不受影响。</String>
+
   <String key="Tab.Now">当前</String>
   <String key="Tab.Clouds">云层</String>
   <String key="Tab.DistantClouds">远处的云</String>

@@ -52,6 +52,10 @@ namespace VolumetricClouds.Sky
         {
             get
             {
+                // Off after a game update (GameUpdate): never ready, so other mods keep their own wind.
+                if (GameUpdate.Off)
+                    return false;
+
                 _asked = true;
                 return _advanced;
             }

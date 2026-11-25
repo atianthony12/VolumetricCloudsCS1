@@ -49,13 +49,41 @@ namespace VolumetricClouds
 
         private static void Patch()
         {
-            if (_patched)
+            // Switched off by the game check (GameUpdate): nothing of ours is patched.
+            if (_patched || GameUpdate.Off)
                 return;
 
             try
             {
                 Harmony harmony = new Harmony(HarmonyId);
-                harmony.PatchAll(typeof(Patcher).Assembly);
+
+                // Each class on its own, through the game check (GameUpdate), in place of PatchAll
+                // (which stops at the first target it cannot find and leaves the ones before it on).
+                // One that will not apply is the game changed under the mod: every patch of ours is
+                // undone and the mod switches itself off -- never left half-patched. No transpilers.
+                Type[] patchClasses =
+                {
+                    typeof(Lighting.DrawLightParametersPatch), typeof(Lighting.LampRenderEffectPatch),
+                    typeof(Lighting.VehicleRenderPatch), typeof(Lighting.DrawLightDataPatch),
+                    typeof(Sky.SampleRainIntensityPatch),
+                };
+                ModsLibCS1.GameCheck check = GameUpdate.Current;
+                foreach (Type patch in patchClasses)
+                {
+                    Type captured = patch;
+                    if (check != null)
+                        check.Patch(patch.Name, () => harmony.CreateClassProcessor(captured).Patch());
+                    else
+                        harmony.CreateClassProcessor(captured).Patch(); // never: GameUpdate.Check runs first in OnEnabled
+                }
+
+                if (check != null && check.UndoIfFailed(() => harmony.UnpatchAll(HarmonyId)))
+                {
+                    Log.Msg("Harmony patches removed (" + HarmonyId + "): the game check failed");
+                    GameUpdate.PatchFailed();
+                    return;
+                }
+
                 _patched = true;
                 Log.Msg("Harmony patches applied (" + HarmonyId + "). Harmony installed=" + HarmonyHelper.IsHarmonyInstalled);
             }

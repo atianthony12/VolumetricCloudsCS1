@@ -32,6 +32,16 @@ namespace VolumetricClouds
             if (_root != null)
                 return;
 
+            // Switched off after a game update (GameUpdate): nothing of ours in this city -- no
+            // controller, panel, button or keys, not even the shaders' probe draws. The pop-up said
+            // it at the main menu.
+            if (GameUpdate.Off)
+            {
+                Log.Warn("NOT RUNNING in this city: " + Mod.DisplayName + " switched itself off after a game update (" +
+                         ModsLibCS1.GameCheck.GameVersion + "); nothing of it runs, and the city's saved sky is left as it is");
+                return;
+            }
+
             if (!CanDrawClouds())
             {
                 StandDown();
@@ -68,6 +78,22 @@ namespace VolumetricClouds
             if (_root == null)
                 return;
 
+            Object.Destroy(_root);
+            _root = null;
+            CloudShaders.Clear();
+            Sky.GameCamera.Forget();
+        }
+
+        /// <summary>
+        /// GameUpdate.PatchFailed, when the check failed only as Harmony came ready -- after a city had
+        /// loaded (the mod enabled mid-game): that city's sky goes as at an unload. Nothing when none runs.
+        /// </summary>
+        public static void StandDownForGameUpdate()
+        {
+            if (_root == null)
+                return;
+
+            Log.Warn("NOT RUNNING any more in this city: " + Mod.DisplayName + " switched itself off after a game update");
             Object.Destroy(_root);
             _root = null;
             CloudShaders.Clear();

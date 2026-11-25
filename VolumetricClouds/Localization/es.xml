@@ -26,6 +26,13 @@
   <String key="Mod.UnsupportedWindows">Volumetric Weather no pudo dibujar sus nubes en este PC, así que se ha desactivado: no cambia nada en esta ciudad.\n\nLas causas habituales:\n- el juego se inicia con una opción como -force-d3d9, o -force-glcore en una tarjeta gráfica con OpenGL anterior a 3.3 (Steam: clic derecho en el juego, Propiedades, Opciones de lanzamiento). Quítala y reinicia el juego.\n- la tarjeta gráfica es anterior a DirectX 10.\n\nSi no es ninguno de estos casos, repórtalo en los comentarios de la página del mod en Workshop, junto con este archivo:\n{0}</String>
   <String key="Mod.ExperimentalPlatformNote">La compatibilidad con Mac y Linux es nueva y experimental. Si el juego da tirones, usa la calidad Baja.</String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed (GameUpdate).
+       Shown once per launch; {0} the mod's name. The text has no values.
+       Options: one line on the options page, {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} se ha desactivado</String>
+  <String key="GameUpdate.Text">Puede que el juego se haya actualizado o que algo más impida que el mod funcione. Contáctame en el Workshop para obtener ayuda.</String>
+  <String key="GameUpdate.Options">Desactivado tras una actualización del juego ({0}). Ajustes y partidas sin tocar.</String>
+
   <String key="Tab.Now">Ahora</String>
   <String key="Tab.Clouds">Nubes</String>
   <String key="Tab.DistantClouds">Nubes lejanas</String>

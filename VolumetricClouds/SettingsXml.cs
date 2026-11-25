@@ -266,7 +266,8 @@ namespace VolumetricClouds
         /// <summary>Starts <see cref="SettingsSaver"/> unless it is running. Safe to call again.</summary>
         public static void StartSaver()
         {
-            if (_saver != null)
+            // Not while off after a game update (GameUpdate): Load calls this too.
+            if (_saver != null || ReadOnly)
                 return;
 
             _saver = new GameObject("VolumetricCloudsSettings");
@@ -398,6 +399,12 @@ namespace VolumetricClouds
         // ---- saving ---------------------------------------------------------------------------
 
         /// <summary>
+        /// Never written, settings nor profiles (GameUpdate.Off: the mod switched itself off after a
+        /// game update): the player's values are read, and wait in the files for the fixed version.
+        /// </summary>
+        public static bool ReadOnly;
+
+        /// <summary>
         /// Writes the file now, if what it would hold differs from what is there. Never a
         /// profile's file: those are written by "+" and "Save" alone (<see cref="Profiles"/>).
         /// </summary>
@@ -406,7 +413,7 @@ namespace VolumetricClouds
             _dirty = false;
             _seenStamp = _changeStamp;
 
-            if (Settings.IsInitialised)
+            if (Settings.IsInitialised && !ReadOnly)
                 SaveLive();
         }
 
@@ -467,6 +474,9 @@ namespace VolumetricClouds
         /// </summary>
         internal static void WriteReplacing(string path, string text)
         {
+            if (ReadOnly)
+                throw new IOException("not written: " + Mod.DisplayName + " is off after a game update");
+
             string temp = TempOf(path);
             File.WriteAllText(temp, text, new UTF8Encoding(false));
 

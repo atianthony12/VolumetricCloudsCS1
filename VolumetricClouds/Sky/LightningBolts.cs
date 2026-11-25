@@ -37,10 +37,10 @@ namespace VolumetricClouds.Sky
         private static int s_frame = -10;
         private static Material s_material;
 
-        /// <summary>How many bolts show now (0 when none, or lightning is not running).</summary>
+        /// <summary>How many bolts show now (0 when none, or lightning is not running; 0 too while off after a game update, GameUpdate).</summary>
         public static int Count
         {
-            get { return Time.frameCount - s_frame <= 1 ? s_count : 0; }
+            get { return !GameUpdate.Off && Time.frameCount - s_frame <= 1 ? s_count : 0; }
         }
 
         /// <summary>

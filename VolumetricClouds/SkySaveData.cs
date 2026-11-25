@@ -54,6 +54,15 @@ namespace VolumetricClouds
 
             try
             {
+                // Off after a game update (GameUpdate): nothing read. The key stays in the save as it
+                // is (see OnSaveData).
+                if (GameUpdate.Off)
+                {
+                    Loaded = null;
+                    Log.Msg("sky: savegame not read -- " + Mod.DisplayName + " is off after a game update; its sky stays in the save as it is");
+                    return;
+                }
+
                 byte[] data = serializableDataManager.LoadData(Key);
                 SkyState state;
                 string note;
@@ -93,6 +102,17 @@ namespace VolumetricClouds
         {
             try
             {
+                // Off after a game update (GameUpdate): our key is neither written nor erased. The
+                // game carries a key no extension writes (IL, re-read 2026-11-25: Data.Deserialize
+                // clears m_serializableDataStorage and refills it from the save; Data.Serialize runs
+                // the extensions' OnSaveData, then writes every entry; only EraseData removes one),
+                // so a city saved while off keeps the sky it was loaded with, for the fixed version.
+                if (GameUpdate.Off)
+                {
+                    Log.Msg("sky: nothing written into this save -- " + Mod.DisplayName + " is off after a game update; the sky it had is kept");
+                    return;
+                }
+
                 SkyState state;
                 bool has;
                 lock (Sync)
