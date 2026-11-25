@@ -7,6 +7,12 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.2 — unreleased
 
+### Added
+
+- For other mods (branch `dev`): lights another mod draws itself can be dimmed by the clouds, rain and fog in
+  front of them, and can light the fog (`VolumetricClouds.Sky.LightAir`, API version 1). Nothing runs and
+  nothing changes unless a mod that uses it is enabled; no setting, profile or save is touched.
+
 ### Fixed
 
 - Rain and fog together: buildings in fog no longer show as lighter cut-outs when it rains where you stand (rain

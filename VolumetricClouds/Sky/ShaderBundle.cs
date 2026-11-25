@@ -41,6 +41,8 @@ namespace VolumetricClouds.Sky
         public const string RainSplash = "VolumetricClouds/RainSplash";
         public const string ColumnMap = "VolumetricClouds/CloudColumnMap";
         public const string ColumnMapLite = "VolumetricClouds/CloudColumnMapLite";
+        public const string LightAir = "VolumetricClouds/LightAir";
+        public const string LightAirLite = "VolumetricClouds/LightAirLite";
 
         /// <summary>
         /// "VolumetricClouds.Resources.volumetricclouds-win.bundle" and so on: the csproj's

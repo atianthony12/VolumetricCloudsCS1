@@ -83,6 +83,7 @@ namespace VolumetricClouds.Sky
         private CloudDensityField _field;
         private CloudShadowMap _shadowMap;
         private CloudColumnMap _columnMap;
+        private LightAir.LightAirPass _lightAir;
         private Camera _camera;
         private GameObject _holder;
         private MeshRenderer _renderer;
@@ -390,6 +391,8 @@ namespace VolumetricClouds.Sky
             _shadowMap = CloudShadowMap.TryCreate();
             // 1.6.1: the drawn clouds column by column, for lightning (drawn only while it can happen).
             _columnMap = CloudColumnMap.TryCreate();
+            // 1.6.2: how much of other mods' lights our air lets through (runs only while one hands lights in).
+            _lightAir = LightAir.TryCreate();
 
             // The noise volume is tens of millions of hash evaluations: generate it off
             // the main thread and upload when it lands. Clouds appear a moment after load.
@@ -1094,6 +1097,12 @@ namespace VolumetricClouds.Sky
             }
 
             _airRenderer.enabled = air;
+
+            // 1.6.2: other mods' lights through the air (LightAir): its pass takes what this frame's draws were given
+            // -- the air material's when it is drawn (it has the fog's and the rain's), else the clouds'. Only while
+            // a mod hands in lights: nothing for anyone else.
+            if (_lightAir != null)
+                _lightAir.Prepare(air ? _airMaterial : _material, _field, _noise);
 
             int state = (_split ? 1 : 0) + (air ? 2 : 0);
             if (state != _partsLogged)
@@ -2256,6 +2265,12 @@ namespace VolumetricClouds.Sky
             to.renderQueue = queue;
         }
 
+        /// <summary><see cref="CopyValues"/> for the lights' air pass (LightAir).</summary>
+        internal static void CopyValuesInto(Material from, Material to)
+        {
+            CopyValues(from, to);
+        }
+
         private void OnDestroy()
         {
             IsActive = false;
@@ -2274,6 +2289,12 @@ namespace VolumetricClouds.Sky
             {
                 _columnMap.Dispose();
                 _columnMap = null;
+            }
+
+            if (_lightAir != null)
+            {
+                _lightAir.Dispose();
+                _lightAir = null;
             }
 
             if (_temporal != null)

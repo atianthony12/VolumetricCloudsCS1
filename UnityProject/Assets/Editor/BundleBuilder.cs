@@ -48,6 +48,9 @@ public static class BundleBuilder
         // 1.6.1: the cloud column map lightning places its bolts by (Sky/CloudColumnMap.cs), and its Simpler clouds twin.
         "Assets/VolumetricClouds/CloudColumnMap.shader",
         "Assets/VolumetricClouds/CloudColumnMapLite.shader",
+        // 1.6.2: how much of other mods' lights the air lets through (Sky/LightAir.cs), and its Simpler clouds twin.
+        "Assets/VolumetricClouds/LightAir.shader",
+        "Assets/VolumetricClouds/LightAirLite.shader",
     };
 
     private struct Target
