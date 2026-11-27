@@ -10,7 +10,8 @@
 //             and everything built (Wet roads and puddles), bare terrain (Wet grass and soil: the game's
 //             surface, unclipped by roads and unpaved; WetTerrainMap), trees (Wet trees: normals' alpha 0)
 //   what      hard (grey asphalt, concrete), porous (saturated: soil, brick) or leaves (green, or a tree's
-//             thin pixel: the normals' alpha under 0.5), from its colour over the light's hue
+//             thin pixel: the normals' alpha under 0.5), from its neighbourhood's colour over the light's hue
+//             (the light that reached it where another mod keeps a copy of the light buffer)
 //   darker    hard ground keeps 60%, porous ground by Lekner and Dorf (1988) per channel, leaves half that
 //   puddles   on level hard ground, from a world pattern filling from its lowest as the wetness rises, the
 //             fill leaning toward the low side of the slope (kerbs, a cambered road's edge); stable in the
@@ -71,6 +72,12 @@ Shader "VolumetricClouds/WetGround"
             // (_VWWet.x is the roads' and everything built: Wet roads and puddles; _VWWet.y the puddles' share)
             #define WET_NEAR_SPAN 2048.0
             #define WET_FAR_SPAN 8192.0
+            // Another mod's copy of the light buffer (the light that reached each pixel, before the final pass), with a
+            // flag that it is this frame's and one that it holds exp2(-light) (no HDR). Read only, optional: unset, the
+            // flag reads 0 and the hue above stands.
+            sampler2D _RLLightCopy;
+            float _RLLightKept;
+            float _RLLightLdr;
 
             struct appdata
             {
@@ -135,6 +142,45 @@ Shader "VolumetricClouds/WetGround"
                 float even = 1.0 / (1.0 + exp(-(field - 0.5) / 0.085));
                 float from = 1.0 - share;
                 return share > 0.001 ? smoothstep(from, from + 0.04, even) : 0.0;
+            }
+
+            // The colour a spot's kind is judged by (2026-11-27, his "the ground becomes very grainy as it dries"): the
+            // pixel and four round it ~6 px apart at 2160 lines (3 at 1080), those on the same surface (within 5% of its
+            // depth). Judged pixel by pixel, a road texture's speckle of colour flipped neighbouring pixels between hard
+            // (a film that mirrors) and porous (darker, browner, no puddle): grain. Where the hue fits the light, the
+            // cover is as it was (the 5.6 editor: the same puddle pixels to the one).
+            float3 KindColour(float2 uv, float3 here, float eye)
+            {
+                float2 px = (_ScreenParams.y / 360.0) / _ScreenParams.xy;
+                float3 sum = here;
+                float n = 1.0;
+                [unroll]
+                for (int k = 0; k < 4; k++)
+                {
+                    float2 t = uv + px * float2(k < 2 ? 0.7071 : -0.7071, (k & 1) == 0 ? 0.7071 : -0.7071);
+                    float d = LinearEyeDepth(tex2Dlod(_CameraDepthTexture, float4(t, 0.0, 0.0)).r);
+                    float w = abs(d - eye) < 0.05 * eye ? 1.0 : 0.0;
+                    sum += w * tex2Dlod(_VWWetScene, float4(t, 0.0, 0.0)).rgb;
+                    n += w;
+                }
+                return sum / n;
+            }
+
+            // The light's hue a colour is judged against: the light that really reached the spot where another mod
+            // keeps a copy of the light buffer (its lights plus the sky's ambient: a white street lamp where the
+            // night's assumed hue is the game's warm one), else the one hue from C# (the sun's, or warm lamps').
+            float3 LightHue(float2 uv)
+            {
+                float3 hue = _VWWetHue.rgb;
+                UNITY_BRANCH
+                if (_RLLightKept > 0.5)
+                {
+                    float3 light = tex2Dlod(_RLLightCopy, float4(uv, 0.0, 0.0)).rgb;
+                    light = _RLLightLdr > 0.5 ? -log2(max(light, 1e-30)) : light;
+                    float3 total = max(light, 0.0) + max(_VWWetSky.rgb, 0.0);
+                    hue = total / max(max(total.r, max(total.g, total.b)), 1e-6);
+                }
+                return hue;
             }
 
             // What the ground is: x porous, y leaves (x >= y).
@@ -246,6 +292,7 @@ Shader "VolumetricClouds/WetGround"
                         break;
                     float scene = LinearEyeDepth(tex2Dlod(_CameraDepthTexture, float4(uv, 0.0, 0.0)).r);
                     float behind = q.z - scene;
+                    bool met = false;
                     if (behind > 0.0 && behind < max(0.5, 0.03 * scene) + 2.0 * len)
                     {
                         float3 a = last, b = q;
@@ -257,26 +304,36 @@ Shader "VolumetricClouds/WetGround"
                             if (m.z > sm) b = m; else a = m;
                         }
                         float2 hit = UvOf(b);
-                        float2 edge = min(hit, 1.0 - hit);
-                        float sure = smoothstep(0.0, 0.06, min(edge.x, edge.y)) * (1.0 - smoothstep(0.7, 1.0, travelled / reach));
                         float rawHit = tex2Dlod(_CameraDepthTexture, float4(hit, 0.0, 0.0)).r;
-                        sure *= Linear01Depth(rawHit) < 0.9999 ? 1.0 : 0.0;
-                        // A rough film reads its hit blurred by its cone: four taps, the cone's width apart.
-                        float across = min(24.0, length(b - p) * cone * 0.5 * _ScreenParams.y * unity_CameraProjection._m11 / max(b.z, 0.3));
-                        float2 px = across / _ScreenParams.xy;
-                        float3 c = tex2Dlod(_VWWetScene, float4(hit, 0.0, 0.0)).rgb;
-                        UNITY_BRANCH
-                        if (across > 1.0)
+                        // Met only where the refined point lies ON what the screen shows there (2026-11-27). A ray passing
+                        // behind something -- under a tree's crown, past a pole -- refines onto the jump in depth at its
+                        // outline, far behind it: taken as met (the step's thickness grows with the step, ~15 m far out),
+                        // every tree trailed a dark skirt down the puddles ("burnt"). Such a ray marches on.
+                        float sceneHit = LinearEyeDepth(rawHit);
+                        met = b.z - sceneHit < max(0.5, 0.03 * sceneHit) + 0.125 * len;
+                        if (met)
                         {
-                            c = 0.4 * c
-                              + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(0.7, 0.2), 0.0, 0.0)).rgb
-                              + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(-0.2, 0.7), 0.0, 0.0)).rgb
-                              + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(-0.7, -0.2), 0.0, 0.0)).rgb
-                              + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(0.2, -0.7), 0.0, 0.0)).rgb;
+                            float2 edge = min(hit, 1.0 - hit);
+                            float sure = smoothstep(0.0, 0.06, min(edge.x, edge.y)) * (1.0 - smoothstep(0.7, 1.0, travelled / reach));
+                            sure *= Linear01Depth(rawHit) < 0.9999 ? 1.0 : 0.0;
+                            // A rough film reads its hit blurred by its cone: four taps, the cone's width apart.
+                            float across = min(24.0, length(b - p) * cone * 0.5 * _ScreenParams.y * unity_CameraProjection._m11 / max(b.z, 0.3));
+                            float2 px = across / _ScreenParams.xy;
+                            float3 c = tex2Dlod(_VWWetScene, float4(hit, 0.0, 0.0)).rgb;
+                            UNITY_BRANCH
+                            if (across > 1.0)
+                            {
+                                c = 0.4 * c
+                                  + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(0.7, 0.2), 0.0, 0.0)).rgb
+                                  + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(-0.2, 0.7), 0.0, 0.0)).rgb
+                                  + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(-0.7, -0.2), 0.0, 0.0)).rgb
+                                  + 0.15 * tex2Dlod(_VWWetScene, float4(hit + px * float2(0.2, -0.7), 0.0, 0.0)).rgb;
+                            }
+                            found = float4(c, sure);
                         }
-                        found = float4(c, sure);
-                        break;
                     }
+                    if (met)
+                        break;
                     last = q;
                     len *= 1.12;
                 }
@@ -337,8 +394,9 @@ Shader "VolumetricClouds/WetGround"
                 float3 dry = tex2Dlod(_VWWetScene, float4(uv, 0.0, 0.0)).rgb;
 
                 // Its colour over the light's hue, its brightest channel taken as a mid albedo.
-                float3 hue = _VWWetHue.rgb + 0.2 * dot(_VWWetHue.rgb, float3(0.2126, 0.7152, 0.0722)) + 1e-4;
-                float3 c = dry / hue;
+                float3 lightHue = LightHue(uv);
+                float3 hue = lightHue + 0.2 * dot(lightHue, float3(0.2126, 0.7152, 0.0722)) + 1e-4;
+                float3 c = KindColour(uv, dry, eye) / hue;
                 float3 albedo = 0.3 * c / max(max(c.r, max(c.g, c.b)), 1e-6);
                 float2 kind = WetKind(albedo, thin);
                 float porous = kind.x, leaves = kind.y;
