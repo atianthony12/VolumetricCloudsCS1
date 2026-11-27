@@ -101,12 +101,36 @@ float4 _CurveStats;     // the map as read: x = its mean, y = its standard devia
 // How far a cell's noise may be moved (m): past every noise's repeat.
 #define FAR_NOISE_SHIFT 50000.0
 
+#ifdef VC_PLUS
+// CLOUD LIFECYCLES (2026-11-25; Sky/CloudLifecycle.cs is the C# twin: change one, change the other; the twin test is
+// tools/test-lifeshader.ps1). The near read of the weather map (FarLookAt's w.x, and the fog's read) is TWO reads of
+// the same texture at two offsets; each layer's weight is a triangle over a per-place phase P(x) + the clock, half a
+// cycle apart, and the blend keeps the variance (LifeBlend). A layer's offset changes only at its weight 0. Off (the
+// drawn row 0: _LifeClock.z = 0) every read is the plain one.
+float4 _LifeClock;     // x = frac(t), y = the cycle index floor(t) mod 256, z = 1 while the lifecycle runs, w = the offsets' snap (repeats)
+float4 _LifeGrid;      // x = the phase lattice's cells per repeat, y, z = the seed's two salts, w = Span (cycles)
+float4 _LifeWindow;    // x = a layer's window of offsets (repeats), y = where layer 1's window starts (repeats)
+float4 _LifeEqual[9];  // the phase's equaliser: 33 entries (CloudLifecycle.EqualiserTable; 36 floats in 9 float4s)
+
+// The two layers' weights and offsets at a place: w = (w0, w1, sqrt(w0^2 + w1^2), 0), off = (U0, V0, U1, V1).
+struct LifeLook
+{
+    float4 w;
+    float4 off;
+};
+
+#endif
+
 struct FarLook
 {
     float4 w;           // x = the map's own lookup (inside the ring: 1), yzw = the three patches round p
     float2 uv1, uv2, uv3;
     float shift;        // the front here, in standard deviations
     float2 noise;       // what the noise's lookups move by here (m)
+#ifdef VC_PLUS
+    float lifeOn;       // 1 where the near read is the lifecycle's blend (the drawn row, and the map's own part here)
+    LifeLook life;      // this place's two layers (computed once per density read, in FarLookAt)
+#endif
 };
 
 // Three numbers 0..1 for a cell, from its place in a lattice that repeats every `repeat` cells (Hoskins'
@@ -118,6 +142,119 @@ float3 CellHash(float2 id, float repeat)
     p3 += dot(p3, p3.yxz + 33.33);
     return frac((p3.xxy + p3.yzz) * p3.zyx);
 }
+
+#ifdef VC_PLUS
+// The equaliser's entry i (0..35; 0..32 are the table).
+float LifeEq(int i)
+{
+    float4 q = _LifeEqual[i >> 2];
+    int c = i & 3;
+    return dot(q, float4(c == 0 ? 1.0 : 0.0, c == 1 ? 1.0 : 0.0, c == 2 ? 1.0 : 0.0, c == 3 ? 1.0 : 0.0));
+}
+
+// The raw noise through the equaliser (CloudLifecycle.Equalise: linear between entries, 1 at the top).
+float LifeEqualise(float value)
+{
+    float t = saturate(value) * 32.0;
+    float i = min(floor(t), 31.0);
+    float f = t - i;
+    int k = (int)i;
+    return LifeEq(k) + (LifeEq(k + 1) - LifeEq(k)) * f;
+}
+
+// CloudLifecycle.Hash: the lattice wraps first, then the map's seed enters the hash itself.
+float LifeHash(float x, float y, float cells)
+{
+    float xm = x - cells * floor(x / cells);
+    float ym = y - cells * floor(y / cells);
+    return CellHash(float2(xm + 64.0 * _LifeGrid.y, ym + 64.0 * _LifeGrid.z), 4096.0).x;
+}
+
+// CloudLifecycle.Noise: smooth value noise on `cells` lattice cells per repeat, uv in repeats of the drifting frame.
+float LifeNoise(float2 uv)
+{
+    float cells = _LifeGrid.x;
+    float2 x = uv * cells;
+    float2 f0 = floor(x);
+    float2 t = x - f0;
+    float2 s = t * t * (3.0 - 2.0 * t);
+    float h00 = LifeHash(f0.x, f0.y, cells);
+    float h10 = LifeHash(f0.x + 1.0, f0.y, cells);
+    float h01 = LifeHash(f0.x, f0.y + 1.0, cells);
+    float h11 = LifeHash(f0.x + 1.0, f0.y + 1.0, cells);
+    float a = h00 + (h10 - h00) * s.x;
+    float b = h01 + (h11 - h01) * s.x;
+    return a + (b - a) * s.y;
+}
+
+// CloudLifecycle.LookAt: the phase of a place, its two triangle weights and the two offsets (each snapped to the
+// map's cells). Layer k's offset depends on its own cycle index only: n_k = cycle + floor(s_k). Computed once per read.
+LifeLook LifeLookAt(float2 uv)
+{
+    float p = _LifeGrid.w * LifeEqualise(LifeNoise(uv));
+    float s0 = _LifeClock.x + p;
+    float s1 = s0 + 0.5;
+    float phi0 = s0 - floor(s0);
+    float phi1 = s1 - floor(s1);
+    float w0 = 1.0 - abs(2.0 * phi0 - 1.0);
+    float w1 = 1.0 - abs(2.0 * phi1 - 1.0);
+    float n0 = _LifeClock.y + floor(s0);
+    float n1 = _LifeClock.y + floor(s1);
+    float2 h0 = CellHash(float2(n0, 0.0), 256.0).xy;
+    float2 h1 = CellHash(float2(n1, 1.0), 256.0).xy;
+    float snap = _LifeClock.w;
+    float2 o0 = floor((h0 * _LifeWindow.x) / snap) * snap;
+    float2 o1 = floor((_LifeWindow.y + h1 * _LifeWindow.x) / snap) * snap;
+
+    LifeLook L;
+    L.w = float4(w0, w1, sqrt(w0 * w0 + w1 * w1), 0.0);
+    L.off = float4(o0, o1);
+    return L;
+}
+
+// CloudLifecycle.Blend: mean + sum w (a - mean) / sqrt(sum w^2) (the variance-keeping blend). Also the score's, in
+// the texture's stored units (affine, so the same formula with the score's mean, _CurveStats.z).
+float LifeBlend(float a0, float a1, float mean, float4 w)
+{
+    return mean + (w.x * (a0 - mean) + w.y * (a1 - mean)) / w.z;
+}
+
+// The near read of the weather map at uv (FarLookAt's w.x): the lifecycle's two-read blend where it runs, the plain read
+// otherwise. `uv` is the plain lookup (the lifecycle's offsets are added to it).
+float LifeNearWeather(FarLook f, float2 uv)
+{
+    float r;
+    [branch]
+    if (f.lifeOn > 0.5)
+    {
+        r = LifeBlend(tex2Dlod(_WeatherTex, float4(uv + f.life.off.xy, 0, 0)).r,
+                      tex2Dlod(_WeatherTex, float4(uv + f.life.off.zw, 0, 0)).r, _CurveStats.x, f.life.w);
+    }
+    else
+    {
+        r = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+    }
+    return r;
+}
+
+// The fog's read of the weather map (CloudMedia): the same two-read blend at the fog's own lookup.
+float LifeWeatherAt(float2 uv)
+{
+    float r;
+    [branch]
+    if (_LifeClock.z > 0.5)
+    {
+        LifeLook L = LifeLookAt(uv);
+        r = LifeBlend(tex2Dlod(_WeatherTex, float4(uv + L.off.xy, 0, 0)).r,
+                      tex2Dlod(_WeatherTex, float4(uv + L.off.zw, 0, 0)).r, _CurveStats.x, L.w);
+    }
+    else
+    {
+        r = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+    }
+    return r;
+}
+#endif
 
 float3 PatchHash(float2 id)
 {
@@ -216,6 +353,17 @@ FarLook FarLookAt(float2 xz)
         if (_CurveFront.z > 0.0)
             f.noise = FarNoiseShift(sk * _CurveFront.z, _CurvePatch.z * _CurveFront.z, xz, into);
     }
+
+#ifdef VC_PLUS
+    // The lifecycle's look, once per read, where the map's own lookup is part of the weather (w.x > 0): the drifting frame's
+    // uv, as the plain lookup uses it. Past the ring the patches stay as they are (the far sky reads exactly as before).
+    f.lifeOn = (_LifeClock.z > 0.5 && f.w.x > 0.0) ? 1.0 : 0.0;
+    f.life.w = float4(1.0, 0.0, 1.0, 0.0);
+    f.life.off = float4(0.0, 0.0, 0.0, 0.0);
+    [branch]
+    if (f.lifeOn > 0.5)
+        f.life = LifeLookAt(xz / _WeatherTile - _WeatherPhase);
+#endif
     return f;
 }
 
@@ -236,12 +384,20 @@ float FarWeather(FarLook f, float2 uv)
     [branch]
     if (f.w.x >= 1.0)
     {
+#ifdef VC_PLUS
+        weather = LifeNearWeather(f, uv);
+#else
         weather = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+#endif
     }
     else
     {
         float4 v = _CurveStats.xxxx;
+#ifdef VC_PLUS
+        [branch] if (f.w.x > 0.0) v.x = LifeNearWeather(f, uv);
+#else
         [branch] if (f.w.x > 0.0) v.x = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+#endif
         [branch] if (f.w.y > 0.0) v.y = tex2Dlod(_WeatherTex, float4(f.uv1, 0, 0)).r;
         [branch] if (f.w.z > 0.0) v.z = tex2Dlod(_WeatherTex, float4(f.uv2, 0, 0)).r;
         [branch] if (f.w.w > 0.0) v.w = tex2Dlod(_WeatherTex, float4(f.uv3, 0, 0)).r;
@@ -441,6 +597,25 @@ float MixType(float type, float lean)
     return 0.5 + (type * (1.0 - lean) - 0.5) * _MixThreshold.w;
 }
 
+#ifdef VC_PLUS
+// The near read of the normal scores (the lifecycle's blend at the same two offsets as the weather, LifeNearWeather).
+float LifeNearScore(FarLook f, float2 uv)
+{
+    float s;
+    [branch]
+    if (f.lifeOn > 0.5)
+    {
+        s = LifeBlend(VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv + f.life.off.xy).a,
+                      VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv + f.life.off.zw).a, _CurveStats.z, f.life.w);
+    }
+    else
+    {
+        s = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+    }
+    return s;
+}
+#endif
+
 // The map's normal score at p (Cumulus's heaps, the layer's thickness), blended as FarWeather.
 float FarScore(FarLook f, float2 uv)
 {
@@ -448,12 +623,20 @@ float FarScore(FarLook f, float2 uv)
     [branch]
     if (f.w.x >= 1.0)
     {
+#ifdef VC_PLUS
+        score = LifeNearScore(f, uv);
+#else
         score = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+#endif
     }
     else
     {
         float4 v = _CurveStats.zzzz;
+#ifdef VC_PLUS
+        [branch] if (f.w.x > 0.0) v.x = LifeNearScore(f, uv);
+#else
         [branch] if (f.w.x > 0.0) v.x = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, uv).a;
+#endif
         [branch] if (f.w.y > 0.0) v.y = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv1).a;
         [branch] if (f.w.z > 0.0) v.z = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv2).a;
         [branch] if (f.w.w > 0.0) v.w = VC_TEX2D_LOD0(_WeatherScoreTex, _WeatherScoreTex, f.uv3).a;

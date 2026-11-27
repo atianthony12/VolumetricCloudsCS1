@@ -246,7 +246,7 @@ namespace VolumetricClouds.Sky
             {
                 float cover = CloudWeather.Coverage;
                 float a, b;
-                Line(HeapEdge(HeapCoverage(cover)), out a, out b);
+                Line(HeapEdgeFloor(HeapEdge(HeapCoverage(cover))), out a, out b);
                 // Cloud variety (2026-11-19): the towers stretched over that (itself with the row off).
                 return VarietyTop(CloudAuto.Mix(HeapTopAt(a + b - LineTrimNow) * SizeFactor * HeightFactor, TallestNow, AutoDrawn ? CloudAuto.PuffFade(cover) : 0f));
             }
@@ -1192,9 +1192,22 @@ namespace VolumetricClouds.Sky
         public static float VarietyHereTop(float row)
         {
             float a, b;
-            Line(HeapEdge(HeapCoverage(CloudWeather.Coverage)), out a, out b);
+            Line(HeapEdgeFloor(HeapEdge(HeapCoverage(CloudWeather.Coverage))), out a, out b);
             return HeapTopAt(a + b - LineTrimNow + CloudVariety.MostLineMove(row)) * SizeFactor * HeightFactor;
         }
+
+        /// <summary>
+        /// The heaps' edge the slab must reach: the design edge, or the lifecycle's eased one where that is higher (2026-11-25:
+        /// the blended scores move the line; the tallest heap must still fit). <see cref="LifeEdgeNow"/> is set each frame by
+        /// CloudShaderParams (one frame behind at most, as the eased line itself moves slowly).
+        /// </summary>
+        public static float HeapEdgeFloor(float edge)
+        {
+            return float.IsNaN(LifeEdgeNow) ? edge : Math.Max(edge, LifeEdgeNow);
+        }
+
+        /// <summary>The Cumulus line's edge under the lifecycle, set by CloudShaderParams each frame; NaN with the lifecycle off.</summary>
+        public static float LifeEdgeNow = float.NaN;
 
         /// <summary>The towers' stretch now (the row's own, bounded by CloudVariety.TopBound over the tallest heap drawn now).</summary>
         public static float VarietyTowerStretch

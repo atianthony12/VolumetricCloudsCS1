@@ -28,13 +28,16 @@ namespace VolumetricClouds.Sky
     /// </remarks>
     public struct SkyState
     {
-        public const byte CurrentVersion = 2;
+        public const byte CurrentVersion = 3;
 
         /// <summary>Bytes in a version-1 record: 1 + 2 x 4 + 4 x 8 + 5 x 4.</summary>
         public const int Version1Length = 61;
 
         /// <summary>Bytes in a version-2 record (1.3.0): version 1's, then the cloud position, 2 x 8.</summary>
         public const int Version2Length = 77;
+
+        /// <summary>Bytes in a version-3 record (2026-11-25): version 2's, then the cloud lifecycle clock, 8.</summary>
+        public const int Version3Length = 85;
 
         public int FieldSeed;
         public int NoiseSeed;
@@ -74,9 +77,15 @@ namespace VolumetricClouds.Sky
         public double ShiftX;
         public double ShiftZ;
 
+        /// <summary>
+        /// Version 3 (2026-11-25): the cloud lifecycle clock, in cycles (CloudLifecycle.CyclesPerSecond integrated over the
+        /// sim time at 1x). 0 in a version-1 or version-2 record: a city loaded from one starts its lifecycles at t = 0.
+        /// </summary>
+        public double LifeClock;
+
         public byte[] ToBytes()
         {
-            using (MemoryStream stream = new MemoryStream(Version2Length))
+            using (MemoryStream stream = new MemoryStream(Version3Length))
             using (BinaryWriter writer = new BinaryWriter(stream))
             {
                 writer.Write(CurrentVersion);
@@ -93,6 +102,7 @@ namespace VolumetricClouds.Sky
                 writer.Write(RainFallZ);
                 writer.Write(ShiftX);
                 writer.Write(ShiftZ);
+                writer.Write(LifeClock);
                 writer.Flush();
                 return stream.ToArray();
             }
@@ -158,6 +168,15 @@ namespace VolumetricClouds.Sky
                             note = "a version-" + version + " record without its cloud position; read as version 1";
                         }
                     }
+
+                    // Version 3's lifecycle clock: a version-2 record (or a cut-short one) starts it at 0.
+                    if (version >= 3)
+                    {
+                        if (data.Length >= Version3Length)
+                            state.LifeClock = reader.ReadDouble();
+                        else if (note == null)
+                            note = "a version-" + version + " record without its lifecycle clock; read with the clock at 0";
+                    }
                 }
             }
             catch (Exception e)
@@ -170,7 +189,7 @@ namespace VolumetricClouds.Sky
             if (!Finite(state.WindX) || !Finite(state.WindZ) || !Finite(state.FogX) || !Finite(state.FogZ)
                 || !Finite(state.FogBoil) || !Finite(state.FogAmount)
                 || !Finite(state.RainFallX) || !Finite(state.RainFallY) || !Finite(state.RainFallZ)
-                || !Finite(state.ShiftX) || !Finite(state.ShiftZ))
+                || !Finite(state.ShiftX) || !Finite(state.ShiftZ) || !Finite(state.LifeClock))
             {
                 state = default(SkyState);
                 note = "a drift that is not a number";

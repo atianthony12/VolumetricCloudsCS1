@@ -123,5 +123,24 @@ foreach ($res in 2048, 1024) {
     }
 }
 
+# 2026-11-25: the clouds forming share joins the wind, sun and cover on one budget (ShadowCadence.Why).
+# With the share 0 the rule is 1.6.1's exactly (the old CloudShadowMap.WhyDraw, checked over a grid).
+function OldWhy($w, $t, $c, $s) {
+    if ($w + $t + $c -ge 1.0) { if ($w -ge $t -and $w -ge $c) { return "wind" } elseif ($t -ge $c) { return "sun" } else { return "cover" } }
+    if ($s) { return "second" }
+    return $null
+}
+$same = $true
+# (Loop variables are NOT $C: PowerShell variable names ignore case, and $C holds the type.)
+foreach ($wv in 0.0, 0.2, 0.5, 0.7, 1.0) { foreach ($tv in 0.0, 0.2, 0.5, 0.7, 1.0) { foreach ($cv in 0.0, 0.2, 0.5, 0.7, 1.0) { foreach ($sv in $true, $false) {
+    if ([string]$C::Why($wv, $tv, $cv, 0.0, $sv) -ne [string](OldWhy $wv $tv $cv $sv)) { $same = $false }
+} } } }
+Check "no forms share: the 1.6.1 rule, over a grid of wind, sun, cover and the second" $same
+Check "no shares, the second due: the once-a-second draw" ([string]$C::Why(0, 0, 0, 0, $true) -eq "second")
+Check "no shares, not due: no draw" ($null -eq $C::Why(0, 0, 0, 0, $false))
+Check "a whole forms share alone: a draw, labelled forms" ([string]$C::Why(0, 0, 0, 1.0, $false) -eq "forms")
+Check "forms under the budget: no draw" ($null -eq $C::Why(0.3, 0.3, 0.3, 0.0, $false))
+Check "wind, sun and forms together past the budget: the largest names it (0.2/0.2/0.2/0.4 = forms)" ([string]$C::Why(0.2, 0.2, 0.2, 0.4, $false) -eq "forms")
+
 if ($failed -gt 0) { Write-Host "$failed FAILED"; exit 1 }
 Write-Host "all passed"

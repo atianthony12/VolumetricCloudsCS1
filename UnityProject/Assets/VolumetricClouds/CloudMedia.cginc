@@ -430,7 +430,12 @@ float FogAt(float3 p, float above, bool detailed, out float layerHeight)
     // another place so a fog patch is not a cloud's footprint. It gathers on low
     // ground: a little extra wherever the ground is below the pooling level.
     float2 uv = p.xz / _FogTile - _FogPhase + float2(0.37, 0.61);
+#ifdef VC_PLUS
+    // The lifecycle's two-read blend (2026-11-25; the fog's pattern is randomised in time as the clouds' is).
+    float weather = LifeWeatherAt(uv);
+#else
     float weather = tex2Dlod(_WeatherTex, float4(uv, 0, 0)).r;
+#endif
     float pooling = saturate((_FogPool - (p.y - above)) / 150.0) * 0.1;
     float gathered = weather + pooling;
 

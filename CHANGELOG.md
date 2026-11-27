@@ -7,6 +7,14 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.2 — unreleased
 
+### Added
+
+- *Clouds form and fade* (Now tab, off by default): clouds slowly fade away and new ones grow in their place, at
+  different times in different parts of the sky, while the amount of cloud stays the same. 100% is about one
+  cycle every 8 minutes of game time; 200% is twice as fast. It follows the game's speed and stops while paused. At
+  0% (the default) nothing changes: existing skies, settings and saves look exactly as before. A save made with it
+  on keeps where the clouds were in their cycle.
+
 ### Changed
 
 - Distant clouds show one picture at a time. Each kind's slider now fades its one picture in and out, so the

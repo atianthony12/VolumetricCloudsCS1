@@ -58,6 +58,7 @@ namespace VolumetricClouds.Sky
         /// </summary>
         public CloudDensityField(int seed, int scale)
         {
+            Seed = seed;
             _scale = Mathf.Max(1, scale);
             int n = Resolution;
             _density = new float[n * n];
@@ -69,6 +70,9 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>How many times the usual size this map is: 1, or <see cref="LargerScale"/>.</summary>
+        /// <summary>The seed this map was made from (the lifecycle's phase salts come from it).</summary>
+        public int Seed { get; private set; }
+
         public int Scale
         {
             get { return _scale; }
@@ -135,6 +139,15 @@ namespace VolumetricClouds.Sky
             _histogram = other._histogram;
             _thresholdTable = other._thresholdTable;
             _scale = other._scale;
+            Seed = other.Seed;
+            _drawnMean = float.NaN;
+            lock (_lifeLock)
+            {
+                _lifeGeneration++;
+                _lifeSolves.Clear();
+                _lifePending.Clear();
+                _lifeSource = null;
+            }
             BuildMs = other.BuildMs;
             BuildThreads = other.BuildThreads;
 
@@ -453,6 +466,15 @@ namespace VolumetricClouds.Sky
         /// <summary>The density threshold that yields the requested sky coverage.</summary>
         public float GetThreshold(float coverage)
         {
+            // Main thread only (the material's values): the lifecycle's eased cover when it runs and its solves are ready.
+            float row = CloudLifecycle.Row;
+            if (CloudLifecycle.Active(row))
+            {
+                float eased;
+                if (LifeThreshold(CloudLifecycle.Clock, row, coverage, out eased))
+                    return eased;
+                System.Threading.Interlocked.Increment(ref LifeFallbacks);
+            }
             return Threshold(coverage);
         }
 
@@ -461,15 +483,407 @@ namespace VolumetricClouds.Sky
         /// the shaders' "saturate((weather - threshold) / softness)". Called from the
         /// simulation thread (CloudRain.LocalRain), so it touches nothing but these arrays.
         /// </summary>
+        // ---- the cloud lifecycle's cover (2026-11-25, round 3 (d)) ---------------------------------------------------
+        // The threshold of the BLENDED map, re-solved every CloudLifecycle.ResolveSeconds of sim time on a worker, in the
+        // drawn-histogram space (as GetThresholdAsDrawn), and eased linearly between two neighbouring solves. The main thread
+        // asks for the grid's solves one interval ahead; a solve is stamped with the map's generation and the row, and dropped
+        // if the map was adopted or the row changed meanwhile. Row 0 never reaches this code.
+
+        /// <summary>Tests and the bench: solve inline instead of on a worker. Off in the game.</summary>
+        public static bool SynchronousSolves = false;
+
+        /// <summary>Diagnostics: how many reads fell back to the plain threshold because their solve pair was not ready.</summary>
+        public static long LifeFallbacks;
+
+        private sealed class LifeSolve
+        {
+            public int[] Hist;
+            public long Total;
+            public CloudLifecycle.CoverTable Table;
+
+            /// <summary>The blended NORMAL SCORES' histogram (CloudLifecycle.ScoreBins) of the same solve: the heaps' line.</summary>
+            public int[] ScoreHist;
+            public long ScoreTotal;
+        }
+
+        /// <summary>Diagnostics: how many heaps-line reads fell back to the design line (the solve pair was not ready).</summary>
+        public static long HeapFallbacks;
+
+        private int[] _plainScoreHist;
+        private long _plainScoreTotal;
+        private float[] _plainScoreFor;
+
+        private sealed class LifeJob
+        {
+            public int Index;
+            public float Row;
+            public int Generation;
+            public float[] Density;
+            public int Side;
+            public int Seed;
+            public int Scale;
+
+            /// <summary>The map's plain (stored-space) threshold table, the clouds' cover the lifecycle must keep.</summary>
+            public float[] PlainTable;
+        }
+
+        private readonly object _lifeLock = new object();
+        private readonly System.Collections.Generic.Dictionary<int, LifeSolve> _lifeSolves = new System.Collections.Generic.Dictionary<int, LifeSolve>();
+        private readonly System.Collections.Generic.HashSet<int> _lifePending = new System.Collections.Generic.HashSet<int>();
+        private int _lifeGeneration;
+
+        /// <summary>
+        /// What every solve of one map needs and the clock never changes: the drawn values (as the GPU reads them), their mean and
+        /// the score bytes. Made ONCE per map on the first worker that needs it (2026-11-25 freeze fix: each solve used to make
+        /// them again, ~12 MB a solve on a 1536^2 map, which the game's garbage collector pays for).
+        /// </summary>
+        private sealed class LifeSource
+        {
+            public float[] For;
+            public float[] Drawn;
+            public float Mean;
+            public byte[] Scores;
+
+            /// <summary>The plain drawn values' histogram (CoverTable.Bins): the share the plain sky really covers.</summary>
+            public int[] DrawnHist;
+        }
+
+        private LifeSource _lifeSource;
+        private readonly object _lifeSourceLock = new object();
+
+        /// <summary>Main thread only: StepLife's job list (kept, so a frame allocates nothing).</summary>
+        private readonly System.Collections.Generic.List<LifeJob> _lifeJobs = new System.Collections.Generic.List<LifeJob>(2);
+        private float _lifeNextLog;
+
+        /// <summary>Diagnostics (detailed log): solves made, and the last one's time on its worker.</summary>
+        public static long LifeSolvesMade;
+        public static double LifeLastSolveMs;
+
+        /// <summary>
+        /// Main thread, once a frame, before the material is set (CloudVolume.LateUpdate): asks a worker for the solves of the
+        /// clock's grid interval and the next one. NEVER solves on the main thread (2026-11-25 freeze fix: the first pair used to
+        /// be solved here, and every slider step threw the pairs away -- seconds a step on his map); until a pair is ready the
+        /// readers take the plain threshold (LifeFallbacks), for a second or so after the row is first turned on. The grid is in
+        /// clock units, so moving the slider keeps every solve. Nothing runs at row 0.
+        /// </summary>
+        public void StepLife(double clock, float row)
+        {
+            if (!CloudLifecycle.Active(row))
+                return;
+
+            int n = CloudLifecycle.ResolveCount(row);
+            int k = CloudLifecycle.ResolveIndex(clock, row);
+            int k1 = (k + 1) % n;
+            // One step AHEAD too (2026-11-25 fix: "glitching"): asking for the next solve only when the clock reached its step
+            // left every step's first ~0.2 s on the plain cover, a jump in the sky every eighth of a cycle.
+            int k2 = (k + 2) % n;
+            float[] density = _density;
+            int side = SideOf(density);
+
+            if (Log.Detailed && Time.realtimeSinceStartup >= _lifeNextLog)
+            {
+                _lifeNextLog = Time.realtimeSinceStartup + 10f;
+                Log.Detail("clouds form and fade: clock " + clock.ToString("0.000") + " cycles, row " + (row * 100f).ToString("0") +
+                           "%, grid step " + k + "/" + n + "; cover solves made " + LifeSolvesMade + " (last " + LifeLastSolveMs.ToString("0") +
+                           " ms on a worker); reads on the plain cover while a solve was not ready: " + LifeFallbacks + ", heap line " + HeapFallbacks);
+            }
+
+            System.Collections.Generic.List<LifeJob> jobs = _lifeJobs;
+            jobs.Clear();
+            lock (_lifeLock)
+            {
+                RequestLife(k, row, density, side, jobs);
+                RequestLife(k1, row, density, side, jobs);
+                RequestLife(k2, row, density, side, jobs);
+
+                // Keep only the pairs near the clock (a slider pass or a long session would otherwise grow the table).
+                if (_lifeSolves.Count > 8)
+                {
+                    System.Collections.Generic.List<int> old = new System.Collections.Generic.List<int>();
+                    foreach (int key in _lifeSolves.Keys)
+                        if (key != k && key != k1 && key != k2)
+                            old.Add(key);
+                    for (int i = 0; i < old.Count; i++)
+                        _lifeSolves.Remove(old[i]);
+                }
+            }
+
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                if (SynchronousSolves)
+                    SolveLife(jobs[i]);
+                else
+                    System.Threading.ThreadPool.QueueUserWorkItem(SolveLifeJob, jobs[i]);
+            }
+        }
+
+        private void RequestLife(int index, float row, float[] density, int side, System.Collections.Generic.List<LifeJob> jobs)
+        {
+            if (_lifeSolves.ContainsKey(index) || _lifePending.Contains(index))
+                return;
+            _lifePending.Add(index);
+            jobs.Add(new LifeJob { Index = index, Row = row, Generation = _lifeGeneration, Density = density, Side = side, Seed = Seed, Scale = _scale,
+                                   PlainTable = _thresholdTable });
+        }
+
+        private void SolveLifeJob(object state)
+        {
+            LifeJob job = (LifeJob)state;
+            try
+            {
+                SolveLife(job);
+            }
+            catch (System.Exception e)
+            {
+                lock (_lifeLock)
+                    _lifePending.Remove(job.Index);
+                Log.Msg("clouds form and fade: a cover solve failed (" + e.GetType().Name + ": " + e.Message + "); the plain cover is used");
+            }
+        }
+
+        /// <summary>The map's lifecycle source, made once (on whichever worker asks first).</summary>
+        private LifeSource SourceFor(float[] density)
+        {
+            lock (_lifeSourceLock)
+            {
+                LifeSource s = _lifeSource;
+                if (s != null && ReferenceEquals(s.For, density))
+                    return s;
+
+                float[] drawn = new float[density.Length];
+                int[] drawnHist = new int[CloudLifecycle.CoverTable.Bins];
+                double sum = 0.0;
+                for (int i = 0; i < drawn.Length; i++)
+                {
+                    drawn[i] = AsTheGpuReadsIt(density[i]);
+                    sum += drawn[i];
+                    drawnHist[Mathf.Clamp((int)(drawn[i] * CloudLifecycle.CoverTable.Bins), 0, CloudLifecycle.CoverTable.Bins - 1)]++;
+                }
+                s = new LifeSource { For = density, Drawn = drawn, Mean = (float)(sum / drawn.Length), Scores = ScoreBytesOf(density), DrawnHist = drawnHist };
+                _lifeSource = s;
+                return s;
+            }
+        }
+
+        private void SolveLife(LifeJob job)
+        {
+            System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+
+            // The drawn values, their mean and the score bytes of the array this job was asked for (made once per map).
+            LifeSource source = SourceFor(job.Density);
+
+            int saltX, saltY;
+            CloudLifecycle.SaltsFor(job.Seed, out saltX, out saltY);
+            int cells = CloudLifecycle.CellsFor(CloudLifecycle.CellsPer13km, job.Scale);
+            double clock = CloudLifecycle.ResolveClock(job.Index, job.Row);
+            int stride = CloudLifecycle.StrideFor(job.Side);
+            int[] hist = new int[256];
+            long total = CloudLifecycle.BlendHistogram(source.Drawn, job.Side, source.Mean, clock, job.Row, cells, saltX, saltY, hist, stride);
+
+            // The heaps' line: the same blend over the normal scores the texture holds.
+            int[] scoreHist = new int[CloudLifecycle.ScoreBins];
+            long scoreTotal = CloudLifecycle.BlendScoreHistogram(source.Scores, job.Side, clock, job.Row, cells, saltX, saltY, scoreHist, stride);
+
+            LifeSolve solve = new LifeSolve
+            {
+                // The clouds' table keeps the PLAIN sky's real cover (the plain threshold is in stored space, the reads are decoded).
+                Hist = hist, Total = total,
+                Table = CloudLifecycle.CoverTable.MatchingPlain(hist, total, source.DrawnHist, source.Drawn.Length, job.PlainTable),
+                ScoreHist = scoreHist, ScoreTotal = scoreTotal,
+            };
+            lock (_lifeLock)
+            {
+                _lifePending.Remove(job.Index);
+                if (job.Generation != _lifeGeneration)
+                    return;
+                _lifeSolves[job.Index] = solve;
+            }
+
+            watch.Stop();
+            LifeLastSolveMs = watch.Elapsed.TotalMilliseconds;
+            long made = System.Threading.Interlocked.Increment(ref LifeSolvesMade);
+            if (made == 1)
+                Log.Msg("clouds form and fade: first cover solve ready in " + LifeLastSolveMs.ToString("0") + " ms on a worker (map " +
+                        job.Side + "^2 sampled every " + stride + " texels); later ones every eighth of a cycle");
+        }
+
+        /// <summary>
+        /// The eased threshold of the blended map for a coverage (softness <see cref="Softness"/>), at a clock and row. False when
+        /// the pair of solves around the clock is not ready (the caller then uses the plain threshold). A flag, not a sentinel
+        /// (2026-11-25 fix): a threshold is NEGATIVE at high cover (down to -softness), and "-1 = not ready" with callers testing
+        /// ">= 0" sent every high-cover read back to the plain threshold.
+        /// </summary>
+        private bool LifeThreshold(double clock, float row, float coverage, out float threshold)
+        {
+            threshold = 0f;
+            int n = CloudLifecycle.ResolveCount(row);
+            int k = CloudLifecycle.ResolveIndex(clock, row);
+            int k1 = (k + 1) % n;
+            float f = CloudLifecycle.ResolveFraction(clock, row);
+            lock (_lifeLock)
+            {
+                LifeSolve a, b;
+                if (!_lifeSolves.TryGetValue(k, out a) || !_lifeSolves.TryGetValue(k1, out b))
+                    return false;
+                float ta = a.Table.GetThreshold(coverage), tb = b.Table.GetThreshold(coverage);
+                threshold = ta + (tb - ta) * f;
+                return true;
+            }
+        }
+
+        /// <summary>The same for any softness (GetThresholdAsDrawn's callers: the fog, the halos, the funnels' fog). False when not ready.</summary>
+        private bool LifeThresholdAs(double clock, float row, float coverage, float softness, out float threshold)
+        {
+            threshold = 0f;
+            int n = CloudLifecycle.ResolveCount(row);
+            int k = CloudLifecycle.ResolveIndex(clock, row);
+            int k1 = (k + 1) % n;
+            float f = CloudLifecycle.ResolveFraction(clock, row);
+            LifeSolve a, b;
+            lock (_lifeLock)
+            {
+                if (!_lifeSolves.TryGetValue(k, out a) || !_lifeSolves.TryGetValue(k1, out b))
+                    return false;
+            }
+            float ta = CloudLifecycle.CoverTable.Solve(a.Hist, a.Total, coverage, softness);
+            float tb = CloudLifecycle.CoverTable.Solve(b.Hist, b.Total, coverage, softness);
+            threshold = ta + (tb - ta) * f;
+            return true;
+        }
+
+        /// <summary>The score bytes of a density array, worked out on any thread (the same rule as ScoreBytes: the bins of
+        /// <c>(int)(value x HistogramBins)</c> clamped, then Scores). Never reads the field's current pattern.</summary>
+        private static byte[] ScoreBytesOf(float[] density)
+        {
+            int[] histogram = new int[HistogramBins];
+            for (int i = 0; i < density.Length; i++)
+            {
+                int bin = Mathf.Clamp((int)(density[i] * HistogramBins), 0, HistogramBins - 1);
+                histogram[bin]++;
+            }
+            return Scores(density, histogram);
+        }
+
+        /// <summary>The plain map's score histogram (main thread; cached per pattern): the share of the plain map above any score.</summary>
+        private int[] PlainScoreHist(out long total)
+        {
+            float[] density = _density;
+            if (_plainScoreHist == null || !ReferenceEquals(_plainScoreFor, density))
+            {
+                byte[] bytes = ScoreBytes();
+                int[] hist = new int[CloudLifecycle.ScoreBins];
+                for (int i = 0; i < bytes.Length; i++)
+                    hist[CloudLifecycle.ScoreBin(CloudLifecycle.ScoreOfByte(bytes[i]))]++;
+                _plainScoreHist = hist;
+                _plainScoreTotal = bytes.Length;
+                _plainScoreFor = density;
+            }
+
+            total = _plainScoreTotal;
+            return _plainScoreHist;
+        }
+
+        /// <summary>
+        /// THE HEAPS' LINE UNDER THE LIFECYCLE (2026-11-25, task 1). <paramref name="designEdge"/> = the line's edge the plain map
+        /// uses (CloudStyle.HeapEdge(HeapCoverage(cover))); the heaps are drawn where edge + perScore x score > 0, so their share
+        /// is the plain map's share above z = -edge / perScore. The blended scores have another share above that line, so the
+        /// line moves: this returns the edge whose share of the BLENDED scores matches the plain map's, solved on each grid step
+        /// and eased like the value threshold. Off (row 0) or not ready: the design edge, counted in <see cref="HeapFallbacks"/>.
+        /// Main thread only.
+        /// </summary>
+        public float HeapEdgeEased(float designEdge)
+        {
+            float row = CloudLifecycle.Row;
+            if (!CloudLifecycle.Active(row))
+                return designEdge;
+
+            float perScore = CloudStyle.CoverageSlope / CloudStyle.TopTenthScore;
+            long plainTotal;
+            int[] plain = PlainScoreHist(out plainTotal);
+            float share = CloudLifecycle.ShareAbove(plain, plainTotal, -designEdge / perScore);
+
+            double clock = CloudLifecycle.Clock;
+            int n = CloudLifecycle.ResolveCount(row);
+            int k = CloudLifecycle.ResolveIndex(clock, row);
+            int k1 = (k + 1) % n;
+            float f = CloudLifecycle.ResolveFraction(clock, row);
+            LifeSolve a, b;
+            lock (_lifeLock)
+            {
+                if (!_lifeSolves.TryGetValue(k, out a) || !_lifeSolves.TryGetValue(k1, out b))
+                {
+                    System.Threading.Interlocked.Increment(ref HeapFallbacks);
+                    return designEdge;
+                }
+            }
+
+            float za = CloudLifecycle.ZAtShare(a.ScoreHist, a.ScoreTotal, share);
+            float zb = CloudLifecycle.ZAtShare(b.ScoreHist, b.ScoreTotal, share);
+            float z = za + (zb - za) * f;
+            return -z * perScore;
+        }
+
         public float SampleCloud(float u, float v, float coverage)
         {
             // The side from the array itself: a larger map can be adopted on the main thread between
             // two reads here, and the array and its size must be one pattern's.
             float[] density = _density;
             int n = SideOf(density);
+            float value;
+            float row;
+            double clock;
+            CloudLifecycle.Read(out row, out clock);
+            if (CloudLifecycle.Active(row))
+            {
+                // Clouds form and fade (2026-11-25): the two offset reads of the lifecycle, as the shader makes them.
+                int saltX, saltY;
+                CloudLifecycle.SaltsFor(Seed, out saltX, out saltY);
+                int cells = CloudLifecycle.CellsFor(CloudLifecycle.CellsPer13km, _scale);
+                float snap = CloudLifecycle.SnapFor(n);
+                float clockFrac = CloudLifecycle.ClockFraction(clock);
+                int cycle = CloudLifecycle.ClockCycle(clock);
+                CloudLifecycle.Look look = CloudLifecycle.LookAt(u, v, clockFrac, cycle, cells, saltX, saltY, snap, true);
+                float a0 = DrawnAt(density, n, u + look.U0, v + look.V0);
+                float a1 = DrawnAt(density, n, u + look.U1, v + look.V1);
+                value = CloudLifecycle.Blend(a0, a1, DrawnMean(density, n), look);
+            }
+            else
+            {
+                value = DrawnAt(density, n, u, v);
+            }
+            float threshold = Threshold(coverage);
+            if (CloudLifecycle.Active(row))
+            {
+                float eased;
+                if (LifeThreshold(clock, row, coverage, out eased))
+                    threshold = eased;
+                else
+                    System.Threading.Interlocked.Increment(ref LifeFallbacks);
+            }
+            return Mathf.Clamp01((value - threshold) / Softness);
+        }
+
+        private float _drawnMean = float.NaN;
+
+        /// <summary>The drawn map's mean (the blend's centre), computed once per map and reset on Adopt.</summary>
+        private float DrawnMean(float[] density, int n)
+        {
+            if (float.IsNaN(_drawnMean))
+            {
+                double sum = 0.0;
+                for (int i = 0; i < density.Length; i++)
+                    sum += AsTheGpuReadsIt(density[i]);
+                _drawnMean = (float)(sum / density.Length);
+            }
+            return _drawnMean;
+        }
+
+        /// <summary>The drawn value at a point of the drifting frame: the nearest texel, wrapped (as this twin always has).</summary>
+        private float DrawnAt(float[] density, int n, float u, float v)
+        {
             int x = Wrap(Mathf.FloorToInt(u * n), n);
             int y = Wrap(Mathf.FloorToInt(v * n), n);
-            return Mathf.Clamp01((AsTheGpuReadsIt(density[y * n + x]) - Threshold(coverage)) / Softness);
+            return AsTheGpuReadsIt(density[y * n + x]);
         }
 
         private static int SideOf(float[] density)
@@ -637,6 +1051,14 @@ namespace VolumetricClouds.Sky
         /// </remarks>
         public float GetThresholdAsDrawn(float coverage, float softness)
         {
+            float row = CloudLifecycle.Row;
+            if (CloudLifecycle.Active(row))
+            {
+                float eased;
+                if (LifeThresholdAs(CloudLifecycle.Clock, row, coverage, softness, out eased))
+                    return eased;
+            }
+
             if (_drawnHistogram == null || _drawnForSrgb != GpuReadsSrgb)
             {
                 if (_drawnHistogram == null)

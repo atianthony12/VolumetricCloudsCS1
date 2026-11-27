@@ -121,6 +121,8 @@
   <String key="WindDirection.Slowly">Follow the game slowly</String>
   <String key="WindDirection.Fixed">Fixed</String>
   <String key="WindAngle.Label">Fixed wind direction</String>
+  <String key="CloudsFormAndFade.Label">Clouds form and fade</String>
+  <String key="CloudsFormAndFade.Tooltip">Clouds form, hold and dissolve as they drift, each patch of sky at its own time. 100% = one full cycle every 8 minutes of game time. 0% = off, the sky as always</String>
   <String key="WindOverride.Label">Override wind</String>
   <String key="WindStrength.Label">Wind strength</String>
 

@@ -66,10 +66,10 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>The shares of their limits the noise, cover and density changes have used (their sum: 1 = read).</summary>
-        public static double Used(double noiseShift, double coverChange, double densityThen, double densityNow)
+        public static double Used(double noiseShift, double coverChange, double densityThen, double densityNow, double formShare = 0.0)
         {
             double density = densityThen > 1e-6 && densityNow > 1e-6 ? Math.Abs(Math.Log(densityNow / densityThen)) : (densityThen == densityNow ? 0.0 : double.MaxValue);
-            return noiseShift / NoiseLimit + Math.Abs(coverChange) / CoverLimit + density / DensityLimit;
+            return noiseShift / NoiseLimit + Math.Abs(coverChange) / CoverLimit + density / DensityLimit + formShare;
         }
 
         /// <summary>
@@ -78,7 +78,7 @@ namespace VolumetricClouds.Sky
         /// carried the map's clouds since.
         /// </summary>
         public static string Why(bool haveMap, bool inputChanged, double sinceRead, double awakeSinceRead,
-            double noiseShift, double coverChange, double densityThen, double densityNow, double carried)
+            double noiseShift, double coverChange, double densityThen, double densityNow, double carried, double formShare = 0.0)
         {
             if (!haveMap)
                 return "first";
@@ -89,11 +89,14 @@ namespace VolumetricClouds.Sky
             if (carried >= CarryLimit)
                 return "carried";
 
+            // formShare = the clouds forming and fading since the read (CloudLifecycle.ChangeShare, 2026-11-25): one more share.
             double noise = noiseShift / NoiseLimit, cover = Math.Abs(coverChange) / CoverLimit;
-            double used = Used(noiseShift, coverChange, densityThen, densityNow);
+            double used = Used(noiseShift, coverChange, densityThen, densityNow, formShare);
             if (used >= 1.0)
             {
-                double density = used - noise - cover;
+                double density = used - noise - cover - formShare;
+                if (formShare > 0.0 && formShare >= noise && formShare >= cover && formShare >= density)
+                    return "forms";
                 return noise >= cover && noise >= density ? "wind" : cover >= density ? "cover" : "density";
             }
 

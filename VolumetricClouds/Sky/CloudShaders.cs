@@ -107,9 +107,11 @@ namespace VolumetricClouds.Sky
                 string heaps = HeapsAsked ? "Softer cumulus is on" : null;
                 string classic = ClassicAsked ? "Natural Classic clouds is on" : null;
                 string variety = VarietyAsked ? "Cloud variety is on" : null;
+                string forms = LifeAsked ? "Clouds form and fade is on" : null;
                 string asked = light != null && heaps != null ? light + " and " + heaps : light ?? heaps;
                 asked = asked != null && classic != null ? asked + " and " + classic : asked ?? classic;
-                return asked != null && variety != null ? asked + " and " + variety : asked ?? variety;
+                asked = asked != null && variety != null ? asked + " and " + variety : asked ?? variety;
+                return asked != null && forms != null ? asked + " and " + forms : asked ?? forms;
             }
         }
 
@@ -122,6 +124,13 @@ namespace VolumetricClouds.Sky
         private static bool ClassicAsked
         {
             get { return Over(Settings.ClassicShape, 0f); }
+        }
+
+        /// <summary>Clouds that form and fade ask for the extras' variant (2026-11-25): the setting over 0 (the row as drawn is the
+        /// PLUS program's own: CloudLighting reads PlusOn). Any style: the lifecycle moves the density under every one.</summary>
+        public static bool LifeAsked
+        {
+            get { return Settings.CloudsFormAndFade != null && Over(Settings.CloudsFormAndFade, 0f); }
         }
 
         /// <summary>Cloud variety asks for the extras' variant: its row over 0 while a style with heaps is picked (Cumulus, Mixed, Auto).</summary>
@@ -174,7 +183,7 @@ namespace VolumetricClouds.Sky
         {
             // (1.6.1: Cloud variety added -- in 1.6.0 it was in ExtrasAsked's words but not here, so the row alone never
             // turned the variant on and drew nothing.)
-            get { return !Lite && (LightAskedNow || HeapsAsked || ClassicAsked || VarietyAsked); }
+            get { return !Lite && (LightAskedNow || HeapsAsked || ClassicAsked || VarietyAsked || LifeAsked); }
         }
 
         /// <summary>

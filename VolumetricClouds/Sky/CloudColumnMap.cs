@@ -112,6 +112,10 @@ namespace VolumetricClouds.Sky
         private int _drawnVersion = -1;
         private Texture _drawnNoise, _drawnCumulus, _drawnMix, _drawnDetail;
         private int _drawnRevision = -1;
+
+        // The clock and the jump count at the last read (2026-11-25: the clouds forming share and a clock jump).
+        private double _drawnClock = double.NaN;
+        private long _drawnJumps = -1;
         private bool _drawnPlus;
         private float _drawnCover, _drawnDensity;
         private float _readAt;
@@ -151,7 +155,8 @@ namespace VolumetricClouds.Sky
             bool input = _columns != null &&
                          (field != _drawnField || field.Version != _drawnVersion || noise != _drawnNoise || CloudStyle.Texture != _drawnCumulus ||
                           CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.CloudRevision != _drawnRevision ||
-                          (CloudShaders.PlusOn && !CloudShaders.Lite) != _drawnPlus || _columns.Size != Size);
+                          (CloudShaders.PlusOn && !CloudShaders.Lite) != _drawnPlus || _columns.Size != Size ||
+                          CloudLifecycle.Jumps != _drawnJumps);
             string why;
             if (_columns == null)
             {
@@ -163,9 +168,11 @@ namespace VolumetricClouds.Sky
                 // slid through them (the wind alone: a shift moves weather map and noises alike).
                 double dx = driftX - _columns.DriftX, dz = driftZ - _columns.DriftZ;
                 double wx = CloudWind.X - _drawnWindX, wz = CloudWind.Z - _drawnWindZ;
+                // The clouds forming and fading since the read (2026-11-25): the clock's step, its own share of the budget.
+                double formShare = CloudLifecycle.ChangeShare(_drawnClock, CloudLifecycle.Clock, CloudLifecycle.Row, CloudLifecycle.ColumnCycleLimit);
                 why = ColumnCadence.Why(true, input, Time.realtimeSinceStartup - _readAt, _awake,
                     ColumnCadence.NoiseShift(wx, wz, CloudWind.NoiseDrift), cover - _drawnCover, _drawnDensity, density,
-                    System.Math.Sqrt(dx * dx + dz * dz));
+                    System.Math.Sqrt(dx * dx + dz * dz), formShare);
             }
 
             if (why == null)
@@ -244,6 +251,8 @@ namespace VolumetricClouds.Sky
             _drawnMix = CloudMixMap.Map;
             _drawnDetail = CloudDetail.Texture;
             _drawnRevision = Setting.CloudRevision;
+            _drawnClock = CloudLifecycle.Clock;
+            _drawnJumps = CloudLifecycle.Jumps;
             _drawnPlus = CloudShaders.PlusOn && !CloudShaders.Lite;
             _drawnCover = cover;
             _drawnDensity = density;

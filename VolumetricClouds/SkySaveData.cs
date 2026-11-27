@@ -164,12 +164,14 @@ namespace VolumetricClouds
                 SkyState s = loaded.Value;
                 CloudWind.Restore(s.WindX, s.WindZ);
                 CloudWind.SetShift(s.ShiftX, s.ShiftZ);
+                CloudLifecycle.Restore(s.LifeClock);
                 CloudFog.Restore(s.FogX, s.FogZ, s.FogBoil, s.FogAmount);
                 CloudRain.RestoreFall(new UnityEngine.Vector3(s.RainFallX, s.RainFallY, s.RainFallZ));
             }
             else
             {
                 CloudWind.Reset();
+                CloudLifecycle.Restore(0.0);
                 CloudFog.Restore(0.0, 0.0, 0f, 0f);
                 CloudRain.RestoreFall(UnityEngine.Vector3.zero);
             }
@@ -196,6 +198,7 @@ namespace VolumetricClouds
                 RainFallZ = CloudRain.FallOffset.z,
                 ShiftX = CloudWind.ShiftX,
                 ShiftZ = CloudWind.ShiftZ,
+                LifeClock = CloudLifecycle.Clock,
             };
 
             lock (Sync)

@@ -98,6 +98,8 @@
   <String key="WindDirection.Slowly">缓慢跟随游戏</String>
   <String key="WindDirection.Fixed">固定</String>
   <String key="WindAngle.Label">固定风向</String>
+  <String key="CloudsFormAndFade.Label">云层生成与消散</String>
+  <String key="CloudsFormAndFade.Tooltip">云层边漂移边生成、停留、消散，天空各处节奏不同。100% = 游戏时间每 8 分钟一个完整周期。0% = 关闭，保持原样</String>
   <String key="WindOverride.Label">覆盖风力</String>
   <String key="WindStrength.Label">风力</String>
 

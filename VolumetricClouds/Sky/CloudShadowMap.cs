@@ -261,6 +261,8 @@ namespace VolumetricClouds.Sky
             _drawnShiftX = CloudWind.ShiftX;
             _drawnShiftZ = CloudWind.ShiftZ;
             _drawnCoverage = coverage;
+            _drawnClock = CloudLifecycle.Clock;
+            _drawnJumps = CloudLifecycle.Jumps;
             _drawnDepth = depth;
             _drawnFrame = new ShadowCadence.Frame(t.right.x, t.right.y, t.right.z, t.up.x, t.up.y, t.up.z, t.forward.x, t.forward.y, t.forward.z);
             _forceRedraw = Time.time + 1f;
@@ -362,7 +364,11 @@ namespace VolumetricClouds.Sky
         private float _drawnBottom, _drawnTop;
         private ShadowCadence.Frame _drawnFrame;
         private int _drawn, _drawnSinceProbe;
-        private int _forFirst, _forInput, _forWind, _forSun, _forCover, _forSecond;
+        private int _forFirst, _forInput, _forWind, _forSun, _forCover, _forSecond, _forForms;
+
+        // The clock and the jump count the map was last drawn at (2026-11-25: the clouds forming share, WhyDraw).
+        private double _drawnClock = double.NaN;
+        private long _drawnJumps = -1;
 
         /// <summary>Draws since the city started (the bench counts them).</summary>
         public int Drawn
@@ -379,8 +385,10 @@ namespace VolumetricClouds.Sky
         {
             // (The field's own textures follow its Version: a new pattern or size bumps it. Their getters make them,
             // so they are not asked here.)
+            // A clock jump (a city's load or a save's clock, CloudLifecycle.Jumps) is an input change, not a share of its limit.
             if (field != _drawnField || field.Version != _drawnVersion || noise != _drawnNoise || CloudStyle.Texture != _drawnCumulus ||
-                CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.CloudRevision != _drawnRevision)
+                CloudMixMap.Map != _drawnMix || CloudDetail.Texture != _drawnDetail || Setting.CloudRevision != _drawnRevision ||
+                CloudLifecycle.Jumps != _drawnJumps)
                 return "input";
 
             // Each as a share of what it may move alone; together they share one budget, so the map's error stays
@@ -392,13 +400,9 @@ namespace VolumetricClouds.Sky
             var now = new ShadowCadence.Frame(r.x, r.y, r.z, u.x, u.y, u.z, f.x, f.y, f.z);
             double turned = ShadowCadence.SunShift(_drawnFrame, now, MapHalf, _drawnBottom, _drawnTop, SunLowest) / limit;
             double cover = Mathf.Abs(coverage - _drawnCoverage) / CoverStep + Mathf.Abs(depth - _drawnDepth) / DepthStep;
-            if (wind + turned + cover >= 1.0)
-                return wind >= turned && wind >= cover ? "wind" : turned >= cover ? "sun" : "cover";
-
-            if (Time.time >= _forceRedraw)
-                return "second";
-
-            return null;
+            // The clouds forming and fading (2026-11-25): the clock's step since the draw, against its own limit, on the same budget.
+            double forms = CloudLifecycle.ChangeShare(_drawnClock, CloudLifecycle.Clock, CloudLifecycle.Row);
+            return ShadowCadence.Why(wind, turned, cover, forms, Time.time >= _forceRedraw);
         }
 
         private void CountReason(string why)
@@ -411,15 +415,16 @@ namespace VolumetricClouds.Sky
                 case "wind": _forWind++; break;
                 case "sun": _forSun++; break;
                 case "cover": _forCover++; break;
+                case "forms": _forForms++; break;
                 default: _forSecond++; break;
             }
         }
 
         private string TakeReasons()
         {
-            string s = "wind " + _forWind + ", sun " + _forSun + ", cover " + _forCover + ", settings or textures " + (_forInput + _forFirst) +
-                       ", the once-a-second draw " + _forSecond;
-            _forFirst = _forInput = _forWind = _forSun = _forCover = _forSecond = _drawnSinceProbe = 0;
+            string s = "wind " + _forWind + ", sun " + _forSun + ", cover " + _forCover + ", clouds forming " + _forForms +
+                       ", settings or textures " + (_forInput + _forFirst) + ", the once-a-second draw " + _forSecond;
+            _forFirst = _forInput = _forWind = _forSun = _forCover = _forSecond = _forForms = _drawnSinceProbe = 0;
             return s;
         }
 

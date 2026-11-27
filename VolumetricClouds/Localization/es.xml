@@ -84,6 +84,8 @@
   <String key="WindDirection.Slowly">Seguir el juego despacio</String>
   <String key="WindDirection.Fixed">Fija</String>
   <String key="WindAngle.Label">Dirección fija del viento</String>
+  <String key="CloudsFormAndFade.Label">Las nubes se forman y se disipan</String>
+  <String key="CloudsFormAndFade.Tooltip">Las nubes se forman, se mantienen y se disipan mientras derivan, cada zona del cielo a su ritmo. 100% = un ciclo completo cada 8 minutos de juego. 0% = desactivado, el cielo de siempre</String>
   <String key="WindOverride.Label">Forzar viento</String>
   <String key="WindStrength.Label">Fuerza del viento</String>
 

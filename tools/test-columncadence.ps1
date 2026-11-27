@@ -29,9 +29,10 @@ $floor = [double]$C.GetField("MinInterval").GetValue($null)
 $ceiling = [double]$C.GetField("Ceiling").GetValue($null)
 $carryLimit = [double]$C.GetField("CarryLimit").GetValue($null)
 Check "no camera limit any more (the map is fixed on the city)" ($C.GetField("CameraLimit") -eq $null)
-# Why(haveMap, inputChanged, sinceRead, awakeSinceRead, noiseShift, coverChange, densityThen, densityNow, carried)
+# Why(haveMap, inputChanged, sinceRead, awakeSinceRead, noiseShift, coverChange, densityThen, densityNow, carried, formShare)
+# (formShare is the lifecycle's share, 2026-11-25: an optional parameter, so reflection needs it passed; 0 = none.)
 function W($have, $changed, $since, $awake, $noise, $cover, $d0, $d1, $cam) {
-    $r = $why.Invoke($null, [object[]]@([bool]$have, [bool]$changed, [double]$since, [double]$awake, [double]$noise, [double]$cover, [double]$d0, [double]$d1, [double]$cam))
+    $r = $why.Invoke($null, [object[]]@([bool]$have, [bool]$changed, [double]$since, [double]$awake, [double]$noise, [double]$cover, [double]$d0, [double]$d1, [double]$cam, [double]0))
     if ($r -eq $null) { "-" } else { [string]$r }
 }
 
@@ -71,6 +72,19 @@ Check "a cloud row and every other (fog here): both move" (($bumpCloud[0] -eq 1)
 # His storm (2026-11-20 log: clouds drift ~21 m/s at 1x, the cover steady): how often.
 $per = $noiseLimit / (21.0 * 0.25)
 Check ("at his 21 m/s drift a read every {0:F0} s from the wind alone (60/min before), 3x speed every {1:F0} s" -f $per, ($per / 3)) ($per -ge $floor)
+
+# 2026-11-25 (clouds forming and fading): the lifecycle's share (CloudLifecycle.ChangeShare) is one more share of the same
+# budget, and a read at the floor is still the rule. Why(..., formShare) takes it last; with no share, the 1.6.1 rules.
+function WF($since, $form) {
+    $r = $why.Invoke($null, [object[]]@($true, $false, [double]$since, [double]$since, [double]0, [double]0, [double]1, [double]1, [double]0, [double]$form))
+    if ($r -eq $null) { "-" } else { [string]$r }
+}
+Check "clouds forming alone, a whole share, past the floor: read, labelled forms" ((WF 10 1.0) -eq "forms")
+Check "clouds forming under a whole share and nothing else: no read" ((WF 10 0.5) -eq "-")
+Check "clouds forming under the floor: no read even at a whole share" ((WF 2 1.0) -eq "-")
+Check "no lifecycle share: a still map is not read (the 1.6.1 rule)" ((W $true $false 10 10 0 0 1 1 0) -eq "-")
+$windBig = $why.Invoke($null, [object[]]@($true, $false, [double]10, [double]10, [double]($noiseLimit * 0.9), [double]0, [double]1, [double]1, [double]0, [double]0.5))
+Check "clouds forming with a wind share of 0.9 and a forms share of 0.5: the larger share (wind) names the read" ([string]$windBig -eq "wind")
 
 ""
 if ($failed -eq 0) { "ALL COLUMN CADENCE CHECKS PASSED" } else { "$failed CHECK(S) FAILED"; exit 1 }

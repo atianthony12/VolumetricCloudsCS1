@@ -137,5 +137,20 @@ namespace VolumetricClouds.Sky
                 capped = Math.Min(capped, 0.5 * texel / speed);
             return Math.Max(plain, capped);
         }
+
+        /// <summary>
+        /// Why the map is drawn now, or null (2026-11-25): the wind, the sun and the cover shares of their limits, and the
+        /// cloud lifecycle's share (CloudLifecycle.ChangeShare) share ONE budget: a draw is due when they sum to 1. With the
+        /// lifecycle share 0 this is the 1.6.1 rule exactly; <paramref name="secondDue"/> = the once-a-second draw is due.
+        /// </summary>
+        public static string Why(double wind, double turned, double cover, double forms, bool secondDue)
+        {
+            if (wind + turned + cover + forms >= 1.0)
+                return wind >= turned && wind >= cover && wind >= forms ? "wind"
+                     : turned >= cover && turned >= forms ? "sun"
+                     : cover >= forms ? "cover" : "forms";
+
+            return secondDue ? "second" : null;
+        }
     }
 }

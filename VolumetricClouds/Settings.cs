@@ -540,6 +540,13 @@ namespace VolumetricClouds
         public static FloatSetting WindAngle { get; private set; }
 
         /// <summary>
+        /// Clouds that form, hold and dissolve while they drift (Sky.CloudLifecycle, 2026-11-25): 0% = off (the plain
+        /// sky, bit for bit), 100% = one full cycle per place every 8 minutes of game time at 1x, 0-200%. Now tab, not
+        /// profiled. Stored as a float, append-only.
+        /// </summary>
+        public static FloatSetting CloudsFormAndFade { get; private set; }
+
+        /// <summary>
         /// The Now tab's wind (2026-10-30): on, the city's wind (Sky.WeatherWind: the trees, and other
         /// mods' wind such as Real Flag's) is <see cref="WindStrength"/> instead of the weather's (the
         /// Trees rows still scale how the trees answer it). The weather of the moment: not in a profile.
@@ -1012,6 +1019,9 @@ namespace VolumetricClouds
             /// </summary>
             public const int WindDirection = 0;
             public const float WindAngle = 0f;
+
+            /// <summary>Clouds form and fade (2026-11-25): off, so existing players see the same sky until they pick a speed.</summary>
+            public const float CloudsFormAndFade = 0f;
 
             /// <summary>The Now tab's wind: off (the weather's); 1 breeze when someone ticks it.</summary>
             public const bool WindOverride = false;
@@ -1624,6 +1634,7 @@ namespace VolumetricClouds
                 WindSpeed = new FloatSetting("WindSpeed", Defaults.WindSpeed);
                 WindDirection = new IntSetting("WindDirection", Defaults.WindDirection);
                 WindAngle = new FloatSetting("WindAngle", Defaults.WindAngle);
+                CloudsFormAndFade = new FloatSetting("CloudsFormAndFade", Defaults.CloudsFormAndFade);
                 WindOverride = new BoolSetting("WindOverride", Defaults.WindOverride);
                 WindStrength = new FloatSetting("WindStrength", Defaults.WindStrength);
                 // Not the old "CookieTileSize": its 2000 m default was saved into existing

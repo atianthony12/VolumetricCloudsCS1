@@ -198,6 +198,7 @@ namespace VolumetricClouds.Sky
             material.SetVector(IdWeatherPhase, CloudWind.WeatherPhase(weatherTile));
             material.SetVector(IdNoisePhase, CloudWind.NoisePhase(NoiseTile, 1f));
             material.SetVector(IdDetailPhase, CloudWind.NoisePhase(NoiseTile, detailScale));
+            ApplyLifecycle(material, field);
 
             // Where it rains (SampleRain): the same field, thresholded for the smaller
             // coverage it rains under, so rain is always beneath cloud.
@@ -230,6 +231,11 @@ namespace VolumetricClouds.Sky
                 material.SetVector(IdCurveFront, new Vector4(CurvedClouds.FrontStrength * share, 1f / CurvedClouds.FrontBlend, CurvedClouds.NoiseCells(spacing), 0f));
                 material.SetVector(IdCurveStats, new Vector4(mean, spread, 0.5f, CloudDensityField.ScoreSpread));
             }
+
+            // The map's mean and spread, always (2026-11-25): the lifecycle's blend centres on them, with the curve off too.
+            float statMean, statSpread;
+            field.ReadStats(out statMean, out statSpread);
+            material.SetVector(IdCurveStats, new Vector4(statMean, statSpread, 0.5f, CloudDensityField.ScoreSpread));
 
             // The layer is drawn in every style, with all of Classic's settings: its fragments and
             // its detail too. Under Cumulus the heaps come on top, under Soft and Mixed the puffs (ApplyStyle).
@@ -264,6 +270,47 @@ namespace VolumetricClouds.Sky
         /// most weather is at or under the lowest threshold any of their clouds starts at (the puffs' or
         /// the layer's, in any of Mixed's type areas): `_EmptySky.w`.
         /// </summary>
+        // ---- the cloud lifecycle's uniforms (2026-11-25, VC_PLUS only: CloudCommon.cginc's LifeLookAt reads them) -----------
+
+        private static readonly int IdLifeClock = Shader.PropertyToID("_LifeClock");
+        private static readonly int IdLifeGrid = Shader.PropertyToID("_LifeGrid");
+        private static readonly int IdLifeWindow = Shader.PropertyToID("_LifeWindow");
+        private static readonly int IdLifeEqual = Shader.PropertyToID("_LifeEqual");
+
+        /// <summary>The equaliser table as nine float4s (36 entries, the first 33 are CloudLifecycle.EqualiserTable).</summary>
+        private static readonly Vector4[] LifeEqualiser = BuildLifeEqualiser();
+
+        private static Vector4[] BuildLifeEqualiser()
+        {
+            Vector4[] q = new Vector4[9];
+            for (int i = 0; i < 36; i++)
+            {
+                float v = i < CloudLifecycle.EqualiserTable.Length ? CloudLifecycle.EqualiserTable[i] : 0f;
+                q[i >> 2][i & 3] = v;
+            }
+            return q;
+        }
+
+        /// <summary>
+        /// The lifecycle's numbers for the shader, and the Cumulus line's eased edge (CloudStyle.LifeEdgeNow, which the slab's
+        /// top reads). Off (the drawn row 0): the clock flag is 0 and the shader reads the plain map.
+        /// </summary>
+        private static void ApplyLifecycle(Material material, CloudDensityField field)
+        {
+            bool on = CloudLifecycle.Active(CloudLifecycle.Row);
+            int side = field.Resolution;
+            int saltX, saltY;
+            CloudLifecycle.SaltsFor(field.Seed, out saltX, out saltY);
+            int cells = CloudLifecycle.CellsFor(CloudLifecycle.CellsPer13km, field.Scale);
+            double clock = CloudLifecycle.Clock;
+
+            material.SetVector(IdLifeClock, new Vector4(CloudLifecycle.ClockFraction(clock), CloudLifecycle.ClockCycle(clock),
+                on ? 1f : 0f, CloudLifecycle.SnapFor(side)));
+            material.SetVector(IdLifeGrid, new Vector4(cells, saltX, saltY, CloudLifecycle.Span));
+            material.SetVector(IdLifeWindow, new Vector4(CloudLifecycle.LayerWindow, CloudLifecycle.LayerGap, 0f, 0f));
+            material.SetVectorArray(IdLifeEqual, LifeEqualiser);
+        }
+
         private static void ApplyEmptySky(Material material, CloudDensityField field)
         {
             bool fragments = FragmentShare > 0f;
@@ -307,7 +354,10 @@ namespace VolumetricClouds.Sky
 
             // Half the share to switch off as to switch on: a cover hovering round it does not flicker
             // the state (and the log).
-            bool on = !fragments && share >= (_emptySkyLogged == "on" ? EmptySkyMinShare * 0.5f : EmptySkyMinShare);
+            // The lifecycle switches the skip off (2026-11-25): a layer's offset jumps inside a skip cell, where the cell's
+            // bound no longer holds for every place in it. Its cost is measured later (the round's notes).
+            bool on = !fragments && !CloudLifecycle.Active(CloudLifecycle.Row)
+                && share >= (_emptySkyLogged == "on" ? EmptySkyMinShare * 0.5f : EmptySkyMinShare);
             int cells = field.Resolution / EmptySky.CellTexels;
             material.SetVector(IdEmptySky, new Vector4(on ? 1f : 0f, cells, EmptySky.CoarseCells, puffs ? threshold : 0f));
             if (on)
@@ -425,7 +475,11 @@ namespace VolumetricClouds.Sky
             // gets the same amount at the same slider), no more heaps above HeapCap. Cumulus amount
             // (1.5.0) scales the intensity they are cut at.
             float lineA, lineB;
-            CloudStyle.Line(CloudStyle.HeapEdge(CloudStyle.HeapCoverage(Coverage)), out lineA, out lineB);
+            float designEdge = CloudStyle.HeapEdge(CloudStyle.HeapCoverage(Coverage));
+            // The lifecycle moves the line with the blended scores (CloudDensityField.HeapEdgeEased); off, the design edge.
+            float edge = field.HeapEdgeEased(designEdge);
+            CloudStyle.LifeEdgeNow = CloudLifecycle.Active(CloudLifecycle.Row) ? edge : float.NaN;
+            CloudStyle.Line(edge, out lineA, out lineB);
             // Rounded cumulus bases and Softer cumulus keep the sky's amount (0 with the rows off: the line as it was).
             // The empty-sky skip above keeps the untrimmed line: it can only find more cloud than there is, never less.
             lineA -= CloudStyle.LineTrimNow;
@@ -592,7 +646,7 @@ namespace VolumetricClouds.Sky
                 CloudStyle.TypeStrengthNow));
 
             float noneA, noneB;
-            CloudStyle.Line(CloudMix.NoHeapEdge, out noneA, out noneB);
+            CloudStyle.Line(field.HeapEdgeEased(CloudMix.NoHeapEdge), out noneA, out noneB);
             noneA -= CloudStyle.LineTrimNow;
             material.SetVector(IdMixHeaps, new Vector4(noneA, CloudMix.LeanStart(CloudStyle.HeapSkyNow), 1f / CloudMix.LeanWidth, CloudStyle.HeapLightBoost));
 

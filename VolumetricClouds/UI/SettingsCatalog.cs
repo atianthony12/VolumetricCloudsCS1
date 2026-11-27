@@ -1725,6 +1725,21 @@ namespace VolumetricClouds.UI
                 Shown = () => CloudWeather.WindMode == CloudWeather.WindFixed,
             });
 
+            // 2026-11-25: clouds that form, hold and dissolve as they drift
+            // (Sky.CloudLifecycle). 0% = off, the plain sky. Now tab, not profiled (the sky of the moment, like the wind). An
+            // extra: only the cloud shader's VC_PLUS variant draws it, so greyed where that variant does not run.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Now,
+                Float = Settings.CloudsFormAndFade,
+                DefaultFloat = Settings.Defaults.CloudsFormAndFade,
+                Min = 0f, Max = 200f, Step = 5f,
+                HasTooltip = true,
+                Profiled = false,
+                Enabled = () => WholeShaders() && (CloudShaders.Raymarch == null || CloudShaders.PlusDrawn) && !CloudShaders.ExtrasOffByPreset,
+            });
+
             // 2026-10-30 (the author: "add a Wind override ... where the wind direction dropdown is"):
             // the city's wind set by hand, calm to a gale, instead of the weather's (Sky.WeatherWind:
             // the trees, their leaves and dust, and other mods' wind -- Real Flag's -- follow it; the

@@ -507,6 +507,8 @@ namespace VolumetricClouds.Sky
             _holder.transform.position = _camera.transform.position;
             _holder.transform.localScale = Vector3.one * (_camera.farClipPlane * 0.45f);
 
+            // The cloud lifecycle cover solves (2026-11-25): asked for before the material reads its thresholds.
+            _field.StepLife(CloudLifecycle.Clock, CloudLifecycle.Row);
             UpdateMaterial();
             UpdateParts();
 

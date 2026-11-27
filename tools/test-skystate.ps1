@@ -247,9 +247,11 @@ function Read([byte[]]$bytes) {
 }
 
 $s = NewState
+$s.LifeClock = 12.25
 $bytes = $s.ToBytes()
-Check "a record is 77 bytes (version 2: the cloud position after version 1's 61)" $bytes.Length "77"
-Check "...and starts with version 2" $bytes[0] "2"
+Check "a record is 85 bytes (version 3: the lifecycle clock after version 2's 77)" $bytes.Length "85"
+Check "...and starts with version 3" $bytes[0] "3"
+Check "...the lifecycle clock where version 2 ended" ([BitConverter]::ToDouble($bytes, 77)) "12.25"
 Check "...then the field seed, little-endian" ([BitConverter]::ToInt32($bytes, 1)) "12345"
 Check "...and the cloud position where version 1 ended" ([BitConverter]::ToDouble($bytes, 61)) "2450"
 
@@ -262,6 +264,7 @@ Check "wind exact (doubles, all 17 digits)" "$($t.WindX.ToString('R'))|$($t.Wind
 Check "fog exact" "$($t.FogX.ToString('R'))|$($t.FogZ.ToString('R'))|$($t.FogBoil)|$($t.FogAmount)" "$($s.FogX.ToString('R'))|$($s.FogZ.ToString('R'))|$($s.FogBoil)|$($s.FogAmount)"
 Check "rain fall exact" "$($t.RainFallX)|$($t.RainFallY)|$($t.RainFallZ)" "12.5|-1234.25|0.75"
 Check "cloud position exact" "$($t.ShiftX.ToString('R'))|$($t.ShiftZ.ToString('R'))" "2450|-125.5"
+Check "lifecycle clock exact" $t.LifeClock.ToString('R') "12.25"
 
 # A save made by 1.2.0 or older: a version-1 record, 61 bytes. It reads, with the clouds where
 # the pattern puts them.
@@ -272,6 +275,13 @@ Check "a version-1 record (every save before 1.3.0) still reads" $r.Ok "True"
 Check "...with no note" ($r.Note -eq $null) "True"
 Check "...the same sky" "$($r.State.FieldSeed)/$($r.State.WindX.ToString('R'))/$($r.State.RainFallZ)" "12345/$($s.WindX.ToString('R'))/0.75"
 Check "...and no cloud position" "$($r.State.ShiftX)|$($r.State.ShiftZ)" "0|0"
+
+# A version-2 save (77 bytes, 1.3.0 to 1.6.1): reads, with the lifecycle clock at 0 and no note.
+$v2 = [byte[]]$bytes[0..76]
+$v2[0] = 2
+$r = Read $v2
+Check "a version-2 record reads" $r.Ok "True"
+Check "...with the lifecycle clock at 0 and no note" "$($r.State.LifeClock)|$($r.Note -eq $null)" "0|True"
 
 $cut = [byte[]]$bytes[0..68]
 $r = Read $cut
@@ -293,11 +303,11 @@ $r = Read $short
 Check "60 bytes (one short of version 1) is refused" $r.Ok "False"
 Write-Host "      (the note: $($r.Note))"
 
-# A NEWER mod's record: version 3 with more fields after ours. This mod reads its sky.
-$newer = New-Object byte[] 89
-[Array]::Copy($bytes, $newer, 77)
-$newer[0] = 3
-for ($i = 77; $i -lt 89; $i++) { $newer[$i] = 0xAB }
+# A NEWER mod's record: version 4 with more fields after ours. This mod reads its sky.
+$newer = New-Object byte[] 93
+[Array]::Copy($bytes, $newer, 85)
+$newer[0] = 4
+for ($i = 85; $i -lt 93; $i++) { $newer[$i] = 0xAB }
 $r = Read $newer
 Check "a newer version's record is still read" $r.Ok "True"
 Check "...with the same sky" "$($r.State.FieldSeed)/$($r.State.WindX.ToString('R'))/$($r.State.ShiftX)" "12345/$($s.WindX.ToString('R'))/2450"

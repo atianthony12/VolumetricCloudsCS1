@@ -172,6 +172,12 @@ namespace VolumetricClouds.Sky
             // below that moves along the wind reads it.
             CloudWeather.AdvanceWind(Time.deltaTime * simulationRate);
 
+            // The cloud lifecycle clock (2026-11-25): the sim time at the row's rate, 0 while paused.
+            // The row AS DRAWN (2026-11-25): 0 unless the PLUS program draws (Low, Lite or a failed probe: the plain map, the plain
+            // threshold, no clock). The setting alone would breathe the threshold under a plain map.
+            float formRow = Settings.CloudsFormAndFade != null && CloudShaders.PlusOn ? Settings.CloudsFormAndFade.value : 0f;
+            CloudLifecycle.Advance(formRow, Time.deltaTime * simulationRate);
+
             float speed = Settings.WindSpeed != null ? Settings.WindSpeed.value : Settings.Defaults.WindSpeed;
             CloudWind.Advance(CloudWeather.WindDirection,
                               Time.deltaTime * speed * 10f * CloudWeather.WindSpeedFactor * simulationRate);
