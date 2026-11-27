@@ -163,13 +163,13 @@
   <String key="Group.SkyLayer">远处的云</String>
 
   <String key="DynamicDistantClouds.Label">动态远处的云</String>
-  <String key="SkyCirrus.Label">卷云</String>
+  <String key="DistantCirrus.Label">卷云</String>
 
-  <String key="SkySheepClouds.Label">鱼鳞云</String>
+  <String key="DistantSheepClouds.Label">鱼鳞云</String>
 
-  <String key="SkyFarClouds.Label">地平线上的积云</String>
+  <String key="DistantFarClouds.Label">地平线上的积云</String>
 
-  <String key="SkyCloudLayers.Label">混合远云</String>
+  <String key="DistantCloudLayers.Label">混合远云</String>
 
   <String key="Colour.Copy">复制</String>
   <String key="Colour.Copied">已复制</String>

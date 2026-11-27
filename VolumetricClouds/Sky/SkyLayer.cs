@@ -23,9 +23,11 @@ namespace VolumetricClouds.Sky
     /// decoded once (two RGBA textures, ~45 MB of graphics memory with mips) and kept for the session.
     /// The pictures are turned per city (its seed), and carried by the wind at half the volumetric
     /// clouds' speed (2026-10-13; first built as HDRP's distortion, a little way along the wind and
-    /// back, which read as still): two copies take turns, each carried for a life and faded out, then
-    /// started again turned another way, so the sky travels and slowly changes. Not touched: rain,
-    /// lightning, the rainbow, the shadows.
+    /// back, which read as still): two copies take turns, each carried for a life, then the other comes
+    /// in turned another way, so the sky travels and slowly changes. Not touched: rain, lightning, the
+    /// rainbow, the shadows.
+    /// <para>ONE PICTURE AT A TIME (2026-11-25, <see cref="SkyLayerMix"/>): each life shows one picture per
+    /// kind and the rows cut it (thin parts first); the copies are never averaged, they swap.</para>
     /// </remarks>
     public sealed class SkyLayer
     {
@@ -42,14 +44,24 @@ namespace VolumetricClouds.Sky
         private const float LayerHeight = 2000f;
 
         /// <summary>
-        /// Metres one copy of the pictures is carried before it has faded out and starts again (turned
-        /// another way); the other copy is half a lifetime behind. 8 km on a 2 km layer: overhead a copy
-        /// travels some 75 degrees of sky in its life.
+        /// Metres of travel a life lasts: one copy shows its pictures this far, then the other takes over
+        /// (SkyLayerMix.Presence: the last SwapShare of it is the swap). 6 km (8 until 2026-11-25): carried
+        /// -3.45 .. +3.45 km about the picture as photographed (SkyLayerMix.CarrySpan), short of the ~4 km where
+        /// the flat layer's stretch begins to show (Phase 1 probe).
         /// </summary>
-        private const double Lifetime = 8000.0;
+        private const double Lifetime = 6000.0;
 
-        /// <summary>The share of a copy's life spent fading in, and again fading out.</summary>
-        private const float FadeShare = 0.25f;
+        /// <summary>
+        /// Dynamic distant clouds' clock (SkyLayerMix.Dynamic counts its spells and waves in these): the old
+        /// Lifetime, kept when that changed so the spells last as they did.
+        /// </summary>
+        private const double SpellLength = 8000.0;
+
+        /// <summary>
+        /// false (2026-11-25, his look in game): the slider fades the one picture. true = the Phase 1 cover cut
+        /// (thin parts first, cores last), kept for the bench (set:SkyLayer.CoverCut=true) and Phase 2's re-cut.
+        /// </summary>
+        internal static bool CoverCut = false;
 
         /// <summary>A drift step longer than this in one frame is a jump (a save read, a reset), not wind.</summary>
         private const double FlowJump = 2000.0;
@@ -78,6 +90,9 @@ namespace VolumetricClouds.Sky
         private static readonly int IdPicturesA = Shader.PropertyToID("_SkyPicturesA");
         private static readonly int IdPicturesB = Shader.PropertyToID("_SkyPicturesB");
         private static readonly int IdWeights = Shader.PropertyToID("_SkyWeights");
+        private static readonly int IdWeights1 = Shader.PropertyToID("_SkyWeights1");
+        private static readonly int IdCut0 = Shader.PropertyToID("_SkyCut0");
+        private static readonly int IdCut1 = Shader.PropertyToID("_SkyCut1");
         private static readonly int IdKinds = Shader.PropertyToID("_SkyKinds");
         private static readonly int IdCopy0 = Shader.PropertyToID("_SkyCopy0");
         private static readonly int IdCopy1 = Shader.PropertyToID("_SkyCopy1");
@@ -103,19 +118,28 @@ namespace VolumetricClouds.Sky
         private bool _loadFailed;
 
         private readonly float[] _amounts = new float[SkyLayerMix.Kinds];
-        private readonly float[] _scratch = new float[SkyLayerMix.Pictures.Length];
-        private readonly Vector4[] _weights = new Vector4[2 * SkyLayerMix.Kinds];
+        private readonly Vector4[][] _weights = { new Vector4[2 * SkyLayerMix.Kinds], new Vector4[2 * SkyLayerMix.Kinds] };
+
+        // Each picture's histogram for the cut (SkyLayerMix.Histogram), made when the pictures are decoded.
+        private readonly float[][] _hist = new float[SkyLayerMix.Pictures.Length][];
 
         // The motion: how far the wind has carried the distant clouds this session (m, along its path),
-        // where they are (m, x and z: Speed x the wind's drift), and per copy where it started and in
-        // which life (a new life = a new turn).
+        // where they are (m, x and z: Speed x the wind's drift), and per copy where it started, in which
+        // life (a new life = a new turn and new pictures), how present it is, its picture and cut per kind.
         private double _travel;
         private double _lastX;
         private double _lastZ;
         private bool _haveLast;
+        private double _windX = 1.0;   // which way the distant clouds last moved (unit; +x until they first do)
+        private double _windZ;
         private readonly double[] _anchorX = new double[2];
         private readonly double[] _anchorZ = new double[2];
         private readonly long[] _life = { long.MinValue, long.MinValue };
+        private readonly float[] _presence = new float[2];
+        private readonly int[][] _picture = { new int[SkyLayerMix.Kinds], new int[SkyLayerMix.Kinds] };
+        private readonly float[][] _cut = { new float[SkyLayerMix.Kinds], new float[SkyLayerMix.Kinds] };
+        private readonly float[][] _cutShare = { new[] { -1f, -1f, -1f, -1f }, new[] { -1f, -1f, -1f, -1f } };
+        private readonly int[][] _cutPicture = { new[] { -1, -1, -1, -1 }, new[] { -1, -1, -1, -1 } };
 
         /// <summary>
         /// Where the dynamic mix starts this session, in lives: random, so a city does not open on the same
@@ -131,7 +155,8 @@ namespace VolumetricClouds.Sky
         {
             _material = new Material(shader) { name = "VolumetricCloudsSkyLayer", renderQueue = Queue };
             _material.SetVectorArray(IdKinds, KindLight);
-            _material.SetVectorArray(IdWeights, _weights);
+            _material.SetVectorArray(IdWeights, _weights[0]);
+            _material.SetVectorArray(IdWeights1, _weights[1]);
 
             _holder = new GameObject("VolumetricCloudsSkyLayer");
             _holder.transform.SetParent(parent, false);
@@ -159,7 +184,10 @@ namespace VolumetricClouds.Sky
         {
             if (Dynamic)
             {
-                SkyLayerMix.Dynamic(_mixStart + _travel / Lifetime, SkyPattern.FieldSeed, CloudShaderParams.Coverage, _amounts);
+                SkyLayerMix.Dynamic(_mixStart + _travel / SpellLength, SkyPattern.FieldSeed, CloudShaderParams.Coverage, _amounts);
+                // Its amounts were tuned for the old walk through the pictures: the same mean cloud as then.
+                for (int k = 0; k < SkyLayerMix.Kinds; k++)
+                    _amounts[k] = SkyLayerMix.ConvertOld(k, _amounts[k]);
                 return;
             }
 
@@ -183,15 +211,15 @@ namespace VolumetricClouds.Sky
         public void Update(Material clouds, Vector4 ambient)
         {
             AdvanceFlow();
+            AdvanceLives();
             ReadAmounts();
             bool any = false;
             for (int k = 0; k < SkyLayerMix.Kinds; k++)
                 any |= _amounts[k] > 0f;
 
-            LogState(clouds != null && any);
-
             if (clouds == null || !any)
             {
+                LogState(false);
                 _renderer.enabled = false;
                 return;
             }
@@ -200,26 +228,25 @@ namespace VolumetricClouds.Sky
                 Load();
             if (_loadFailed)
             {
+                LogState(false);
                 _renderer.enabled = false;
                 return;
             }
 
-            for (int k = 0; k < SkyLayerMix.Kinds; k++)
-            {
-                SkyLayerMix.Weights(k, _amounts[k], _scratch);
-                _weights[2 * k] = new Vector4(_scratch[0], _scratch[1], _scratch[2], _scratch[3]);
-                _weights[2 * k + 1] = new Vector4(_scratch[4], _scratch[5], _scratch[6], _scratch[7]);
-            }
-            _material.SetVectorArray(IdWeights, _weights);
             _material.SetTexture(IdPicturesA, _picturesA);
             _material.SetTexture(IdPicturesB, _picturesB);
 
-            // The two copies: how far each has been carried, its turn, its weight.
-            float w0, w1;
-            _material.SetVector(IdCopy0, Copy(0, out w0));
-            _material.SetVector(IdCopy1, Copy(1, out w1));
+            // The two copies: how far each has been carried, its turn, its pictures and their cuts.
+            bool show0, show1;
+            _material.SetVector(IdCopy0, Copy(0, out show0));
+            _material.SetVector(IdCopy1, Copy(1, out show1));
+            LogState(true);
+            _material.SetVectorArray(IdWeights, _weights[0]);
+            _material.SetVectorArray(IdWeights1, _weights[1]);
+            _material.SetVector(IdCut0, new Vector4(_cut[0][0], _cut[0][1], _cut[0][2], _cut[0][3]));
+            _material.SetVector(IdCut1, new Vector4(_cut[1][0], _cut[1][1], _cut[1][2], _cut[1][3]));
             _behind = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(BehindFrom, BehindFull, CloudShaderParams.Coverage));
-            _material.SetVector(IdFlow, new Vector4(w0, w1, LayerHeight, _behind));
+            _material.SetVector(IdFlow, new Vector4(show0 ? 1f : 0f, show1 ? 1f : 0f, LayerHeight, _behind));
 
             // The clouds' own light (CloudVolume.ApplyLighting set it this frame), and their distance fade.
             // Without the Soft style's own light level (CloudStyle.CloudLightScale): the pictures are lit
@@ -255,6 +282,11 @@ namespace VolumetricClouds.Sky
                 if (step < FlowJump)
                 {
                     _travel += step;
+                    if (step > 1e-3)
+                    {
+                        _windX = dx / step;
+                        _windZ = dz / step;
+                    }
                 }
                 else
                 {
@@ -271,31 +303,114 @@ namespace VolumetricClouds.Sky
         }
 
         /// <summary>
-        /// Copy <paramref name="c"/> for the shader: xy = how far it has been carried in this life (m,
-        /// small: invariant 13), zw = cos, sin of its turn; and its weight, 0 at the ends of its life.
+        /// Every frame, drawn or not (rows at 0, a Dynamic spell without distant clouds): which life each copy holds,
+        /// how present it is, and where its carry starts -- so a layer that comes back finds the copies where the
+        /// travel has taken them (the first build did this only while drawing: back on after a while, a copy
+        /// showed kilometres of leftover carry; harness 2026-11-25, 9-46 km).
         /// </summary>
-        private Vector4 Copy(int c, out float weight)
+        private void AdvanceLives()
         {
-            double age = _travel / Lifetime + 0.5 * c;
-            long life = (long)Math.Floor(age);
-            if (life != _life[c])
+            int seed = SkyPattern.FieldSeed;
+            for (int c = 0; c < 2; c++)
             {
-                // A new life: carried from here, turned another way. This city's own turn (its pattern
-                // seed: cities don't share one sky, and "Reset cloud pattern" turns it too), then the
-                // golden angle per life, so no two lives in a row look alike.
-                _life[c] = life;
-                _anchorX[c] = _lastX;
-                _anchorZ[c] = _lastZ;
+                long life;
+                float presence;
+                SkyLayerMix.Presence(_travel / Lifetime, c, out life, out presence);
+                if (life != _life[c])
+                {
+                    // A new life: turned another way, its own picture per kind. This city's own turn (its pattern
+                    // seed: cities don't share one sky, and "Reset cloud pattern" turns it too), then the golden
+                    // angle per life, so no two lives in a row look alike.
+                    _life[c] = life;
+                    for (int k = 0; k < SkyLayerMix.Kinds; k++)
+                        _picture[c][k] = SkyLayerMix.PictureFor(k, life, seed);
+                    Anchor(c);
+                }
+
+                // Carried from where it first shows: till then (presence 0) the anchor follows.
+                if (presence <= 0f)
+                    Anchor(c);
+                _presence[c] = presence;
+            }
+        }
+
+        /// <summary>
+        /// Copy <paramref name="c"/> for the shader: xy = how far it has been carried in this life (m,
+        /// small: invariant 13), zw = cos, sin of its turn. Also fills its pictures (_weights[c]) and cuts
+        /// (_cut[c]) per kind; <paramref name="show"/> false = nothing of it to draw.
+        /// </summary>
+        private Vector4 Copy(int c, out bool show)
+        {
+            long life = _life[c];
+            float presence = _presence[c];
+            int seed = SkyPattern.FieldSeed;
+
+            show = false;
+            Vector4[] weights = _weights[c];
+            for (int k = 0; k < SkyLayerMix.Kinds; k++)
+            {
+                int p = _picture[c][k];
+                float share = _amounts[k] * presence;
+                bool on = share > 0f && _hist[p] != null;
+                float weight = 1f;
+                if (!on)
+                {
+                    _cut[c][k] = 1f;
+                }
+                else if (!CoverCut)
+                {
+                    // THE SLIDER FADES THE ONE PICTURE (his look in game, 2026-11-25: the cut "looks awful,
+                    // especially when the slider is at a low value" -- flat white cut-outs with hard edges). The
+                    // whole picture (cut -CutSoft: the shader's mask is 1 for any read >= 0) at the share's
+                    // opacity: the same mean cloud as the cut at every share, the same shape at every amount.
+                    _cut[c][k] = -SkyLayerMix.CutSoft;
+                    weight = share;
+                }
+                else if (share != _cutShare[c][k] || p != _cutPicture[c][k])
+                {
+                    // Solved again only when the share or the picture moved (a slider, a swap, Dynamic's waves).
+                    _cut[c][k] = SkyLayerMix.SolveCut(_hist[p], share);
+                    _cutShare[c][k] = share;
+                    _cutPicture[c][k] = p;
+                }
+                show |= on;
+
+                Vector4 a = Vector4.zero, b = Vector4.zero;
+                if (p < 4)
+                    a[p] = weight;
+                else
+                    b[p - 4] = weight;
+                weights[2 * k] = a;
+                weights[2 * k + 1] = b;
             }
 
-            float f = (float)(age - life);
-            float fadeIn = Mathf.Clamp01(f / FadeShare), fadeOut = Mathf.Clamp01((1f - f) / FadeShare);
-            weight = fadeIn * fadeIn * (3f - 2f * fadeIn) * fadeOut * fadeOut * (3f - 2f * fadeOut);
-
-            uint hash = unchecked((uint)SkyPattern.FieldSeed * 2654435761u);
-            double turn = hash / 4294967296.0 * 2.0 * Math.PI + (2 * life + c) * 2.399963229728653;
+            uint hash = unchecked((uint)seed * 2654435761u);
+            double turn = hash / 4294967296.0 * 2.0 * Math.PI + life * 2.399963229728653;
             return new Vector4((float)(_lastX - _anchorX[c]), (float)(_lastZ - _anchorZ[c]),
                                (float)Math.Cos(turn), (float)Math.Sin(turn));
+        }
+
+        /// <summary>
+        /// Copy <paramref name="c"/> starts its carry here: half its span (SkyLayerMix.CarrySpan) downwind of where
+        /// the clouds are now, so it shows carried -half .. +half of the span, never far from the picture as
+        /// photographed (the flat layer stretches a copy carried far). Downwind = the weather's wind
+        /// (CloudWeather.WindDirection, known while paused too); the last motion only where that has none. A wind
+        /// that turns during a life carries the copy off that line: it can end a little further out (the game's own
+        /// wind swings round every few minutes; harness, an instant 90 deg turn: 5.2 km at most, against 3.45).
+        /// </summary>
+        private void Anchor(int c)
+        {
+            double half = 0.5 * SkyLayerMix.CarrySpan * Lifetime;
+            double dx = _windX, dz = _windZ;
+            Vector3 wind = CloudWeather.WindDirection;
+            double length = Math.Sqrt((double)wind.x * wind.x + (double)wind.z * wind.z);
+            if (length > 1e-4)
+            {
+                dx = wind.x / length;
+                dz = wind.z / length;
+            }
+            _anchorX[c] = _lastX + dx * half;
+            _anchorZ[c] = _lastZ + dz * half;
         }
 
         /// <summary>The rows' state: on the log when the layer comes on or goes off, other changes on the detailed log.</summary>
@@ -308,14 +423,17 @@ namespace VolumetricClouds.Sky
             }
             else
             {
+                // The pictures of the copy showing most (its cut changes all through a swap: not said).
+                int lead = _presence[1] > _presence[0] ? 1 : 0;
                 var line = new System.Text.StringBuilder();
                 for (int k = 0; k < SkyLayerMix.Kinds; k++)
                 {
                     if (k > 0)
                         line.Append("; ");
                     line.Append(SkyLayerMix.KindNames[k]).Append(' ').Append((_amounts[k] * 100f).ToString("F0")).Append("% (")
-                        .Append(SkyLayerMix.Describe(k, _amounts[k])).Append(')');
+                        .Append(_amounts[k] > 0f ? SkyLayerMix.Pictures[_picture[lead][k]] : "off").Append(')');
                 }
+                line.Append("; life ").Append(_life[lead]);
                 text = line.ToString();
             }
 
@@ -377,9 +495,11 @@ namespace VolumetricClouds.Sky
 
                     Color32[] target = p < 4 ? a : b;
                     int channel = p % 4;
+                    var grey = new float[pixels.Length];
                     for (int i = 0; i < pixels.Length; i++)
                     {
                         byte v = pixels[i].r;
+                        grey[i] = v / 255f;
                         switch (channel)
                         {
                             case 0: target[i].r = v; break;
@@ -388,6 +508,16 @@ namespace VolumetricClouds.Sky
                             default: target[i].a = v; break;
                         }
                     }
+
+                    // For the cut (SkyLayerMix.SolveCut); its whole-picture mean is checked against the baked one
+                    // the old rows' values were converted with (SkyLayerMix.PictureMean).
+                    var hist = new float[SkyLayerMix.Bins];
+                    SkyLayerMix.Histogram(grey, w, h, hist);
+                    _hist[p] = hist;
+                    float mean = SkyLayerMix.MeanAt(hist, -SkyLayerMix.CutSoft);
+                    if (Math.Abs(mean - SkyLayerMix.PictureMean[p]) > 0.01f)
+                        Log.Msg("sky layer: picture '" + name + "' has mean " + mean.ToString("F4") + " where " +
+                                SkyLayerMix.PictureMean[p].ToString("F4") + " was measured (old rows were converted with that)");
                 }
 
                 _picturesA = Make(a, width, height, "VolumetricCloudsSkyPicturesA");

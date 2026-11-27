@@ -973,6 +973,9 @@ namespace VolumetricClouds
         /// never released): the author kept that blend, for everyone, and the row went. Not carried over.
         /// 2026-11-19: "ShowAdvancedInPanel", "Show advanced options in the in-game panel" (1.0 to 1.5.3): the
         /// panel has every tab for everyone now (the author's call). Not carried over.
+        /// 2026-11-25: "SkyCirrus", "SkySheepClouds", "SkyFarClouds", "SkyCloudLayers", the Distant clouds rows
+        /// (1.5.0 to 1.6.1), whose amount walked through a kind's pictures; now "Distant*" (one picture, faded).
+        /// CARRIED OVER: the same mean cloud (SettingsCatalog.OlderDistant, Sky.SkyLayerMix.ConvertOld).
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -982,6 +985,7 @@ namespace VolumetricClouds
             "CloudLightDifference",
             "SmootherCloudsSharp",
             "ShowAdvancedInPanel",
+            "SkyCirrus", "SkySheepClouds", "SkyFarClouds", "SkyCloudLayers",
             "LightThroughClouds", "LightThroughCloudsSunset", "LightThroughCloudsNight",
             "LightThroughCloudsOvercast", "LightThroughCloudsSunsetOvercast", "LightThroughCloudsNightOvercast",
             "CloudNightBrightness", "CloudNightBrightnessClear", "CloudNightBrightnessOvercast", "CloudNightBrightnessFixed",

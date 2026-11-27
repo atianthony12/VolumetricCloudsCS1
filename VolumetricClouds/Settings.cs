@@ -736,7 +736,8 @@ namespace VolumetricClouds
         /// <summary>
         /// DISTANT CLOUDS (1.5.0, Sky/SkyLayer; its own panel tab): photographed skies behind the clouds,
         /// one amount per kind, 0..1; they add up. 0 is off, and with all four at 0 nothing of it exists.
-        /// A kind's amount walks through its pictures, thinnest first (Sky/SkyLayerMix).
+        /// A kind's amount is how much of ITS PICTURE of the moment shows (a cut: thin parts first; since
+        /// 2026-11-25, Sky/SkyLayerMix; before, the amount walked through the kind's pictures).
         /// </summary>
         /// <summary>On: the four below are not read; the mod mixes the kinds itself, changing as the sky travels.</summary>
         public static BoolSetting DynamicDistantClouds { get; private set; }
@@ -1708,10 +1709,14 @@ namespace VolumetricClouds
                 // Not "HighCloud*": that was September's rejected concept (none is in any file, checked
                 // 2026-10-12, but the names stay clear of it).
                 DynamicDistantClouds = new BoolSetting("DynamicDistantClouds", Defaults.DynamicDistantClouds);
-                SkyCirrus = new FloatSetting("SkyCirrus", Defaults.SkyCirrus);
-                SkySheepClouds = new FloatSetting("SkySheepClouds", Defaults.SkySheepClouds);
-                SkyFarClouds = new FloatSetting("SkyFarClouds", Defaults.SkyFarClouds);
-                SkyCloudLayers = new FloatSetting("SkyCloudLayers", Defaults.SkyCloudLayers);
+                // 2026-11-25 (one picture at a time, Sky/SkyLayerMix): the amount is a cut of ONE picture now, not a
+                // walk through the kind's pictures, so the rows have new names; the old ones (SkyCirrus,
+                // SkySheepClouds, SkyFarClouds, SkyCloudLayers) are retired and their values converted
+                // (SettingsCatalog: Row.OlderFile, SkyLayerMix.ConvertOld). C# names kept.
+                SkyCirrus = new FloatSetting("DistantCirrus", Defaults.SkyCirrus);
+                SkySheepClouds = new FloatSetting("DistantSheepClouds", Defaults.SkySheepClouds);
+                SkyFarClouds = new FloatSetting("DistantFarClouds", Defaults.SkyFarClouds);
+                SkyCloudLayers = new FloatSetting("DistantCloudLayers", Defaults.SkyCloudLayers);
 
                 // Not the old HaloFogEnabled/HaloFogValue, which belonged to an experiment where
                 // values like -5 were normal; here -5 would simply mean "no glow", and an old

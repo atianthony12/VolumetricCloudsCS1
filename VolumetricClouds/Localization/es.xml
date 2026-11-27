@@ -149,13 +149,13 @@
   <String key="Group.SkyLayer">Nubes lejanas</String>
 
   <String key="DynamicDistantClouds.Label">Nubes lejanas dinámicas</String>
-  <String key="SkyCirrus.Label">Cirros</String>
+  <String key="DistantCirrus.Label">Cirros</String>
 
-  <String key="SkySheepClouds.Label">Nubes aborregadas</String>
+  <String key="DistantSheepClouds.Label">Nubes aborregadas</String>
 
-  <String key="SkyFarClouds.Label">Cúmulos en el horizonte</String>
+  <String key="DistantFarClouds.Label">Cúmulos en el horizonte</String>
 
-  <String key="SkyCloudLayers.Label">Nubes lejanas mixtas</String>
+  <String key="DistantCloudLayers.Label">Nubes lejanas mixtas</String>
 
   <String key="Colour.Copy">Copiar</String>
   <String key="Colour.Copied">Copiado</String>

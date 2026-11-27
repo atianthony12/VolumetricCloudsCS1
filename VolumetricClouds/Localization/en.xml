@@ -187,13 +187,13 @@
 
   <String key="DynamicDistantClouds.Label">Dynamic distant clouds</String>
 
-  <String key="SkyCirrus.Label">Cirrus</String>
+  <String key="DistantCirrus.Label">Cirrus</String>
 
-  <String key="SkySheepClouds.Label">Sheep clouds</String>
+  <String key="DistantSheepClouds.Label">Sheep clouds</String>
 
-  <String key="SkyFarClouds.Label">Cumulus on the horizon</String>
+  <String key="DistantFarClouds.Label">Cumulus on the horizon</String>
 
-  <String key="SkyCloudLayers.Label">Mixed distant clouds</String>
+  <String key="DistantCloudLayers.Label">Mixed distant clouds</String>
 
   <String key="Colour.Copy">Copy</String>
   <String key="Colour.Copied">Copied</String>

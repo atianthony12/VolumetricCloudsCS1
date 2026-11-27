@@ -7,6 +7,17 @@ below; the mods list shows it after the mod's name, and the first line of
 
 ## 1.6.2 — unreleased
 
+### Changed
+
+- Distant clouds show one picture at a time. Each kind's slider now fades its one picture in and out, so the
+  clouds keep their shapes at every value (until now the slider swapped one photographed sky for another, and
+  values in between laid two over each other). The sky
+  changes picture now and then as it travels, with a short fade, instead of always showing two at once.
+  Existing values are carried over as about the same amount of cloud (the four rows are stored under new names in
+  `VolumetricClouds.xml` and profiles; older files and profiles are read and converted). Cirrus shows one picture
+  for now, a thinner one than before: a cirrus value set before this update shows less cloud. With *Dynamic
+  distant clouds* on, the same amounts now thin and thicken one sky instead of blending skies.
+
 ### Fixed
 
 - Rain and fog together: buildings in fog no longer show as lighter cut-outs when it rains where you stand (rain

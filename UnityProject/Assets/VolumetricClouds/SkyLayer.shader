@@ -42,11 +42,24 @@ Shader "VolumetricClouds/SkyLayer"
             // the horizon (0) to straight up (1). Mipmapped, read with the view's own derivatives.
             sampler2D _SkyPicturesA;
             sampler2D _SkyPicturesB;
+            float4 _SkyPicturesA_TexelSize;   // (Unity's: 1/w, 1/h, w, h; both textures are one size)
 
-            // How much of each picture each kind shows (Sky/SkyLayerMix: a kind's amount walks through its
-            // pictures, thinnest first): kind k reads [2k] against A's four and [2k + 1] against B's.
-            // Kinds: 0 cirrus, 1 sheep clouds, 2 far clouds, 3 cloud layers.
+            // Which picture each kind shows, per copy (Sky/SkyLayerMix, 2026-11-25: ONE picture a kind per life of
+            // a copy, never two laid over each other): kind k reads [2k] against A's four and [2k + 1] against
+            // B's, a 1 on its picture's channel. _SkyWeights = copy 0 (its 1.5.0 name: a Mac/Linux bundle built
+            // before this reads it alone), _SkyWeights1 = copy 1. Kinds: 0 cirrus, 1 sheep clouds, 2 far
+            // clouds, 3 cloud layers.
             float4 _SkyWeights[8];
+            float4 _SkyWeights1[8];
+
+            // The amount, per copy and kind: a COVER CUT of the picture (SkyLayerMix.SolveCut): the cloud
+            // drawn is the picture times saturate((the picture read SKY_CUT_BLUR coarser - cut) / SKY_CUT_SOFT),
+            // so the thin parts go first and the cores last, the same clouds at every amount. -SKY_CUT_SOFT =
+            // the whole picture, 1 = nothing. A swap raises one copy's cut while the next's falls.
+            float4 _SkyCut0;
+            float4 _SkyCut1;
+            #define SKY_CUT_SOFT 0.15   // SkyLayerMix.CutSoft: change both
+            #define SKY_CUT_BLUR 4.0    // SkyLayerMix.CutBlur: change both (texels of the picture: mip 2 or coarser)
 
             // Per kind: x = how high it stands (m: the Earth's shadow at sunset leaves the highest lit
             // longest), y = how much its own cloud shades it from the sun, z = its forward scattering (the
@@ -56,10 +69,11 @@ Shader "VolumetricClouds/SkyLayer"
             // The motion (2026-10-13: "make the distant clouds move too, maybe at half the movement speed
             // of the volumetric clouds"). The pictures lie on a flat layer _SkyFlow.z metres up and are
             // carried along it by the wind. Two copies take turns (Sky/SkyLayer.cs): each is carried for
-            // a while and fades out, while the other fades in and starts again, turned another way, so a
-            // picture never runs out. Per copy: xy = how far it has been carried (m, x and z), zw = cos,
-            // sin of its turn round the vertical. _SkyFlow.xy = the two copies' weights, w = how much the
-            // volumetric clouds' distance fade holds the pictures back (BehindClouds).
+            // a life, then the other comes in, turned another way and with its own picture, so a picture
+            // never runs out. Per copy: xy = how far it has been carried (m, x and z), zw = cos, sin of its
+            // turn round the vertical. _SkyFlow.xy = 1 for a copy with something to show (its fade is in
+            // its cut, _SkyCut0/1), w = how much the volumetric clouds' distance fade holds the pictures
+            // back (BehindClouds).
             float4 _SkyCopy0;
             float4 _SkyCopy1;
             float4 _SkyFlow;
@@ -125,32 +139,55 @@ Shader "VolumetricClouds/SkyLayer"
                 return float2(u, v);
             }
 
-            float4 Kinds(float4 a, float4 b)
+            // Each kind's picture in one copy (c = 0 or 1), out of the eight channels.
+            float4 Kinds(float4 a, float4 b, int c)
             {
-                return float4(dot(a, _SkyWeights[0]) + dot(b, _SkyWeights[1]),
-                              dot(a, _SkyWeights[2]) + dot(b, _SkyWeights[3]),
-                              dot(a, _SkyWeights[4]) + dot(b, _SkyWeights[5]),
-                              dot(a, _SkyWeights[6]) + dot(b, _SkyWeights[7]));
+                return c == 0
+                    ? float4(dot(a, _SkyWeights[0]) + dot(b, _SkyWeights[1]),
+                             dot(a, _SkyWeights[2]) + dot(b, _SkyWeights[3]),
+                             dot(a, _SkyWeights[4]) + dot(b, _SkyWeights[5]),
+                             dot(a, _SkyWeights[6]) + dot(b, _SkyWeights[7]))
+                    : float4(dot(a, _SkyWeights1[0]) + dot(b, _SkyWeights1[1]),
+                             dot(a, _SkyWeights1[2]) + dot(b, _SkyWeights1[3]),
+                             dot(a, _SkyWeights1[4]) + dot(b, _SkyWeights1[5]),
+                             dot(a, _SkyWeights1[6]) + dot(b, _SkyWeights1[7]));
             }
 
-            // Each kind's cloud in direction d, read with the view's derivatives (sharp to the horizon,
-            // mips and anisotropic filtering where the pictures are squeezed).
-            float4 KindsGrad(float2 uv, float2 gx, float2 gy)
+            // The cut (see _SkyCut0): the sharp picture, kept where the coarser one is above the cut.
+            float4 Cut(float4 sharp, float4 coarse, int c)
             {
-                return Kinds(tex2Dgrad(_SkyPicturesA, uv, gx, gy), tex2Dgrad(_SkyPicturesB, uv, gx, gy));
+                float4 cut = c == 0 ? _SkyCut0 : _SkyCut1;
+                return sharp * saturate((coarse - cut) / SKY_CUT_SOFT);
             }
 
-            float4 KindsLod(float3 d, float4 copy, float lod)
+            // Each kind's cloud in direction d in copy c, read with the view's derivatives (sharp to the horizon,
+            // mips and anisotropic filtering where the pictures are squeezed), cut by its amount.
+            float4 KindsGrad(float2 uv, float2 gx, float2 gy, int c)
+            {
+                float4 sharp = Kinds(tex2Dgrad(_SkyPicturesA, uv, gx, gy), tex2Dgrad(_SkyPicturesB, uv, gx, gy), c);
+                // The coarse read's footprint: at least SKY_CUT_BLUR texels OF THE PICTURE, whatever the render's size
+                // (the histogram's 4x4 boxes; a blur scaled by the screen's pixels moved the cut with Dynamic
+                // Resolution's factor: Phase 1 probe, 0.47 at a half-size render), more where the view squeezes it.
+                float texels = max(length(gx * _SkyPicturesA_TexelSize.zw), length(gy * _SkyPicturesA_TexelSize.zw));
+                float widen = max(SKY_CUT_BLUR / max(texels, 1e-4), 1.0);
+                float2 bx = gx * widen, by = gy * widen;
+                float4 coarse = Kinds(tex2Dgrad(_SkyPicturesA, uv, bx, by), tex2Dgrad(_SkyPicturesB, uv, bx, by), c);
+                return Cut(sharp, coarse, c);
+            }
+
+            // At a fixed mip (the looks towards the sun: already coarse, so cut on themselves).
+            float4 KindsLod(float3 d, float4 copy, float lod, int c)
             {
                 float4 uv = float4(PictureUV(d, copy), 0.0, lod);
-                return Kinds(tex2Dlod(_SkyPicturesA, uv), tex2Dlod(_SkyPicturesB, uv));
+                float4 k = Kinds(tex2Dlod(_SkyPicturesA, uv), tex2Dlod(_SkyPicturesB, uv), c);
+                return Cut(k, k, c);
             }
 
             // How much of each kind's cloud lies between d and the sun, across the picture: four looks
             // along the sky towards it, 0.7 to 7 degrees out, blurred, AVERAGED (0..1) (HDRP's Cloud Layer:
             // "2D raymarching on the Cloud Map to approximate self-shadowing from the sun light"). Summed,
             // as first built, a thick patch had up to 12 of depth: lit at 2% of the sun, dark grey.
-            float4 TowardsSun(float3 d, float4 copy)
+            float4 TowardsSun(float3 d, float4 copy, int c)
             {
                 float3 along = _SunDir - d * dot(_SunDir, d);
                 float len = length(along);
@@ -162,7 +199,7 @@ Shader "VolumetricClouds/SkyLayer"
                     for (int k = 1; k <= 4; k++)
                     {
                         float s = 0.012 * (float)k * (0.5 + 0.5 * (float)k);
-                        depth += KindsLod(normalize(d + along * s), copy, 4.0);   // 4: the pictures are 4096 wide
+                        depth += KindsLod(normalize(d + along * s), copy, 4.0, c);   // 4: the pictures are 4096 wide
                     }
                 }
                 return depth * 0.25;
@@ -224,24 +261,26 @@ Shader "VolumetricClouds/SkyLayer"
                 if (LinearEyeDepth(raw) < _ProjectionParams.z * 0.98)
                     return 0;
 
-                // The two copies, by their weights (the same for every pixel: a copy faded out is not read).
-                float w0 = _SkyFlow.x, w1 = _SkyFlow.y;
-                float4 cover = 0, tau = 0;
-                if (w0 > 0.001)
+                // The two copies take turns (Sky/SkyLayerMix.Presence): one alone, both only in a swap, where each
+                // is cut by its own share (the going one's thin parts gone first) and they lie one over the other
+                // -- never averaged (until 2026-11-25 they were, every frame: a flat, ghosted haze). _SkyFlow.xy
+                // = 1 for a copy to read, 0 for one with nothing to show (the same for every pixel).
+                float4 cover0 = 0, cover1 = 0, tau0 = 0, tau1 = 0;
+                if (_SkyFlow.x > 0.5)
                 {
-                    cover += w0 * KindsGrad(uv0, g0.xy, g0.zw);
-                    tau += w0 * TowardsSun(dir, _SkyCopy0);
+                    cover0 = KindsGrad(uv0, g0.xy, g0.zw, 0);
+                    tau0 = TowardsSun(dir, _SkyCopy0, 0);
                 }
-                if (w1 > 0.001)
+                if (_SkyFlow.y > 0.5)
                 {
-                    cover += w1 * KindsGrad(uv1, g1.xy, g1.zw);
-                    tau += w1 * TowardsSun(dir, _SkyCopy1);
+                    cover1 = KindsGrad(uv1, g1.xy, g1.zw, 1);
+                    tau1 = TowardsSun(dir, _SkyCopy1, 1);
                 }
-                float norm = 1.0 / max(w0 + w1, 0.001);
+                float4 cover = 1.0 - (1.0 - saturate(cover0)) * (1.0 - saturate(cover1));
+                float4 tau = 1.0 - (1.0 - saturate(tau0)) * (1.0 - saturate(tau1));
 
-                float4 opacity = saturate(cover * norm) *
+                float4 opacity = cover *
                                  float4(_SkyKinds[0].w, _SkyKinds[1].w, _SkyKinds[2].w, _SkyKinds[3].w);
-                tau *= norm;
 
                 // Into the haze at the horizon: gone at it, 60% there 3 degrees up, all of it from 10.
                 opacity *= smoothstep(0.0, 0.05, dir.y) * lerp(0.6, 1.0, smoothstep(0.0, 0.17, dir.y));

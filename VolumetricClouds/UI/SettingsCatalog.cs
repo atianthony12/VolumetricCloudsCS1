@@ -1237,6 +1237,22 @@ namespace VolumetricClouds.UI
             return !SkyLayer.Dynamic;
         }
 
+        /// <summary>
+        /// What a file or profile written before 2026-11-25 meant by a Distant clouds row: its old element
+        /// (<paramref name="oldName"/>, the amount that walked through the kind's pictures, slider percent) as
+        /// the new amount with the same mean cloud (Sky.SkyLayerMix.ConvertOld), whole percent. Null when the
+        /// file has no old element either (the default).
+        /// </summary>
+        internal static string OlderDistant(IDictionary<string, string> values, string oldName, int kind)
+        {
+            string text;
+            double old;
+            if (values == null || !values.TryGetValue(oldName, out text) || !SettingsXmlFormat.TryParseNumber(text, out old))
+                return null;
+            float amount = SkyLayerMix.ConvertOld(kind, (float)(Math.Max(0.0, Math.Min(100.0, old)) / 100.0));
+            return SettingsXmlFormat.FormatNumber(Math.Round(amount * 100.0));
+        }
+
         private static bool FogOverridden()
         {
             return FogOn() && Settings.FogOverride != null && Settings.FogOverride.value;
@@ -2131,7 +2147,8 @@ namespace VolumetricClouds.UI
 
             // DISTANT CLOUDS (1.5.0, Sky.SkyLayer), a tab of their own: photographed skies behind the
             // clouds, a row per kind, and they add up. 0 is off; all four at 0 and nothing of it exists.
-            // Each walks through its pictures, thinnest first (Sky.SkyLayerMix). Look rows, so profiled:
+            // Each is how much of its kind's picture of the moment shows (a cut, the same clouds at every value:
+            // Sky.SkyLayerMix, 2026-11-25; new element names, the old ones converted by OlderDistant). Look rows, so profiled:
             // a profile saved before them reads 0. No AfterChange (a slider's runs per drag tick):
             // SkyLayer logs them.
             // "Dynamic distant clouds" first (the author's call, in this tab; off by default since 1.5.2): the mod
@@ -2155,6 +2172,7 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.SkyCirrus,
                 Min = 0f, Max = 100f, Step = 1f,
                 Enabled = DistantCloudsByHand,
+                OlderFile = values => OlderDistant(values, "SkyCirrus", SkyLayerMix.Cirrus),
             });
 
             Add(new Row
@@ -2165,6 +2183,7 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.SkySheepClouds,
                 Min = 0f, Max = 100f, Step = 1f,
                 Enabled = DistantCloudsByHand,
+                OlderFile = values => OlderDistant(values, "SkySheepClouds", SkyLayerMix.Sheep),
             });
 
             Add(new Row
@@ -2175,6 +2194,7 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.SkyFarClouds,
                 Min = 0f, Max = 100f, Step = 1f,
                 Enabled = DistantCloudsByHand,
+                OlderFile = values => OlderDistant(values, "SkyFarClouds", SkyLayerMix.Far),
             });
 
             Add(new Row
@@ -2185,6 +2205,7 @@ namespace VolumetricClouds.UI
                 DefaultFloat = Settings.Defaults.SkyCloudLayers,
                 Min = 0f, Max = 100f, Step = 1f,
                 Enabled = DistantCloudsByHand,
+                OlderFile = values => OlderDistant(values, "SkyCloudLayers", SkyLayerMix.Layers),
             });
         }
 
