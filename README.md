@@ -435,7 +435,7 @@ and did all of the in-game testing and tuning.</sub>
 
 ## License
 
-The source is under the [MIT License](LICENSE), copyright © 2026 Anthony Ibrahim, except for two
+The source is under the [MIT License](LICENSE), copyright © 2026 ant8163, except for two
 kinds of file made for compatibility with the game: the halo shaders (`LightHalo.shader`,
 `LightHaloDynamic.shader` and a few lines of `FogLamps.shader`), ports of the game's own halo
 shader, and the parts of the tree shaders (`Trees*.shader`, `TreesDefault.cginc`,
