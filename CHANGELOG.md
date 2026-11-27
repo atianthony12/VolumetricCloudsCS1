@@ -33,8 +33,8 @@ below; the mods list shows it after the mod's name, and the first line of
 - Wet roads no longer turn grainy as they dry. Each spot's material (hard and shiny, or porous and darker) is now
   judged from its surroundings, not pixel by pixel, so a road's texture no longer flickers between the two. Where the
   lights are a different colour from the one assumed (white street lamps at night, for example), roads are no longer
-  taken for soil: they stay shiny and keep their puddles. Where nothing changes in the light, the puddles are exactly
-  where they were.
+  taken for soil: they stay shiny and keep their puddles. Where the light is the colour assumed, the puddles stay where
+  they were.
 - Trees, poles and cars mirrored in puddles keep their shape instead of trailing dark smudges down the water.
 
 ## 1.6.1 — 2026-11-20
